@@ -9,6 +9,7 @@ type Lesson = {
   id: number;
   subject: string;
   class: string;
+  date: string;
   teacher: string;
 };
 
@@ -46,6 +47,7 @@ const LessonListPage = () => {
       <td className="flex items-center gap-4 p-4">{item.subject}</td>
       <td>{item.class}</td>
       <td className="hidden md:table-cell">{item.teacher}</td>
+      <td className="hidden md:table-cell">{item.date}</td>
       <td>
         <div className="flex items-center gap-2">
           <Link href={"/list/teachers/${item.id}"}>

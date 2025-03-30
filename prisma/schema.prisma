@@ -1,0 +1,290 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id       String @id
+  username String @unique
+}
+
+model Vaccine {
+  id              Int      @id @default(autoincrement())
+  gamefowlId      Int
+  gamefowl        Gamefowl @relation(fields: [gamefowlId], references: [id])
+  vaccinationDate DateTime
+  notes           String
+}
+
+model Breeding {
+  id     Int            @id @default(autoincrement())
+  sireId Int
+  sire   Gamefowl       @relation("SireBreeding", fields: [sireId], references: [id])
+  damId  Int
+  dam    Gamefowl       @relation("DamBreeding", fields: [damId], references: [id])
+  notes  String
+  status BreedingStatus
+}
+
+model Elo {
+  id         Int      @id @default(autoincrement())
+  gamefowlId Int      @unique
+  gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
+}
+
+model Deworming {
+  id         Int      @id @default(autoincrement())
+  gamefowlId Int      @unique
+  gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
+  dewormDate DateTime
+  notes      String
+}
+
+model Sparring {
+  id                Int      @id @default(autoincrement())
+  gamefowl_1_Id     Int
+  gamefowl1         Gamefowl @relation("Gamefowl1", fields: [gamefowl_1_Id], references: [id])
+  gamefowl_2_Id     Int
+  gamefowl2         Gamefowl @relation("Gamefowl2", fields: [gamefowl_2_Id], references: [id])
+  winnerId          Int
+  winner            Gamefowl @relation("SparWin", fields: [winnerId], references: [id])
+  loserId           Int
+  loser             Gamefowl @relation("SparLose", fields: [loserId], references: [id])
+  winner_elo_change Int
+  loser_elo_change  Int
+  sparringDate      DateTime
+  notes             String
+}
+
+model Gamefowl {
+  id            Int         @id @default(autoincrement())
+  name          String
+  bloodline     String
+  date_hatched  DateTime?
+  date_sold     DateTime?
+  gamefowl      Elo?
+  /**
+   * Parent ID Relations
+   */
+  sireId        Int?
+  sire          Gamefowl?   @relation("SireRelation", fields: [sireId], references: [id])
+  offspringSire Gamefowl[]  @relation("SireRelation")
+  damId         Int?
+  dam           Gamefowl?   @relation("DamRelation", fields: [damId], references: [id])
+  offspringDam  Gamefowl[]  @relation("DamRelation")
+  batchId       Int?
+  /**
+   * End of Parent ID Relations
+   */
+  createdAt     DateTime    @default(now())
+  vaccine       Vaccine[]
+  deworming     Deworming[]
+  /**
+   * Breeding Relations
+   */
+  sireBreeding  Breeding[]  @relation("SireBreeding")
+  damBreeding   Breeding[]  @relation("DamBreeding")
+  /**
+   * End of Breeding Relations
+   */
+
+  /**
+   * Sparring Relations
+   */
+  sparring_1      Sparring[]     @relation("Gamefowl1")
+  sparring_2      Sparring[]     @relation("Gamefowl2")
+  sparring_winner Sparring[]     @relation("SparWin")
+  sparring_loser  Sparring[]     @relation("SparLose")
+  /**
+   * End of Sparring Relations
+   */
+  conditioning    Conditioning[] @relation("Conditioning")
+}
+
+model OneTimeSched {
+  id          Int      @id @default(autoincrement())
+  schedId     Int
+  schedule    Schedule @relation("OneTime", fields: [schedId], references: [id])
+  taskName    String
+  taskDate    DateTime
+  time_of_day DateTime
+}
+
+model ConditioningProgram {
+  id           Int            @id @default(autoincrement())
+  programName  String
+  description  String
+  conditioning Conditioning[]
+}
+
+model Conditioning {
+  id         Int                 @id @default(autoincrement())
+  eventId    Int
+  event      Event               @relation(fields: [eventId], references: [id])
+  conProgId  Int
+  conProg    ConditioningProgram @relation(fields: [conProgId], references: [id])
+  gamefowlId Int
+  gamefowl   Gamefowl            @relation("Conditioning", fields: [gamefowlId], references: [id])
+  handlerId  String
+  handler    Handler             @relation(fields: [handlerId], references: [id])
+  startDate  DateTime
+  endDate    DateTime
+  status     ConditioningStatus
+}
+
+model Batch {
+  id                Int        @id @default(autoincrement())
+  incubate_sched_id Int
+  incubation        Incubation @relation(fields: [incubate_sched_id], references: [id])
+  eggCount          Int
+  fertilityRate     Float
+  hatchRate         Float
+  dateHatched       DateTime
+}
+
+model Incubation {
+  id       Int              @id @default(autoincrement())
+  incStart DateTime
+  incEnd   DateTime
+  turnTime DateTime
+  status   IncubationStatus
+  batch    Batch[]
+}
+
+model Schedule {
+  id           Int                  @id @default(autoincrement())
+  taskName     String
+  taskType     TaskType
+  taskCategory TaskCategory
+  descript     String
+  oneTime      OneTimeSched[]       @relation("OneTime")
+  recurrent    RecurrentSchedules[]
+}
+
+model Handler {
+  id           String         @id
+  username     String
+  password     String
+  first_name   String
+  middle_name  String?
+  last_name    String
+  email        String
+  phone        String
+  role         UserRole
+  status       UserStatus
+  createdAt    DateTime       @default(now())
+  Conditioning Conditioning[]
+  Event        Event[]
+}
+
+model Breeder {
+  id          String     @id
+  username    String
+  password    String
+  first_name  String
+  middle_name String?
+  last_name   String
+  email       String
+  phone       String
+  role        UserRole
+  status      UserStatus
+  createdAt   DateTime   @default(now())
+}
+
+model Event {
+  id           Int            @id @default(autoincrement())
+  eventName    String
+  eventType    EventType
+  ageCategory  AgeCategory
+  eventDate    DateTime
+  description  String
+  status       EventType
+  Conditioning Conditioning[]
+  Handler      Handler?       @relation(fields: [handlerId], references: [id])
+  handlerId    String?
+}
+
+model RecurrentSchedules {
+  id                Int               @id @default(autoincrement())
+  schedId           Int
+  schedule          Schedule          @relation(fields: [schedId], references: [id])
+  reccurencePattern RecurrencePattern
+  taskDate          DateTime
+  time_of_day       DateTime
+}
+
+/**
+ * ENUMS
+ */
+enum UserRole {
+  OWNER
+  HANDLER
+  BREEDER
+}
+
+enum UserStatus {
+  ACTIVE
+  RESIGNED
+}
+
+enum TaskType {
+  RECURRING
+  ONETIME
+}
+
+enum TaskCategory {
+  FEEDING
+  VACCINATION
+}
+
+enum BreedingStatus {
+  ONGOING
+  FINISHED
+}
+
+enum ConditioningStatus {
+  PLANNED
+  ONGOING
+  COMPLETED
+}
+
+enum IncubationStatus {
+  ONGOING
+  FINISHED
+}
+
+enum EventType {
+  THREE_COCK_DERBY
+  FOUR_COCK_DERBY
+  FIVE_COCK_DERBY
+  SOLO
+}
+
+enum AgeCategory {
+  STAG
+  BULLSTAG
+  COCK
+  ANY
+}
+
+enum EventStatus {
+  PLANNED
+  ONGOING
+  FINISHED
+}
+
+enum RecurrencePattern {
+  DAILY
+  WEEKLY
+  MONTHLY
+}

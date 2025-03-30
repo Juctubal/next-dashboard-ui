@@ -183,7 +183,7 @@ model Handler {
   role         UserRole
   status       UserStatus
   createdAt    DateTime       @default(now())
-  Conditioning Conditioning[]
+  conditioning Conditioning[]
   Event        Event[]
 }
 
@@ -209,8 +209,8 @@ model Event {
   eventDate    DateTime
   description  String
   status       EventType
-  Conditioning Conditioning[]
-  Handler      Handler?       @relation(fields: [handlerId], references: [id])
+  conditioning Conditioning[]
+  handler      Handler?       @relation(fields: [handlerId], references: [id])
   handlerId    String?
 }
 

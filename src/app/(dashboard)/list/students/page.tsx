@@ -3,21 +3,9 @@ import Pagination from "@/components/Pagination";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 import { role, studentsData } from "@/lib/data";
+import { Gamefowl } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
-
-type Student = {
-  id: number;
-  studentId: string;
-  name: string;
-  email?: string;
-  photo: string;
-  phone?: string;
-  subjects: string[];
-  grade: number;
-  class: string;
-  address: string;
-};
 
 const columns = [
   {
@@ -50,15 +38,15 @@ const columns = [
   },
 ];
 
-const StudentListPage = () => {
-  const renderRow = (item: Student) => (
+const GamefowlListPage = () => {
+  const renderRow = (item: Gamefowl) => (
     <tr
       key={item.id}
       className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
     >
       <td className="flex items-center gap-4 p-4">
         <Image
-          src={item.photo}
+          src={item.img || "/noAvatar.png"}
           alt=""
           width={40}
           height={40}
@@ -75,7 +63,7 @@ const StudentListPage = () => {
       <td className="hidden md:table-cell">{item.address}</td>
       <td>
         <div className="flex items-center gap-2">
-          <Link href={"/list/teachers/${item.id}"}>
+          <Link href={"/list/students/${item.id}"}>
             <button className="w-7 h-7 flex items-center justify-center rounded-full bg-ggSky">
               <Image src="/view.png" alt="" width={16} height={16} />
             </button>
@@ -109,7 +97,7 @@ const StudentListPage = () => {
               // <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
               //   <Image src="/plus.png" alt="" width={14} height={14} />
               // </button>
-              <FormModal table="student" type="create" />
+              <FormModal table="gamefowl" type="create" />
             )}
           </div>
         </div>
@@ -122,4 +110,4 @@ const StudentListPage = () => {
   );
 };
 
-export default StudentListPage;
+export default GamefowlListPage;

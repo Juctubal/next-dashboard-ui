@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,26 +8,26 @@ datasource db {
 }
 
 model Admin {
-  id       String @id
+  id       String @id @default(cuid())
   username String @unique
 }
 
 model Vaccine {
   id              Int      @id @default(autoincrement())
   gamefowlId      Int
-  gamefowl        Gamefowl @relation(fields: [gamefowlId], references: [id])
   vaccinationDate DateTime
   notes           String
+  gamefowl        Gamefowl @relation(fields: [gamefowlId], references: [id])
 }
 
 model Breeding {
   id     Int            @id @default(autoincrement())
   sireId Int
-  sire   Gamefowl       @relation("SireBreeding", fields: [sireId], references: [id])
   damId  Int
-  dam    Gamefowl       @relation("DamBreeding", fields: [damId], references: [id])
   notes  String
   status BreedingStatus
+  dam    Gamefowl       @relation("DamBreeding", fields: [damId], references: [id])
+  sire   Gamefowl       @relation("SireBreeding", fields: [sireId], references: [id])
 }
 
 model Elo {
@@ -44,80 +38,65 @@ model Elo {
 
 model Deworming {
   id         Int      @id @default(autoincrement())
-  gamefowlId Int      @unique
-  gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
+  gamefowlId Int
   dewormDate DateTime
   notes      String
+  gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
 }
 
 model Sparring {
   id                Int      @id @default(autoincrement())
   gamefowl_1_Id     Int
-  gamefowl1         Gamefowl @relation("Gamefowl1", fields: [gamefowl_1_Id], references: [id])
   gamefowl_2_Id     Int
-  gamefowl2         Gamefowl @relation("Gamefowl2", fields: [gamefowl_2_Id], references: [id])
   winnerId          Int
-  winner            Gamefowl @relation("SparWin", fields: [winnerId], references: [id])
   loserId           Int
-  loser             Gamefowl @relation("SparLose", fields: [loserId], references: [id])
   winner_elo_change Int
   loser_elo_change  Int
   sparringDate      DateTime
   notes             String
+  gamefowl1         Gamefowl @relation("Gamefowl1", fields: [gamefowl_1_Id], references: [id])
+  gamefowl2         Gamefowl @relation("Gamefowl2", fields: [gamefowl_2_Id], references: [id])
+  loser             Gamefowl @relation("SparLose", fields: [loserId], references: [id])
+  winner            Gamefowl @relation("SparWin", fields: [winnerId], references: [id])
 }
 
 model Gamefowl {
-  id            Int         @id @default(autoincrement())
-  name          String
-  bloodline     String
-  date_hatched  DateTime?
-  date_sold     DateTime?
-  gamefowl      Elo?
-  /**
-   * Parent ID Relations
-   */
-  sireId        Int?
-  sire          Gamefowl?   @relation("SireRelation", fields: [sireId], references: [id])
-  offspringSire Gamefowl[]  @relation("SireRelation")
-  damId         Int?
-  dam           Gamefowl?   @relation("DamRelation", fields: [damId], references: [id])
-  offspringDam  Gamefowl[]  @relation("DamRelation")
-  batchId       Int?
-  /**
-   * End of Parent ID Relations
-   */
-  createdAt     DateTime    @default(now())
-  vaccine       Vaccine[]
-  deworming     Deworming[]
-  /**
-   * Breeding Relations
-   */
-  sireBreeding  Breeding[]  @relation("SireBreeding")
-  damBreeding   Breeding[]  @relation("DamBreeding")
-  /**
-   * End of Breeding Relations
-   */
-
-  /**
-   * Sparring Relations
-   */
+  id              Int            @id @default(autoincrement())
+  name            String
+  bloodline       String
+  date_hatched    DateTime?
+  date_sold       DateTime?
+  /// *
+  ///    * Parent ID Relations
+  sireId          Int?
+  damId           Int?
+  batchId         Int?
+  /// *
+  ///    * End of Parent ID Relations
+  createdAt       DateTime       @default(now())
+  damBreeding     Breeding[]     @relation("DamBreeding")
+  sireBreeding    Breeding[]     @relation("SireBreeding")
+  conditioning    Conditioning[] @relation("Conditioning")
+  deworming       Deworming[]
+  gamefowl        Elo?
+  dam             Gamefowl?      @relation("DamRelation", fields: [damId], references: [id])
+  offspringDam    Gamefowl[]     @relation("DamRelation")
+  sire            Gamefowl?      @relation("SireRelation", fields: [sireId], references: [id])
+  offspringSire   Gamefowl[]     @relation("SireRelation")
   sparring_1      Sparring[]     @relation("Gamefowl1")
   sparring_2      Sparring[]     @relation("Gamefowl2")
-  sparring_winner Sparring[]     @relation("SparWin")
   sparring_loser  Sparring[]     @relation("SparLose")
-  /**
-   * End of Sparring Relations
-   */
-  conditioning    Conditioning[] @relation("Conditioning")
+  sparring_winner Sparring[]     @relation("SparWin")
+  vaccine         Vaccine[]
 }
 
 model OneTimeSched {
   id          Int      @id @default(autoincrement())
   schedId     Int
-  schedule    Schedule @relation("OneTime", fields: [schedId], references: [id])
   taskName    String
   taskDate    DateTime
   time_of_day DateTime
+  schedule    Schedule @relation("OneTime", fields: [schedId], references: [id])
 }
 
 model ConditioningProgram {
@@ -130,35 +109,35 @@ model ConditioningProgram {
 model Conditioning {
   id         Int                 @id @default(autoincrement())
   eventId    Int
-  event      Event               @relation(fields: [eventId], references: [id])
   conProgId  Int
-  conProg    ConditioningProgram @relation(fields: [conProgId], references: [id])
   gamefowlId Int
-  gamefowl   Gamefowl            @relation("Conditioning", fields: [gamefowlId], references: [id])
   handlerId  String
-  handler    Handler             @relation(fields: [handlerId], references: [id])
   startDate  DateTime
   endDate    DateTime
   status     ConditioningStatus
+  conProg    ConditioningProgram @relation(fields: [conProgId], references: [id])
+  event      Event               @relation(fields: [eventId], references: [id])
+  gamefowl   Gamefowl            @relation("Conditioning", fields: [gamefowlId], references: [id])
+  handler    Handler             @relation(fields: [handlerId], references: [id])
 }
 
 model Batch {
   id                Int        @id @default(autoincrement())
   incubate_sched_id Int
-  incubation        Incubation @relation(fields: [incubate_sched_id], references: [id])
   eggCount          Int
   fertilityRate     Float
   hatchRate         Float
   dateHatched       DateTime
+  incubation        Incubation @relation(fields: [incubate_sched_id], references: [id])
 }
 
 model Incubation {
-  id       Int              @id @default(autoincrement())
-  incStart DateTime
-  incEnd   DateTime
-  turnTime DateTime
-  status   IncubationStatus
-  batch    Batch[]
+  id           Int              @id @default(autoincrement())
+  incStart     DateTime
+  incEnd       DateTime
+  turningSched DateTime
+  status       IncubationStatus
+  batch        Batch[]
 }
 
 model Schedule {
@@ -172,13 +151,14 @@ model Schedule {
 }
 
 model Handler {
-  id           String         @id
-  username     String
+  id           String         @id @default(cuid())
+  username     String         @unique
   password     String
   first_name   String
   middle_name  String?
   last_name    String
   email        String
+  img          String?
   phone        String
   role         UserRole
   status       UserStatus
@@ -188,13 +168,14 @@ model Handler {
 }
 
 model Breeder {
-  id          String     @id
-  username    String
+  id          String     @id @default(cuid())
+  username    String     @unique
   password    String
   first_name  String
   middle_name String?
   last_name   String
   email       String
+  img         String?
   phone       String
   role        UserRole
   status      UserStatus
@@ -208,24 +189,23 @@ model Event {
   ageCategory  AgeCategory
   eventDate    DateTime
   description  String
-  status       EventType
+  status       EventStatus
+  handlerId    String?
   conditioning Conditioning[]
   handler      Handler?       @relation(fields: [handlerId], references: [id])
-  handlerId    String?
 }
 
 model RecurrentSchedules {
   id                Int               @id @default(autoincrement())
   schedId           Int
-  schedule          Schedule          @relation(fields: [schedId], references: [id])
   reccurencePattern RecurrencePattern
   taskDate          DateTime
   time_of_day       DateTime
+  schedule          Schedule          @relation(fields: [schedId], references: [id])
 }
 
-/**
- * ENUMS
- */
+/// *
+///  * ENUMS
 enum UserRole {
   OWNER
   HANDLER

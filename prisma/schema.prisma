@@ -164,7 +164,7 @@ model Handler {
   status       UserStatus
   createdAt    DateTime       @default(now())
   conditioning Conditioning[]
-  Event        Event[]
+  event        Event[]
 }
 
 model Breeder {
@@ -225,6 +225,7 @@ enum TaskType {
 enum TaskCategory {
   FEEDING
   VACCINATION
+  DEWORMING
 }
 
 enum BreedingStatus {

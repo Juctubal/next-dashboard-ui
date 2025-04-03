@@ -97,6 +97,11 @@ const HandlerListPage = async ({
 
   const [data, count] = await prisma.$transaction([
     prisma.handler.findMany({
+      where: {
+        conditioning: {
+          some: { eventId: parseInt(queryParams.eventId!) },
+        },
+      },
       take: ITEM_PER_PAGE,
       skip: ITEM_PER_PAGE * (p - 1),
     }),

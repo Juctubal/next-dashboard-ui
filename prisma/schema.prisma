@@ -33,6 +33,7 @@ model Breeding {
 model Elo {
   id         Int      @id @default(autoincrement())
   gamefowlId Int      @unique
+  eloRating  Int      @default(1000)
   gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
 }
 

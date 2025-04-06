@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Elo" ADD COLUMN     "eloRating" INTEGER NOT NULL DEFAULT 1000;

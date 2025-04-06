@@ -94,6 +94,7 @@ const ScheduleListPage = async ({
 
     query.OR = [
       { descript: { contains: search, mode: "insensitive" } },
+      { taskName: { contains: search, mode: "insensitive" } },
       ...(isNumeric ? [{ id: parseInt(search) }] : []),
     ];
   }

@@ -3,18 +3,13 @@ import Pagination from "@/components/Pagination";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 import { parentsData, role } from "@/lib/data";
+import { prisma } from "@/lib/prisma";
+import { ITEM_PER_PAGE } from "@/lib/settings";
+import { Elo, Gamefowl, Prisma } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
 
-type Parent = {
-  id: number;
-  name: string;
-  students: string[];
-  email: string;
-  phone: string;
-  grade: number;
-  address: string;
-};
+type EloList = Elo & { gamefowl: Gamefowl };
 
 const columns = [
   {
@@ -22,19 +17,9 @@ const columns = [
     accessor: "info",
   },
   {
-    header: "Student Names",
-    accessor: "studentName",
+    header: "Elo Rating",
+    accessor: "elo",
     className: "hidden md:table-cell",
-  },
-  {
-    header: "Phone",
-    accessor: "phone",
-    className: "hidden lg:table-cell",
-  },
-  {
-    header: "Address",
-    accessor: "address",
-    className: "hidden lg:table-cell",
   },
   {
     header: "Actions",
@@ -42,34 +27,69 @@ const columns = [
   },
 ];
 
-const ParentListPage = () => {
-  const renderRow = (item: Parent) => (
-    <tr
-      key={item.id}
-      className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
-    >
-      <td className="flex items-center gap-4 p-4">
-        <div className="flex flex-col">
-          <h3 className="font-semibold">{item.name}</h3>
-          <p className="text-xs text-gray-500">{item?.email}</p>
-        </div>
-      </td>
-      <td className="hidden md:table-cell">{item.students.join(",")}</td>
-      <td className="hidden md:table-cell">{item.phone}</td>
-      <td className="hidden md:table-cell">{item.address}</td>
-      <td>
-        <div className="flex items-center gap-2">
-          {role === "admin" && (
-            <>
-              <FormModal table="teacher" type="update" data={item} />
-              <FormModal table="parent" type="delete" id={item.id} />
-            </>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
+const renderRow = (item: EloList) => (
+  <tr
+    key={item.id}
+    className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
+  >
+    <td className="flex items-center gap-4 p-4">
+      <Image
+        src={item.gamefowl.img || "/noAvatar.png"}
+        alt=""
+        width={40}
+        height={40}
+        className="md:hidden xl:block w-10 h-10 rounded-full object-cover"
+      />
+      <div className="flex flex-col">
+        <h3 className="font-semibold">{item.gamefowl.name}</h3>
+        <p className="text-xs text-gray-500">ID: gamefowl#{item.gamefowlId}</p>
+      </div>
+    </td>
+    <td className="hidden md:table-cell">{item.eloRating}</td>
+    <td>
+      <div className="flex items-center gap-2">
+        {role === "admin" && (
+          <>
+            <FormModal table="teacher" type="update" data={item} />
+            <FormModal table="parent" type="delete" id={item.id} />
+          </>
+        )}
+      </div>
+    </td>
+  </tr>
+);
+const EloListPage = async ({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | undefined };
+}) => {
+  const { page, ...queryParams } = searchParams;
 
+  const p = page ? parseInt(page) : 1;
+
+  // URL PARAMS CONDITION
+
+  const query: Prisma.EloWhereInput = {};
+
+  if (queryParams.search) {
+    const search = queryParams.search;
+
+    const isNumeric = /^\d+$/.test(search);
+
+    query.OR = [...(isNumeric ? [{ eloRating: parseInt(search) }] : [])];
+  }
+
+  const [data, count] = await prisma.$transaction([
+    prisma.elo.findMany({
+      where: query,
+      include: {
+        gamefowl: true,
+      },
+      take: ITEM_PER_PAGE,
+      skip: ITEM_PER_PAGE * (p - 1),
+    }),
+    prisma.elo.count({ where: query }),
+  ]);
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
@@ -94,11 +114,11 @@ const ParentListPage = () => {
         </div>
       </div>
       {/* lIST */}
-      <Table columns={columns} renderRow={renderRow} data={parentsData} />
+      <Table columns={columns} renderRow={renderRow} data={data} />
       {/* PAGINATION */}
-      <Pagination />
+      <Pagination page={p} count={count} />
     </div>
   );
 };
 
-export default ParentListPage;
+export default EloListPage;

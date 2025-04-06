@@ -5,7 +5,7 @@ import Performance from "@/components/Performance";
 import Image from "next/image";
 import Link from "next/link";
 
-const SingleTeacherPage = () => {
+const SingleHandlerPage = () => {
   return (
     <div className="flex-1 p-4 flex flex-col gap-4 xl:flex-row">
       {/* LEFT */}
@@ -146,4 +146,4 @@ const SingleTeacherPage = () => {
   );
 };
 
-export default SingleTeacherPage;
+export default SingleHandlerPage;

@@ -66,6 +66,7 @@ model Gamefowl {
   bloodline       String
   date_hatched    DateTime?
   date_sold       DateTime?
+  img             String?
   /// *
   ///    * Parent ID Relations
   sireId          Int?

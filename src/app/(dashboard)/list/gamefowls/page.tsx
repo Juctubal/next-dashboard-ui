@@ -2,12 +2,12 @@ import FormModal from "@/components/FormModal";
 import Pagination from "@/components/Pagination";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
-import { role, teachersData } from "@/lib/data";
+import { role, studentsData } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
-import { Handler, Prisma } from "@prisma/client";
+import { ITEM_PER_PAGE } from "@/lib/settings";
+import { Gamefowl, Prisma } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
-import { ITEM_PER_PAGE } from "@/lib/settings";
 
 const columns = [
   {
@@ -15,23 +15,23 @@ const columns = [
     accessor: "info",
   },
   {
-    header: "Handler ID",
-    accessor: "handlerId",
+    header: "Gamefowl ID",
+    accessor: "gamefowId",
     className: "hidden md:table-cell",
   },
   {
-    header: "Phone",
-    accessor: "phone",
+    header: "Sire ID",
+    accessor: "sireId",
+    className: "hidden md:table-cell",
+  },
+  {
+    header: "Dam ID",
+    accessor: "damId",
     className: "hidden lg:table-cell",
   },
   {
-    header: "Role",
-    accessor: "role",
-    className: "hidden lg:table-cell",
-  },
-  {
-    header: "Status",
-    accessor: "status",
+    header: "Batch ID",
+    accessor: "batchId",
     className: "hidden lg:table-cell",
   },
   {
@@ -40,50 +40,46 @@ const columns = [
   },
 ];
 
-const renderRow = (item: Handler) => {
-  const fullName = `${item.first_name} ${item.last_name}`;
-  return (
-    <tr
-      key={item.id}
-      className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
-    >
-      <td className="flex items-center gap-4 p-4">
-        <Image
-          src={item.img || "/noAvatar.png"}
-          alt=""
-          width={40}
-          height={40}
-          className="md:hidden xl:block w-10 h-10 rounded-full object-cover"
-        />
-        <div className="flex flex-col">
-          <h3 className="font-semibold">{fullName}</h3>
-          <p className="text-xs text-gray-500">{item?.email}</p>
-        </div>
-      </td>
-      <td className="hidden md:table-cell">{item.id}</td>
-      <td className="hidden md:table-cell">{item.phone}</td>
-      <td className="hidden md:table-cell">{item.role}</td>
-      <td className="hidden md:table-cell">{item.status}</td>
-      <td>
-        <div className="flex items-center gap-2">
-          <Link href={`/list/handlers/${item.id}`}>
-            <button className="w-7 h-7 flex items-center justify-center rounded-full bg-ggSky">
-              <Image src="/view.png" alt="" width={16} height={16} />
-            </button>
-          </Link>
-          {role === "admin" && (
-            // <button className="w-7 h-7 flex items-center justify-center rounded-full bg-ggPurple">
-            //   <Image src="/delete.png" alt="" width={16} height={16} />
-            // </button>
-            <FormModal table="teacher" type="delete" id={Number(item.id)} />
-          )}
-        </div>
-      </td>
-    </tr>
-  );
-};
-
-const HandlerListPage = async ({
+const renderRow = (item: Gamefowl) => (
+  <tr
+    key={item.id}
+    className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
+  >
+    <td className="flex items-center gap-4 p-4">
+      <Image
+        src={item.img || "/noAvatar.png"}
+        alt=""
+        width={40}
+        height={40}
+        className="md:hidden xl:block w-10 h-10 rounded-full object-cover"
+      />
+      <div className="flex flex-col">
+        <h3 className="font-semibold">{item.name}</h3>
+        <p className="text-xs text-gray-500">{item.bloodline}</p>
+      </div>
+    </td>
+    <td className="hidden md:table-cell">{item.id}</td>
+    <td className="hidden md:table-cell">{item.sireId}</td>
+    <td className="hidden md:table-cell">{item.damId}</td>
+    <td className="hidden md:table-cell">{item.batchId}</td>
+    <td>
+      <div className="flex items-center gap-2">
+        <Link href={`/list/gamefowls/${item.id}`}>
+          <button className="w-7 h-7 flex items-center justify-center rounded-full bg-ggSky">
+            <Image src="/view.png" alt="" width={16} height={16} />
+          </button>
+        </Link>
+        {role === "admin" && (
+          // <button className="w-7 h-7 flex items-center justify-center rounded-full bg-ggPurple">
+          //   <Image src="/delete.png" alt="" width={16} height={16} />
+          // </button>
+          <FormModal table="student" type="delete" id={item.id} />
+        )}
+      </div>
+    </td>
+  </tr>
+);
+const GamefowlListPage = async ({
   searchParams,
 }: {
   searchParams: { [key: string]: string | undefined };
@@ -94,7 +90,7 @@ const HandlerListPage = async ({
 
   // URL PARAMS CONDITION
 
-  const query: Prisma.HandlerWhereInput = {};
+  const query: Prisma.GamefowlWhereInput = {};
 
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {
@@ -108,10 +104,7 @@ const HandlerListPage = async ({
             };
             break;
           case "search":
-            query.OR = [
-              { first_name: { contains: value, mode: "insensitive" } },
-              { last_name: { contains: value, mode: "insensitive" } },
-            ];
+            query.name = { contains: value, mode: "insensitive" };
             break;
         }
       }
@@ -119,25 +112,22 @@ const HandlerListPage = async ({
   }
 
   const [data, count] = await prisma.$transaction([
-    prisma.handler.findMany({
+    prisma.gamefowl.findMany({
       where: query,
       include: {
         conditioning: true,
-        event: true,
       },
       take: ITEM_PER_PAGE,
       skip: ITEM_PER_PAGE * (p - 1),
     }),
-    prisma.handler.count({ where: query }),
+    prisma.gamefowl.count({ where: query }),
   ]);
-
-  // console.log(data);
 
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">All Handlers</h1>
+        <h1 className="hidden md:block text-lg font-semibold">All Gamefowls</h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end">
@@ -151,7 +141,7 @@ const HandlerListPage = async ({
               // <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
               //   <Image src="/plus.png" alt="" width={14} height={14} />
               // </button>
-              <FormModal table="teacher" type="create" />
+              <FormModal table="student" type="create" />
             )}
           </div>
         </div>
@@ -164,4 +154,4 @@ const HandlerListPage = async ({
   );
 };
 
-export default HandlerListPage;
+export default GamefowlListPage;

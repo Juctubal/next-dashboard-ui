@@ -21,19 +21,19 @@ const menuItems = [
       {
         icon: "/student.png",
         label: "Gamefowl Records",
-        href: "/list/students",
+        href: "/list/gamefowls",
         visible: ["admin", "teacher"],
       },
       {
         icon: "/class.png",
         label: "Medical Records",
-        href: "/list/classes",
+        href: "/list/vaccines",
         visible: ["admin", "teacher"],
       },
       {
         icon: "/lesson.png",
         label: "Breeding",
-        href: "/list/lessons",
+        href: "/list/breeding",
         visible: ["admin", "teacher"],
       },
       {

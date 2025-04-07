@@ -50,8 +50,8 @@ const menuItems = [
       // },
       {
         icon: "/parent.png",
-        label: "Leaderboards",
-        href: "/list/parents",
+        label: "Leaderboard",
+        href: "/list/leaderboard",
         visible: ["admin", "teacher"],
       },
       {

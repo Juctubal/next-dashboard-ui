@@ -73,10 +73,19 @@ const EloListPage = async ({
 
   if (queryParams.search) {
     const search = queryParams.search;
-
     const isNumeric = /^\d+$/.test(search);
 
-    query.OR = [...(isNumeric ? [{ eloRating: parseInt(search) }] : [])];
+    query.OR = [
+      ...(isNumeric ? [{ eloRating: parseInt(search) }] : []),
+      {
+        gamefowl: {
+          name: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+      },
+    ];
   }
 
   const [data, count] = await prisma.$transaction([
@@ -94,7 +103,7 @@ const EloListPage = async ({
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">All Parents</h1>
+        <h1 className="hidden md:block text-lg font-semibold">Leaderboard</h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end">

@@ -1,4 +1,4 @@
-import { role } from "@/lib/data";
+import { currentUser } from "@clerk/nextjs/server";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -10,31 +10,31 @@ const menuItems = [
         icon: "/home.png",
         label: "Home",
         href: "/",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "handler", "breeder"],
       },
       {
-        icon: "/teacher.png",
+        icon: "/staff.png",
         label: "Staff",
-        href: "/list/handlers",
-        visible: ["admin", "teacher"],
+        href: "/list/staff",
+        visible: ["admin"],
       },
       {
         icon: "/student.png",
         label: "Gamefowl Records",
         href: "/list/gamefowls",
-        visible: ["admin", "teacher"],
+        visible: ["admin", "handler", "breeder"],
       },
       {
         icon: "/class.png",
         label: "Medical Records",
-        href: "/list/vaccines",
-        visible: ["admin", "teacher"],
+        href: "/list/medical",
+        visible: ["admin", "handler"],
       },
       {
         icon: "/lesson.png",
         label: "Breeding",
         href: "/list/breeding",
-        visible: ["admin", "teacher"],
+        visible: ["admin", "breeder"],
       },
       {
         icon: "/subject.png",
@@ -52,19 +52,19 @@ const menuItems = [
         icon: "/parent.png",
         label: "Leaderboard",
         href: "/list/leaderboard",
-        visible: ["admin", "teacher"],
+        visible: ["admin", "handler"],
       },
       {
         icon: "/calendar.png",
         label: "Conditioning & Events",
         href: "/list/events",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "handler"],
       },
       {
         icon: "/assignment.png",
         label: "Statistics and Reports",
         href: "/list/assignments",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "handler", "breeder"],
       },
       // {
       //   icon: "/result.png",
@@ -99,25 +99,28 @@ const menuItems = [
         icon: "/profile.png",
         label: "Profile",
         href: "/profile",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "handler", "breeder"],
       },
       {
         icon: "/setting.png",
         label: "Settings",
         href: "/settings",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "handler", "breeder"],
       },
       {
         icon: "/logout.png",
         label: "Logout",
         href: "/logout",
-        visible: ["admin", "teacher", "student", "parent"],
+        visible: ["admin", "handler", "breeder"],
       },
     ],
   },
 ];
 
-const Menu = () => {
+const Menu = async () => {
+  const user = await currentUser();
+  const role = user?.publicMetadata.role as string;
+
   return (
     <div className="mt-4 text-sm">
       {menuItems.map((i) => (

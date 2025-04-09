@@ -1,7 +1,7 @@
 import Announcements from "@/components/Announcements";
 import BigCalendar from "@/components/BigCalendar";
 
-const TeacherPage = () => {
+const HandlerPage = () => {
   return (
     <div className="flex-1 p-4 flex gap-4 flex-col xl:flex-row">
       {/* LEFT */}
@@ -19,4 +19,4 @@ const TeacherPage = () => {
   );
 };
 
-export default TeacherPage;
+export default HandlerPage;

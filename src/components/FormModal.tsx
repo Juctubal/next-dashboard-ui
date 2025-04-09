@@ -38,7 +38,9 @@ const FormModal = ({
     | "result"
     | "attendance"
     | "event"
-    | "announcement";
+    | "announcement"
+    | "vaccine"
+    | "deworming";
   type: "create" | "update" | "delete";
   data?: any;
   id?: number | String;

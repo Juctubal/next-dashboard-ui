@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState } from "react";
 // import TeacherForm from "./forms/TeacherForm";
 // import StudentForm from "./forms/StudentForm";
+import StaffForm from "./forms/StaffForm";
 
 const TeacherForm = dynamic(() => import("./forms/TeacherForm"), {
   loading: () => <h1>Loading...</h1>,
@@ -18,6 +19,7 @@ const forms: {
 } = {
   teacher: (type, data) => <TeacherForm type={type} data={data} />,
   student: (type, data) => <StudentForm type={type} data={data} />,
+  staff: (type, data) => <StaffForm type={type} data={data} />,
 };
 
 const FormModal = ({
@@ -40,7 +42,8 @@ const FormModal = ({
     | "event"
     | "announcement"
     | "vaccine"
-    | "deworming";
+    | "deworming"
+    | "staff";
   type: "create" | "update" | "delete";
   data?: any;
   id?: number | String;

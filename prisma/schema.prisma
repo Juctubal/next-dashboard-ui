@@ -159,9 +159,9 @@ model Handler {
   first_name   String
   middle_name  String?
   last_name    String
-  email        String
+  email        String?        @unique
   img          String?
-  phone        String
+  phone        String?
   role         UserRole
   status       UserStatus
   createdAt    DateTime       @default(now())
@@ -171,16 +171,16 @@ model Handler {
 
 model Breeder {
   id          String     @id @default(cuid())
-  username    String     @unique
-  password    String
   first_name  String
   middle_name String?
   last_name   String
-  email       String
+  username    String     @unique
+  password    String
+  email       String?    @unique
+  phone       String?
   img         String?
-  phone       String
-  role        UserRole
-  status      UserStatus
+  role        UserRole   @default(BREEDER)
+  status      UserStatus @default(ACTIVE)
   createdAt   DateTime   @default(now())
 }
 

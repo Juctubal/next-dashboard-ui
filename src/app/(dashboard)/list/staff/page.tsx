@@ -159,7 +159,7 @@ const StaffListPage = async ({
             <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
               <Image src="/sort.png" alt="" width={14} height={14} />
             </button>
-            {role === "admin" && <FormModal table="teacher" type="create" />}
+            {role === "admin" && <FormModal table="staff" type="create" />}
           </div>
         </div>
       </div>

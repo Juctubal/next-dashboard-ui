@@ -14,6 +14,7 @@ model Admin {
 
 model Vaccine {
   id              Int      @id @default(autoincrement())
+  name            String?
   gamefowlId      Int
   vaccinationDate DateTime
   notes           String
@@ -39,6 +40,7 @@ model Elo {
 
 model Deworming {
   id         Int      @id @default(autoincrement())
+  name       String?
   gamefowlId Int
   dewormDate DateTime
   notes      String
@@ -66,8 +68,10 @@ model Gamefowl {
   name            String
   bloodline       String
   date_hatched    DateTime?
+  age             gamefowlAge?
   date_sold       DateTime?
   img             String?
+  isArchived      Boolean        @default(false)
   /// *
   ///    * Parent ID Relations
   sireId          Int?
@@ -164,6 +168,7 @@ model Handler {
   phone        String?
   role         UserRole
   status       UserStatus
+  isArchived   Boolean        @default(false)
   createdAt    DateTime       @default(now())
   conditioning Conditioning[]
   event        Event[]
@@ -181,6 +186,7 @@ model Breeder {
   img         String?
   role        UserRole   @default(BREEDER)
   status      UserStatus @default(ACTIVE)
+  isArchived  Boolean    @default(false)
   createdAt   DateTime   @default(now())
 }
 
@@ -270,4 +276,11 @@ enum RecurrencePattern {
   DAILY
   WEEKLY
   MONTHLY
+}
+
+enum gamefowlAge {
+  CHICK
+  STAG
+  BULLSTAG
+  COCK
 }

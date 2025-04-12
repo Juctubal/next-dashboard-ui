@@ -10,6 +10,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 const columns = [
   {
@@ -42,7 +43,11 @@ const columns = [
   },
 ];
 
-const renderRow = (item: Handler | Breeder) => {
+const renderRow = (
+  item: Handler | Breeder,
+  isArchived: boolean,
+  onArchiveToggle: (id: string, archive: boolean) => void
+) => {
   const fullName = `${item.first_name} ${item.last_name}`;
   return (
     <tr
@@ -74,7 +79,20 @@ const renderRow = (item: Handler | Breeder) => {
             </button>
           </Link>
           {role === "admin" && (
-            <FormModal table="teacher" type="delete" id={Number(item.id)} />
+            <>
+              <button
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-ggYellow"
+                onClick={() => onArchiveToggle(item.id, !isArchived)}
+              >
+                <Image
+                  src={isArchived ? "/unarchive.svg" : "/archive.svg"}
+                  alt={isArchived ? "Unarchive" : "Archive"}
+                  width={16}
+                  height={16}
+                />
+              </button>
+              {/* <FormModal table="teacher" type="delete" id={Number(item.id)} /> */}
+            </>
           )}
         </div>
       </td>
@@ -93,6 +111,7 @@ const StaffListClient = ({
   searchParams,
   userRole,
 }: StaffListClientProps) => {
+  const router = useRouter();
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setSortDropdownOpen] = useState(false);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
@@ -113,7 +132,14 @@ const StaffListClient = ({
     }
   };
 
-  const { page = "1", search = "", status, role: staffRole } = searchParams;
+  const {
+    page = "1",
+    search = "",
+    status,
+    role: staffRole,
+    archive = "false",
+  } = searchParams;
+  const isArchived = archive === "true";
   const p = parseInt(page);
   const take = ITEM_PER_PAGE;
   const skip = (p - 1) * take;
@@ -132,12 +158,65 @@ const StaffListClient = ({
   const paginated = sortedData.slice(skip, skip + take);
   const totalCount = sortedData.length;
 
+  const handleArchiveToggle = async (id: string, archive: boolean) => {
+    // If we're archiving (not unarchiving), show a confirmation prompt
+    if (archive) {
+      const confirmed = window.confirm(
+        "Are you sure you want to archive this staff member?"
+      );
+      if (!confirmed) {
+        return; // Exit if user cancels
+      }
+    }
+
+    try {
+      const response = await fetch(`/api/staff/${id}/archive`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ isArchived: archive }),
+      });
+
+      if (response.ok) {
+        // Show success message
+        if (archive) {
+          alert("Employee record successfully archived");
+        }
+        // Refresh the page with the updated archive status
+        router.refresh();
+      } else {
+        console.error("Failed to update archive status");
+      }
+    } catch (error) {
+      console.error("Error updating archive status:", error);
+    }
+  };
+
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">Staff</h1>
+        <h1 className="hidden md:block text-lg font-semibold">
+          {isArchived ? "Archived Staff" : "Staff"}
+        </h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+          {role === "admin" && (
+            <Link
+              href={`/list/staff?archive=${!isArchived}${
+                search ? `&search=${search}` : ""
+              }${status ? `&status=${status}` : ""}${
+                staffRole ? `&role=${staffRole}` : ""
+              }`}
+              className={`px-3 py-1 text-sm rounded-md text-center ${
+                isArchived
+                  ? "bg-ggPurple text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+            >
+              {isArchived ? "Active" : "Archive"}
+            </Link>
+          )}
           <TableSearch />
           <div className="flex items-center gap-4 self-end relative">
             <div className="relative">
@@ -154,7 +233,7 @@ const StaffListClient = ({
                       search ? `&search=${search}` : ""
                     }${status ? `&status=${status}` : ""}${
                       staffRole ? `&role=${staffRole}` : ""
-                    }`}
+                    }${archive ? `&archive=${archive}` : ""}`}
                     className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
                     onClick={() => setDropdownOpen(false)}
                   >
@@ -165,7 +244,7 @@ const StaffListClient = ({
                       search ? `&search=${search}` : ""
                     }${status ? `&status=${status}` : ""}${
                       staffRole ? `&role=${staffRole}` : ""
-                    }`}
+                    }${archive ? `&archive=${archive}` : ""}`}
                     className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
                     onClick={() => setDropdownOpen(false)}
                   >
@@ -176,7 +255,7 @@ const StaffListClient = ({
                       search ? `&search=${search}` : ""
                     }${status ? `&status=${status}` : ""}${
                       staffRole ? `&role=${staffRole}` : ""
-                    }`}
+                    }${archive ? `&archive=${archive}` : ""}`}
                     className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
                     onClick={() => setDropdownOpen(false)}
                   >
@@ -215,13 +294,21 @@ const StaffListClient = ({
                 </div>
               )}
             </div>
-            {role === "admin" && <FormModal table="staff" type="create" />}
+            {role === "admin" && (
+              <div className="flex flex-col gap-2">
+                <FormModal table="staff" type="create" />
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* LIST */}
-      <Table columns={columns} renderRow={renderRow} data={paginated} />
+      <Table
+        columns={columns}
+        renderRow={(item) => renderRow(item, isArchived, handleArchiveToggle)}
+        data={paginated}
+      />
 
       {/* PAGINATION */}
       <Pagination page={p} count={totalCount} />

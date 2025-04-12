@@ -21,6 +21,11 @@ const commonColumns = [
     className: "hidden md:table-cell",
   },
   {
+    header: "Medicine Name",
+    accessor: "medName",
+    className: "hidden md:table-cell",
+  },
+  {
     header: "Description",
     accessor: "notes",
     className: "hidden md:table-cell",
@@ -44,6 +49,7 @@ const renderVaccineRow = (item: Vaccine) => (
   >
     <td className="flex items-center gap-4 p-4">{item.id}</td>
     <td className="hidden md:table-cell">{item.gamefowlId}</td>
+    <td className="hidden md:table-cell">{item.name}</td>
     <td className="hidden md:table-cell">{item.notes}</td>
     <td className="hidden md:table-cell">
       {new Intl.DateTimeFormat("en-US").format(item.vaccinationDate)}
@@ -69,6 +75,7 @@ const renderDewormingRow = (item: Deworming) => (
   >
     <td className="flex items-center gap-4 p-4">{item.id}</td>
     <td className="hidden md:table-cell">{item.gamefowlId}</td>
+    <td className="hidden md:table-cell">{item.name}</td>
     <td className="hidden md:table-cell">{item.notes}</td>
     <td className="hidden md:table-cell">
       {new Intl.DateTimeFormat("en-US").format(item.dewormDate)}
@@ -106,6 +113,7 @@ const MedicalRecordsPage = async ({
     // Common search conditions for both vaccine and deworming
     const commonSearchConditions = [
       { notes: { contains: search, mode: "insensitive" } },
+      { name: { contains: search, mode: "insensitive" } },
       ...(isNumeric ? [{ gamefowlId: parseInt(search) }] : []),
       ...(isNumeric ? [{ id: parseInt(search) }] : []),
     ];

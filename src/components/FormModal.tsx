@@ -16,6 +16,15 @@ const StudentForm = dynamic(() => import("./forms/StudentForm"), {
 const GamefowlForm = dynamic(() => import("./forms/GamefowlForm"), {
   loading: () => <h1>Loading...</h1>,
 });
+const ConditioningProgramForm = dynamic(
+  () => import("./forms/ConditioningProgramForm"),
+  {
+    loading: () => <h1>Loading...</h1>,
+  }
+);
+const ConditioningForm = dynamic(() => import("./forms/ConditioningForm"), {
+  loading: () => <h1>Loading...</h1>,
+});
 
 const forms: {
   [key: string]: (type: "create" | "update", data?: any) => JSX.Element;
@@ -24,6 +33,10 @@ const forms: {
   student: (type, data) => <StudentForm type={type} data={data} />,
   staff: (type, data) => <StaffForm type={type} data={data} />,
   gamefowl: (type, data) => <GamefowlForm type={type} data={data} />,
+  conditioningProgram: (type, data) => (
+    <ConditioningProgramForm type={type} data={data} />
+  ),
+  conditioning: (type, data) => <ConditioningForm type={type} data={data} />,
 };
 
 const FormModal = ({
@@ -48,7 +61,9 @@ const FormModal = ({
     | "vaccine"
     | "deworming"
     | "staff"
-    | "gamefowl";
+    | "gamefowl"
+    | "conditioningProgram"
+    | "conditioning";
   type: "create" | "update" | "delete";
   data?: any;
   id?: number | String;

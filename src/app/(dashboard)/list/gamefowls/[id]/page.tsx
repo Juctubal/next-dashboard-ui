@@ -3,146 +3,379 @@ import BigCalendar from "@/components/BigCalendar";
 import Performance from "@/components/Performance";
 import Image from "next/image";
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
+import { calculateGamefowlAge } from "@/lib/utils";
+import { notFound } from "next/navigation";
+import GamefowlTasks from "@/components/GamefowlTasks";
 
-const SingleStudentPage = () => {
+// Define the props for the page
+interface GamefowlPageProps {
+  params: {
+    id: string;
+  };
+}
+
+// Define the type for calendar events
+interface CalendarEvent {
+  title: string;
+  start: Date;
+  end: Date;
+  allDay?: boolean;
+  type?: string;
+}
+
+const SingleGamefowlPage = async ({ params }: GamefowlPageProps) => {
+  // Fetch the gamefowl data
+  const gamefowl = await prisma.gamefowl.findUnique({
+    where: { id: parseInt(params.id) },
+    include: {
+      gamefowl: true,
+      conditioning: {
+        include: {
+          conProg: true,
+          event: true,
+          handler: true,
+        },
+      },
+      sparring_1: true,
+      sparring_2: true,
+      sparring_winner: true,
+      sparring_loser: true,
+      vaccine: true,
+      deworming: true,
+    },
+  });
+
+  // If gamefowl not found, return 404
+  if (!gamefowl) {
+    notFound();
+  }
+
+  // Calculate age category
+  const ageCategory =
+    gamefowl.age || calculateGamefowlAge(gamefowl.date_hatched);
+
+  // Count sparring matches
+  const sparringCount = gamefowl.sparring_1.length + gamefowl.sparring_2.length;
+
+  // Count wins and losses
+  const wins = gamefowl.sparring_winner.length;
+  const losses = gamefowl.sparring_loser.length;
+
+  // Get Elo rating
+  const eloRating = gamefowl.gamefowl?.eloRating || 1000;
+
+  // Create calendar events from conditioning data
+  const calendarEvents: CalendarEvent[] = gamefowl.conditioning.map(
+    (conditioning) => ({
+      title: `Conditioning: ${conditioning.conProg.programName}`,
+      start: conditioning.startDate,
+      end: conditioning.endDate,
+      allDay: false,
+      type: "conditioning",
+    })
+  );
+
+  // Add sparring events
+  const sparringEvents: CalendarEvent[] = [
+    ...gamefowl.sparring_1.map((sparring) => ({
+      title: `Sparring Match`,
+      start: sparring.sparringDate,
+      end: new Date(new Date(sparring.sparringDate).getTime() + 60 * 60 * 1000), // 1 hour duration
+      allDay: false,
+      type: "sparring",
+    })),
+    ...gamefowl.sparring_2.map((sparring) => ({
+      title: `Sparring Match`,
+      start: sparring.sparringDate,
+      end: new Date(new Date(sparring.sparringDate).getTime() + 60 * 60 * 1000), // 1 hour duration
+      allDay: false,
+      type: "sparring",
+    })),
+  ];
+
+  // Add medical events
+  const medicalEvents: CalendarEvent[] = [
+    ...gamefowl.vaccine.map((vaccine) => ({
+      title: `Vaccination: ${vaccine.name || "Unnamed"}`,
+      start: vaccine.vaccinationDate,
+      end: new Date(
+        new Date(vaccine.vaccinationDate).getTime() + 30 * 60 * 1000
+      ), // 30 minutes duration
+      allDay: false,
+      type: "medical",
+    })),
+    ...gamefowl.deworming.map((deworming) => ({
+      title: `Deworming: ${deworming.name || "Unnamed"}`,
+      start: deworming.dewormDate,
+      end: new Date(new Date(deworming.dewormDate).getTime() + 30 * 60 * 1000), // 30 minutes duration
+      allDay: false,
+      type: "medical",
+    })),
+  ];
+
+  // Combine all events
+  const allEvents = [...calendarEvents, ...sparringEvents, ...medicalEvents];
+
   return (
-    <div className="flex-1 p-4 flex flex-col gap-4 xl:flex-row">
-      {/* LEFT */}
-      <div className="w-full xl:w-2/3">
-        {/* TOP */}
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* USER INFO CARD */}
-          <div className="bg-ggSky py-6 px-4 rounded-md flex-1 flex gap-4">
-            <div className="w-1/3">
+    <div className="flex-1 flex flex-col gap-6 p-4 w-full">
+      {/* Breadcrumb Navigation */}
+      <div className="flex items-center text-sm text-gray-500 mb-2">
+        <Link
+          href="/list/gamefowls"
+          className="hover:text-blue-600 transition-colors"
+        >
+          Gamefowls
+        </Link>
+        <span className="mx-2">/</span>
+        <span className="text-gray-700 font-medium">{gamefowl.name}</span>
+      </div>
+
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-ggSky to-blue-100 rounded-lg p-6 shadow-sm w-full">
+        <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+          {/* Gamefowl Image */}
+          <div className="flex-shrink-0">
+            <div className="relative">
               <Image
-                src=""
-                alt=""
-                width={144}
-                height={144}
-                className="w-36 h-36 rounded-full object-cover"
+                src={gamefowl.img || "/noAvatar.png"}
+                alt={gamefowl.name}
+                width={180}
+                height={180}
+                className="w-32 h-32 md:w-40 md:h-40 lg:w-48 lg:h-48 rounded-full object-cover border-4 border-white shadow-md"
               />
-            </div>
-            <div className="w-2/3 flex flex-col justify-between gap-4">
-              <h1 className="text-xl font-semibold">Jon Tubal</h1>
-              <p className="text-sm text-gray-500">
-                Lorem ipsum, dolor sit amet consectetur adipisicing elit.
-              </p>
-              <div className="flex items-center justify-between gap-2 flex-wrap text-xs font-medium">
-                <div className="w-full md:w-1/3 lg:w-full 2xl:w-1/3 flex items-center gap-2">
-                  <Image src="/blood.png" alt="" width={14} height={14} />
-                  <span>A+</span>
-                </div>
-                <div className="w-full md:w-1/3 lg:w-full 2xl:w-1/3 flex items-center gap-2">
-                  <Image src="/date.png" alt="" width={14} height={14} />
-                  <span>January 2025</span>
-                </div>
-                <div className="w-full md:w-1/3 lg:w-full 2xl:w-1/3 flex items-center gap-2">
-                  <Image src="/mail.png" alt="" width={14} height={14} />
-                  <span>user@gmail.com</span>
-                </div>
-                <div className="w-full md:w-1/3 lg:w-full 2xl:w-1/3 flex items-center gap-2">
-                  <Image src="/phone.png" alt="" width={14} height={14} />
-                  <span>+63 969 219 6751</span>
-                </div>
+              <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-2 shadow-md">
+                <div className="bg-green-500 w-4 h-4 rounded-full"></div>
               </div>
             </div>
           </div>
-          {/* SMALL CARDS */}
-          <div className="flex-1 flex gap-4 justify-between flex-wrap">
-            {/* CARD */}
-            <div className="bg-white p-4 rounded-md flex gap-4 w-full md:w-[48%] xl:w-[45%] 2xl:w-[48%]">
+
+          {/* Gamefowl Info */}
+          <div className="flex-1 text-center md:text-left">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+              {gamefowl.name}
+            </h1>
+            <p className="text-lg text-gray-600 mt-1">{gamefowl.bloodline}</p>
+
+            <div className="mt-4 flex flex-wrap gap-3 justify-center md:justify-start">
+              <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full flex items-center gap-2 shadow-sm">
+                <Image src="/mail.png" alt="" width={16} height={16} />
+                <span className="text-gray-700">ID: {gamefowl.id}</span>
+              </div>
+              <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full flex items-center gap-2 shadow-sm">
+                <Image src="/date.png" alt="" width={16} height={16} />
+                <span className="text-gray-700">
+                  {gamefowl.date_hatched
+                    ? new Date(gamefowl.date_hatched).toLocaleDateString()
+                    : "Unknown"}
+                </span>
+              </div>
+              <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full flex items-center gap-2 shadow-sm">
+                <Image src="/phone.png" alt="" width={16} height={16} />
+                <span className="text-gray-700">
+                  Age: {ageCategory || "Unknown"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Key Metrics Dashboard */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+        {/* Sparring Count Card */}
+        <div className="bg-white rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="bg-blue-100 p-2 rounded-full">
               <Image
                 src="/singleAttendance.png"
                 alt=""
-                width={24}
-                height={24}
-                className="w-6 h-6"
+                width={20}
+                height={20}
+                className="w-5 h-5"
               />
-              <div className="">
-                <h1 className="text-xl font-semibold">90%</h1>
-                <span className="text-sm text-gray-400">Attendance</span>
-              </div>
             </div>
-            {/* CARD */}
-            <div className="bg-white p-4 rounded-md flex gap-4 w-full md:w-[48%] xl:w-[45%] 2xl:w-[48%]">
+            <h3 className="text-gray-600 font-medium">Sparring Matches</h3>
+          </div>
+          <div className="flex items-end gap-2">
+            <span className="text-3xl font-bold text-gray-800">
+              {sparringCount}
+            </span>
+            <span className="text-sm text-gray-500 mb-1">total matches</span>
+          </div>
+        </div>
+
+        {/* Wins/Losses Card */}
+        <div className="bg-white rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="bg-green-100 p-2 rounded-full">
               <Image
                 src="/singleBranch.png"
                 alt=""
-                width={24}
-                height={24}
-                className="w-6 h-6"
+                width={20}
+                height={20}
+                className="w-5 h-5"
               />
-              <div className="">
-                <h1 className="text-xl font-semibold">6th</h1>
-                <span className="text-sm text-gray-400">Grade</span>
-              </div>
             </div>
-            {/* CARD */}
-            <div className="bg-white p-4 rounded-md flex gap-4 w-full md:w-[48%] xl:w-[45%] 2xl:w-[48%]">
+            <h3 className="text-gray-600 font-medium">Win/Loss Record</h3>
+          </div>
+          <div className="flex items-end gap-2">
+            <span className="text-3xl font-bold text-gray-800">
+              {wins}-{losses}
+            </span>
+            <span className="text-sm text-gray-500 mb-1">win-loss ratio</span>
+          </div>
+        </div>
+
+        {/* Elo Rating Card */}
+        <div className="bg-white rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="bg-purple-100 p-2 rounded-full">
               <Image
                 src="/singleLesson.png"
                 alt=""
-                width={24}
-                height={24}
-                className="w-6 h-6"
+                width={20}
+                height={20}
+                className="w-5 h-5"
               />
-              <div className="">
-                <h1 className="text-xl font-semibold">18</h1>
-                <span className="text-sm text-gray-400">Lessons</span>
-              </div>
             </div>
-            {/* CARD */}
-            <div className="bg-white p-4 rounded-md flex gap-4 w-full md:w-[48%] xl:w-[45%] 2xl:w-[48%]">
+            <h3 className="text-gray-600 font-medium">Elo Rating</h3>
+          </div>
+          <div className="flex items-end gap-2">
+            <span className="text-3xl font-bold text-gray-800">
+              {eloRating}
+            </span>
+            <span className="text-sm text-gray-500 mb-1">skill rating</span>
+          </div>
+        </div>
+
+        {/* Age Category Card */}
+        <div className="bg-white rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="bg-amber-100 p-2 rounded-full">
               <Image
                 src="/singleAttendance.png"
                 alt=""
-                width={24}
-                height={24}
-                className="w-6 h-6"
+                width={20}
+                height={20}
+                className="w-5 h-5"
               />
-              <div className="">
-                <h1 className="text-xl font-semibold">6A</h1>
-                <span className="text-sm text-gray-400">Class</span>
+            </div>
+            <h3 className="text-gray-600 font-medium">Age Category</h3>
+          </div>
+          <div className="flex items-end gap-2">
+            <span className="text-3xl font-bold text-gray-800">
+              {ageCategory || "Unknown"}
+            </span>
+            <span className="text-sm text-gray-500 mb-1">current category</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex flex-col lg:flex-row gap-6 w-full">
+        {/* Left Column - Detailed Information */}
+        <div className="lg:w-1/3 flex flex-col gap-6">
+          {/* Bloodline Information */}
+          <div className="bg-white rounded-lg p-5 shadow-sm">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              Bloodline Information
+            </h2>
+            <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-md">
+              <Image src="/blood.png" alt="" width={20} height={20} />
+              <div>
+                <p className="text-sm text-gray-500">Bloodline</p>
+                <p className="font-medium">{gamefowl.bloodline}</p>
               </div>
             </div>
           </div>
-        </div>
-        {/* BOTTOM */}
-        <div className="mt-4 bg-white rounded-md p-4 h-[800px]">
-          <h1>Student's Schedule</h1>
-          <BigCalendar />
-        </div>
-      </div>
-      {/* RIGHT */}
-      <div className="w-full xl:w-1/3 flex-col gap-4">
-        <div className="bg-white p-4 rounded-md">
-          <h1 className="text-xl font-semibold">Shortcuts</h1>
-          <div className="mt-4 flex gap-4 flex-wrap text-xs text-gray-500">
-            <Link className="p-3 rounded-md bg-ggSkyLight" href="/">
-              Student's Lessons
-            </Link>
-            <Link
-              className="p-3 rounded-md bg-ggPurpleLight"
-              href={`/list/handlers?conditioning=${1}`}
-            >
-              Student's Teachers
-            </Link>
-            <Link className="p-3 rounded-md bg-ggYellowLight" href="/">
-              Student's Exams
-            </Link>
-            <Link className="p-3 rounded-md bg-pink-50" href="/">
-              Student's Assignments
-            </Link>
-            <Link className="p-3 rounded-md bg-ggSkyLight" href="/">
-              Student's Results
-            </Link>
+
+          {/* Quick Links */}
+          <div className="bg-white rounded-lg p-5 shadow-sm">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              Quick Links
+            </h2>
+            <div className="grid grid-cols-1 gap-3">
+              <Link
+                className="p-3 rounded-md bg-blue-50 hover:bg-blue-100 transition-colors text-sm font-medium flex items-center gap-2"
+                href={`/list/conditioning?gamefowlId=${gamefowl.id}`}
+              >
+                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                Conditioning Information
+              </Link>
+              <Link
+                className="p-3 rounded-md bg-purple-50 hover:bg-purple-100 transition-colors text-sm font-medium flex items-center gap-2"
+                href={`/list/events?gamefowlId=${gamefowl.id}`}
+              >
+                <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                Event Information
+              </Link>
+              <Link
+                className="p-3 rounded-md bg-amber-50 hover:bg-amber-100 transition-colors text-sm font-medium flex items-center gap-2"
+                href={`/list/sparring?gamefowlId=${gamefowl.id}`}
+              >
+                <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                Sparring History
+              </Link>
+              <Link
+                className="p-3 rounded-md bg-pink-50 hover:bg-pink-100 transition-colors text-sm font-medium flex items-center gap-2"
+                href={`/list/medical?gamefowlId=${gamefowl.id}`}
+              >
+                <div className="w-2 h-2 rounded-full bg-pink-500"></div>
+                Medical Records
+              </Link>
+            </div>
           </div>
         </div>
-        <Performance />
-        <Announcements />
+
+        {/* Right Column - Schedule */}
+        <div className="lg:w-2/3">
+          <div className="bg-white rounded-lg p-5 shadow-sm h-auto min-h-[500px] w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Gamefowl Schedule
+              </h2>
+              <div className="flex items-center gap-2">
+                <button className="p-2 rounded-md bg-gray-100 hover:bg-gray-200 transition-colors">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-gray-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  </svg>
+                </button>
+                <button className="p-2 rounded-md bg-gray-100 hover:bg-gray-200 transition-colors">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-gray-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <GamefowlTasks events={allEvents} />
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-export default SingleStudentPage;
+export default SingleGamefowlPage;

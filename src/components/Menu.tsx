@@ -49,9 +49,9 @@ const menuItems = [
       //   visible: ["admin", "teacher", "student", "parent"],
       // },
       {
-        icon: "/parent.png",
-        label: "Leaderboard",
-        href: "/list/leaderboard",
+        icon: "/spar.png",
+        label: "Sparring",
+        href: "/list/sparring",
         visible: ["admin", "handler"],
       },
       {

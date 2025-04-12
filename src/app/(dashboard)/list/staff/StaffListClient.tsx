@@ -201,24 +201,24 @@ const StaffListClient = ({
           {isArchived ? "Archived Staff" : "Staff"}
         </h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-          {role === "admin" && (
-            <Link
-              href={`/list/staff?archive=${!isArchived}${
-                search ? `&search=${search}` : ""
-              }${status ? `&status=${status}` : ""}${
-                staffRole ? `&role=${staffRole}` : ""
-              }`}
-              className={`px-3 py-1 text-sm rounded-md text-center ${
-                isArchived
-                  ? "bg-ggPurple text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-            >
-              {isArchived ? "Active" : "Archive"}
-            </Link>
-          )}
           <TableSearch />
           <div className="flex items-center gap-4 self-end relative">
+            {role === "admin" && (
+              <Link
+                href={`/list/staff?archive=${!isArchived}${
+                  search ? `&search=${search}` : ""
+                }${status ? `&status=${status}` : ""}${
+                  staffRole ? `&role=${staffRole}` : ""
+                }`}
+                className={`px-3 py-1 text-sm rounded-md text-center ${
+                  isArchived
+                    ? "bg-ggPurple text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                {isArchived ? "Active" : "Archive"}
+              </Link>
+            )}
             <div className="relative">
               <button
                 onClick={toggleDropdown}

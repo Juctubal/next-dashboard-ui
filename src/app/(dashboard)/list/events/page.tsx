@@ -5,11 +5,19 @@ import TableSearch from "@/components/TableSearch";
 import { eventsData, role } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
-import { Event, Prisma } from "@prisma/client";
+import {
+  Conditioning,
+  ConditioningProgram,
+  Event,
+  Handler,
+  Prisma,
+} from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 
-const columns = [
+// Event columns
+const eventColumns = [
   {
     header: "Event Name",
     accessor: "eventName",
@@ -45,7 +53,62 @@ const columns = [
   },
 ];
 
-const renderRow = (item: Event) => (
+// Conditioning Program columns
+const conditioningProgramColumns = [
+  {
+    header: "ID",
+    accessor: "id",
+  },
+  {
+    header: "Program Name",
+    accessor: "programName",
+  },
+  {
+    header: "Description",
+    accessor: "description",
+    className: "hidden md:table-cell",
+  },
+  {
+    header: "Actions",
+    accessor: "action",
+  },
+];
+
+// Conditioning columns
+const conditioningColumns = [
+  {
+    header: "Gamefowl ID",
+    accessor: "gamefowlId",
+  },
+  {
+    header: "Program Name",
+    accessor: "programName",
+  },
+  {
+    header: "Event Name",
+    accessor: "eventName",
+  },
+  {
+    header: "Handler Name",
+    accessor: "handlerName",
+  },
+  {
+    header: "Start Date",
+    accessor: "startDate",
+    className: "hidden md:table-cell",
+  },
+  {
+    header: "End Date",
+    accessor: "endDate",
+    className: "hidden md:table-cell",
+  },
+  {
+    header: "Actions",
+    accessor: "action",
+  },
+];
+
+const renderEventRow = (item: Event) => (
   <tr
     key={item.id}
     className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
@@ -62,18 +125,67 @@ const renderRow = (item: Event) => (
     <td className="hidden md:table-cell">{item.status}</td>
     <td>
       <div className="flex items-center gap-2">
-        {/* <Link href={"/list/teachers/${item.id}"}>
-          <button className="w-7 h-7 flex items-center justify-center rounded-full bg-ggSky">
-            <Image src="/edit.png" alt="" width={16} height={16} />
-          </button>
-        </Link> */}
         {role === "admin" && (
-          // <button className="w-7 h-7 flex items-center justify-center rounded-full bg-ggPurple">
-          //   <Image src="/delete.png" alt="" width={16} height={16} />
-          // </button>
           <>
-            <FormModal table="exam" type="update" data={item} />
-            <FormModal table="exam" type="delete" id={item.id} />
+            <FormModal table="event" type="update" data={item} />
+            <FormModal table="event" type="delete" id={item.id} />
+          </>
+        )}
+      </div>
+    </td>
+  </tr>
+);
+
+const renderConditioningProgramRow = (item: ConditioningProgram) => (
+  <tr
+    key={item.id}
+    className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
+  >
+    <td className="p-4">{item.id}</td>
+    <td className="p-4">{item.programName}</td>
+    <td className="hidden md:table-cell p-4">{item.description}</td>
+    <td>
+      <div className="flex items-center gap-2">
+        {role === "admin" && (
+          <>
+            <FormModal table="conditioningProgram" type="update" data={item} />
+            <FormModal table="conditioningProgram" type="delete" id={item.id} />
+          </>
+        )}
+      </div>
+    </td>
+  </tr>
+);
+
+const renderConditioningRow = (
+  item: Conditioning & {
+    conProg: ConditioningProgram;
+    event: Event;
+    handler: Handler;
+  }
+) => (
+  <tr
+    key={item.id}
+    className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
+  >
+    <td className="p-4">{item.gamefowlId}</td>
+    <td className="p-4">{item.conProg.programName}</td>
+    <td className="p-4">{item.event.eventName}</td>
+    <td className="p-4">
+      {item.handler.first_name} {item.handler.last_name}
+    </td>
+    <td className="hidden md:table-cell p-4">
+      {new Intl.DateTimeFormat("en-US").format(item.startDate)}
+    </td>
+    <td className="hidden md:table-cell p-4">
+      {new Intl.DateTimeFormat("en-US").format(item.endDate)}
+    </td>
+    <td>
+      <div className="flex items-center gap-2">
+        {role === "admin" && (
+          <>
+            <FormModal table="conditioning" type="update" data={item} />
+            <FormModal table="conditioning" type="delete" id={item.id} />
           </>
         )}
       </div>
@@ -86,53 +198,110 @@ const EventListPage = async ({
 }: {
   searchParams: { [key: string]: string | undefined };
 }) => {
-  const { page, ...queryParams } = searchParams;
+  const { page, tab = "events", ...queryParams } = searchParams;
 
   const p = page ? parseInt(page) : 1;
 
   // URL PARAMS CONDITION
-
-  const query: Prisma.EventWhereInput = {};
+  const eventQuery: Prisma.EventWhereInput = {};
+  const conditioningProgramQuery: Prisma.ConditioningProgramWhereInput = {};
+  const conditioningQuery: Prisma.ConditioningWhereInput = {};
 
   if (queryParams) {
     for (const [key, value] of Object.entries(queryParams)) {
       if (value !== undefined) {
         switch (key) {
           case "eventId":
-            query.conditioning = {
-              some: {
-                eventId: parseInt(value),
-              },
-            };
+            conditioningQuery.eventId = parseInt(value);
             break;
           case "search":
-            query.OR = [
-              { eventName: { contains: value, mode: "insensitive" } },
-              { description: { contains: value, mode: "insensitive" } },
-            ];
+            if (tab === "events") {
+              eventQuery.OR = [
+                { eventName: { contains: value, mode: "insensitive" } },
+                { description: { contains: value, mode: "insensitive" } },
+              ];
+            } else if (tab === "conditioningPrograms") {
+              conditioningProgramQuery.OR = [
+                { programName: { contains: value, mode: "insensitive" } },
+                { description: { contains: value, mode: "insensitive" } },
+              ];
+            } else if (tab === "conditioning") {
+              conditioningQuery.OR = [
+                { gamefowlId: parseInt(value) || undefined },
+                {
+                  conProg: {
+                    programName: { contains: value, mode: "insensitive" },
+                  },
+                },
+                {
+                  event: {
+                    eventName: { contains: value, mode: "insensitive" },
+                  },
+                },
+                {
+                  handler: {
+                    OR: [
+                      { first_name: { contains: value, mode: "insensitive" } },
+                      { last_name: { contains: value, mode: "insensitive" } },
+                    ],
+                  },
+                },
+              ];
+            }
             break;
         }
       }
     }
   }
 
-  const [data, count] = await prisma.$transaction([
-    prisma.event.findMany({
-      where: query,
-      include: {
-        conditioning: true,
-      },
-      take: ITEM_PER_PAGE,
-      skip: ITEM_PER_PAGE * (p - 1),
-    }),
-    prisma.event.count({ where: query }),
-  ]);
+  // Fetch data based on the active tab
+  let data: any[] = [];
+  let count = 0;
+
+  if (tab === "events") {
+    [data, count] = await prisma.$transaction([
+      prisma.event.findMany({
+        where: eventQuery,
+        include: {
+          conditioning: true,
+        },
+        take: ITEM_PER_PAGE,
+        skip: ITEM_PER_PAGE * (p - 1),
+      }),
+      prisma.event.count({ where: eventQuery }),
+    ]);
+  } else if (tab === "conditioningPrograms") {
+    [data, count] = await prisma.$transaction([
+      prisma.conditioningProgram.findMany({
+        where: conditioningProgramQuery,
+        take: ITEM_PER_PAGE,
+        skip: ITEM_PER_PAGE * (p - 1),
+      }),
+      prisma.conditioningProgram.count({ where: conditioningProgramQuery }),
+    ]);
+  } else if (tab === "conditioning") {
+    [data, count] = await prisma.$transaction([
+      prisma.conditioning.findMany({
+        where: conditioningQuery,
+        include: {
+          conProg: true,
+          event: true,
+          handler: true,
+        },
+        take: ITEM_PER_PAGE,
+        skip: ITEM_PER_PAGE * (p - 1),
+      }),
+      prisma.conditioning.count({ where: conditioningQuery }),
+    ]);
+  }
 
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">All Events</h1>
+        <h1 className="hidden md:block text-lg font-semibold">
+          Events & Conditioning
+        </h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end">
@@ -143,16 +312,82 @@ const EventListPage = async ({
               <Image src="/sort.png" alt="" width={14} height={14} />
             </button>
             {role === "admin" && (
-              // <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
-              //   <Image src="/plus.png" alt="" width={14} height={14} />
-              // </button>
-              <FormModal table="event" type="create" />
+              <>
+                {tab === "events" && <FormModal table="event" type="create" />}
+                {tab === "conditioningPrograms" && (
+                  <FormModal table="conditioningProgram" type="create" />
+                )}
+                {tab === "conditioning" && (
+                  <FormModal table="conditioning" type="create" />
+                )}
+              </>
             )}
           </div>
         </div>
       </div>
-      {/* lIST */}
-      <Table columns={columns} renderRow={renderRow} data={data} />
+
+      {/* TABS */}
+      <div className="flex border-b border-gray-200 mt-4">
+        <Link
+          href={{
+            pathname: "/list/events",
+            query: { ...queryParams, tab: "events" },
+          }}
+          className={`px-4 py-2 font-medium text-sm ${
+            tab === "events"
+              ? "border-b-2 border-ggPurple text-ggPurple"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Events
+        </Link>
+        <Link
+          href={{
+            pathname: "/list/events",
+            query: { ...queryParams, tab: "conditioningPrograms" },
+          }}
+          className={`px-4 py-2 font-medium text-sm ${
+            tab === "conditioningPrograms"
+              ? "border-b-2 border-ggPurple text-ggPurple"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Conditioning Programs
+        </Link>
+        <Link
+          href={{
+            pathname: "/list/events",
+            query: { ...queryParams, tab: "conditioning" },
+          }}
+          className={`px-4 py-2 font-medium text-sm ${
+            tab === "conditioning"
+              ? "border-b-2 border-ggPurple text-ggPurple"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Conditioning
+        </Link>
+      </div>
+
+      {/* LIST */}
+      {tab === "events" && (
+        <Table columns={eventColumns} renderRow={renderEventRow} data={data} />
+      )}
+      {tab === "conditioningPrograms" && (
+        <Table
+          columns={conditioningProgramColumns}
+          renderRow={renderConditioningProgramRow}
+          data={data}
+        />
+      )}
+      {tab === "conditioning" && (
+        <Table
+          columns={conditioningColumns}
+          renderRow={renderConditioningRow}
+          data={data}
+        />
+      )}
+
       {/* PAGINATION */}
       <Pagination page={p} count={count} />
     </div>

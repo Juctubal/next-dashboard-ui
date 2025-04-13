@@ -29,15 +29,7 @@ const AdminPage = () => {
             <GamefowlAgeChart />
           </div>
         </div>
-        {/* UPDATE AGE BUTTON */}
-        <div className="w-full bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
-          <Link
-            href="/admin/update-age"
-            className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white py-2 px-6 rounded-md border-none transition-colors inline-block"
-          >
-            Update Gamefowl Ages
-          </Link>
-        </div>
+
         {/* BOTTOM CHART */}
         {/* <div className="w-full h-[500px] bg-white dark:bg-gray-800 rounded-lg shadow-sm">
           <FinanceChart />

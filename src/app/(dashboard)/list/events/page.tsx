@@ -111,18 +111,24 @@ const conditioningColumns = [
 const renderEventRow = (item: Event) => (
   <tr
     key={item.id}
-    className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
+    className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
   >
-    <td className="flex items-center gap-4 p-4">{item.eventName}</td>
-    <td className="hidden md:table-cell">{item.eventType}</td>
-    <td className="hidden md:table-cell text-center align-middle">
+    <td className="flex items-center gap-4 p-4 dark:text-gray-200">
+      {item.eventName}
+    </td>
+    <td className="hidden md:table-cell dark:text-gray-200">
+      {item.eventType}
+    </td>
+    <td className="hidden md:table-cell text-center align-middle dark:text-gray-200">
       {item.ageCategory}
     </td>
-    <td className="hidden md:table-cell">
+    <td className="hidden md:table-cell dark:text-gray-200">
       {new Intl.DateTimeFormat("en-US").format(item.eventDate)}
     </td>
-    <td className="hidden md:table-cell">{item.description}</td>
-    <td className="hidden md:table-cell">{item.status}</td>
+    <td className="hidden md:table-cell dark:text-gray-200">
+      {item.description}
+    </td>
+    <td className="hidden md:table-cell dark:text-gray-200">{item.status}</td>
     <td>
       <div className="flex items-center gap-2">
         {role === "admin" && (
@@ -139,11 +145,13 @@ const renderEventRow = (item: Event) => (
 const renderConditioningProgramRow = (item: ConditioningProgram) => (
   <tr
     key={item.id}
-    className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
+    className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
   >
-    <td className="p-4">{item.id}</td>
-    <td className="p-4">{item.programName}</td>
-    <td className="hidden md:table-cell p-4">{item.description}</td>
+    <td className="p-4 dark:text-gray-200">{item.id}</td>
+    <td className="p-4 dark:text-gray-200">{item.programName}</td>
+    <td className="hidden md:table-cell p-4 dark:text-gray-200">
+      {item.description}
+    </td>
     <td>
       <div className="flex items-center gap-2">
         {role === "admin" && (
@@ -166,18 +174,18 @@ const renderConditioningRow = (
 ) => (
   <tr
     key={item.id}
-    className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
+    className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
   >
-    <td className="p-4">{item.gamefowlId}</td>
-    <td className="p-4">{item.conProg.programName}</td>
-    <td className="p-4">{item.event.eventName}</td>
-    <td className="p-4">
+    <td className="p-4 dark:text-gray-200">{item.gamefowlId}</td>
+    <td className="p-4 dark:text-gray-200">{item.conProg.programName}</td>
+    <td className="p-4 dark:text-gray-200">{item.event.eventName}</td>
+    <td className="p-4 dark:text-gray-200">
       {item.handler.first_name} {item.handler.last_name}
     </td>
-    <td className="hidden md:table-cell p-4">
+    <td className="hidden md:table-cell p-4 dark:text-gray-200">
       {new Intl.DateTimeFormat("en-US").format(item.startDate)}
     </td>
-    <td className="hidden md:table-cell p-4">
+    <td className="hidden md:table-cell p-4 dark:text-gray-200">
       {new Intl.DateTimeFormat("en-US").format(item.endDate)}
     </td>
     <td>
@@ -296,10 +304,10 @@ const EventListPage = async ({
   }
 
   return (
-    <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">
+        <h1 className="hidden md:block text-lg font-semibold dark:text-gray-200">
           Events & Conditioning
         </h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
@@ -327,7 +335,7 @@ const EventListPage = async ({
       </div>
 
       {/* TABS */}
-      <div className="flex border-b border-gray-200 mt-4">
+      <div className="flex items-center gap-4 border-b border-gray-200 dark:border-gray-700 mt-4">
         <Link
           href={{
             pathname: "/list/events",
@@ -335,8 +343,8 @@ const EventListPage = async ({
           }}
           className={`px-4 py-2 font-medium text-sm ${
             tab === "events"
-              ? "border-b-2 border-ggPurple text-ggPurple"
-              : "text-gray-500 hover:text-gray-700"
+              ? "border-b-2 border-ggPurple text-ggPurple dark:text-ggPurple"
+              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
           }`}
         >
           Events
@@ -348,8 +356,8 @@ const EventListPage = async ({
           }}
           className={`px-4 py-2 font-medium text-sm ${
             tab === "conditioningPrograms"
-              ? "border-b-2 border-ggPurple text-ggPurple"
-              : "text-gray-500 hover:text-gray-700"
+              ? "border-b-2 border-ggPurple text-ggPurple dark:text-ggPurple"
+              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
           }`}
         >
           Conditioning Programs
@@ -361,8 +369,8 @@ const EventListPage = async ({
           }}
           className={`px-4 py-2 font-medium text-sm ${
             tab === "conditioning"
-              ? "border-b-2 border-ggPurple text-ggPurple"
-              : "text-gray-500 hover:text-gray-700"
+              ? "border-b-2 border-ggPurple text-ggPurple dark:text-ggPurple"
+              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
           }`}
         >
           Conditioning

@@ -25,9 +25,19 @@ const ConditioningProgramForm = dynamic(
 const ConditioningForm = dynamic(() => import("./forms/ConditioningForm"), {
   loading: () => <h1>Loading...</h1>,
 });
+const SparringForm = dynamic(() => import("./forms/SparringForm"), {
+  loading: () => <h1>Loading...</h1>,
+});
+const BreedingForm = dynamic(() => import("./forms/BreedingForm"), {
+  loading: () => <h1>Loading...</h1>,
+});
 
 const forms: {
-  [key: string]: (type: "create" | "update", data?: any) => JSX.Element;
+  [key: string]: (
+    type: "create" | "update",
+    data?: any,
+    onClose?: () => void
+  ) => JSX.Element;
 } = {
   teacher: (type, data) => <TeacherForm type={type} data={data} />,
   student: (type, data) => <StudentForm type={type} data={data} />,
@@ -37,6 +47,15 @@ const forms: {
     <ConditioningProgramForm type={type} data={data} />
   ),
   conditioning: (type, data) => <ConditioningForm type={type} data={data} />,
+  sparring: (type, data, onClose) => (
+    <SparringForm
+      type={type}
+      data={data}
+      gamefowls={data?.gamefowls || []}
+      onClose={onClose}
+    />
+  ),
+  breeding: (type, data) => <BreedingForm type={type} data={data} />,
 };
 
 const FormModal = ({
@@ -63,7 +82,9 @@ const FormModal = ({
     | "staff"
     | "gamefowl"
     | "conditioningProgram"
-    | "conditioning";
+    | "conditioning"
+    | "sparring"
+    | "breeding";
   type: "create" | "update" | "delete";
   data?: any;
   id?: number | String;
@@ -78,40 +99,112 @@ const FormModal = ({
 
   const [open, setOpen] = useState(false);
 
+  const handleClose = () => {
+    setOpen(false);
+  };
+
   const Form = () => {
-    return type === "delete" && id ? (
-      <form action="" className="p-4 flex flex-col gap-4">
-        <span className="text-center font-medium">
-          All data will be lost. Are you sure you want to delete this {table}?
-        </span>
-        <button className="bg-red-700 text-white py-2 px-4 rounded-md border-none w-max self-center">
-          Delete
-        </button>
-      </form>
-    ) : type === "create" || type === "update" ? (
-      forms[table](type, data)
-    ) : (
-      "Form not found!"
+    if (type === "delete") {
+      return (
+        <div className="p-6">
+          <h2 className="text-xl font-semibold mb-4 dark:text-white">
+            Are you sure you want to delete this {table}?
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">
+            This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-4">
+            <button
+              onClick={handleClose}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                // Handle delete
+                handleClose();
+              }}
+              className="px-4 py-2 bg-red-500 text-white rounded-md"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      forms[table]?.(type, data, handleClose) || (
+        <div className="p-6">
+          <h2 className="text-xl font-semibold mb-4 dark:text-white">
+            {type === "create" ? "Create" : "Update"} {table}
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">
+            {type === "create"
+              ? `Add a new ${table} to the system.`
+              : `Update the details of this ${table}.`}
+          </p>
+        </div>
+      )
     );
   };
+
   return (
     <>
       <button
-        className={`${size} flex items-center justify-center rounded-full ${bgColor}`}
         onClick={() => setOpen(true)}
+        className={`${size} ${bgColor} rounded-full flex items-center justify-center`}
       >
-        <Image src={`/${type}.png`} alt="" width={16} height={16} />
+        <Image
+          src={
+            type === "create"
+              ? "/create.png"
+              : type === "update"
+              ? "/update.png"
+              : "/delete.png"
+          }
+          alt=""
+          width={16}
+          height={16}
+        />
       </button>
+
       {open && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center">
-          <div className="bg-white p-4 rounded-md relative w-[90%] md:w-[70%] lg:w-[60%] xl:w-[50%] 2xl:w-[40%] max-h-[90vh] overflow-y-auto">
-            <Form />
-            <div
-              className="absolute top-4 right-4 cursor-pointer"
-              onClick={() => setOpen(false)}
-            >
-              <Image src="/close.png" alt="" width={14} height={14} />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-4 border-b dark:border-gray-700">
+              {table !== "breeding" && (
+                <h2 className="text-xl font-semibold dark:text-white">
+                  {type === "create"
+                    ? "Create"
+                    : type === "update"
+                    ? "Update"
+                    : "Delete"}{" "}
+                  {table}
+                </h2>
+              )}
+              <button
+                onClick={handleClose}
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
             </div>
+            <Form />
           </div>
         </div>
       )}

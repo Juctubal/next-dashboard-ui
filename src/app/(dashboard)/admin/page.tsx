@@ -1,9 +1,10 @@
 import Announcements from "@/components/Announcements";
-import AttendanceChart from "@/components/AttendanceChart";
+import GamefowlAgeChart from "@/components/AttendanceChart";
 import CountChart from "@/components/CountChart";
 import EventCalendar from "@/components/EventCalendar";
 import FinanceChart from "@/components/FinanceChart";
 import UserCard from "@/components/UserCard";
+import Link from "next/link";
 
 const AdminPage = () => {
   return (
@@ -15,28 +16,39 @@ const AdminPage = () => {
           <UserCard type="gamefowl" />
           <UserCard type="handler" />
           <UserCard type="breeder" />
-          <UserCard type="Medical" />
+          <UserCard type="events" />
         </div>
         {/* MIDDLE CHARTS */}
         <div className="flex gap-4 flex-col lg:flex-row">
           {/* COUNT CHART */}
-          <div className="w-full lg:w-1/3 h-[450px]">
+          <div className="w-full lg:w-1/3 h-[450px] bg-white dark:bg-gray-800 rounded-lg shadow-sm">
             <CountChart />
           </div>
-          {/* ATTENDANCE CHART */}
-          <div className="w-full lg:w-2/3 h-[450px]">
-            <AttendanceChart />
+          {/* GAMEFOWL AGE CHART */}
+          <div className="w-full lg:w-2/3 h-[450px] bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+            <GamefowlAgeChart />
           </div>
         </div>
-        {/* BOTTOM CHART */}
-        <div className="w-full h-[500px]">
-          <FinanceChart />
+        {/* UPDATE AGE BUTTON */}
+        <div className="w-full bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+          <Link
+            href="/admin/update-age"
+            className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white py-2 px-6 rounded-md border-none transition-colors inline-block"
+          >
+            Update Gamefowl Ages
+          </Link>
         </div>
+        {/* BOTTOM CHART */}
+        {/* <div className="w-full h-[500px] bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+          <FinanceChart />
+        </div> */}
       </div>
       {/* RIGHT */}
       <div className="w-full lg:w-1/3 flex flex-col gap-8">
-        <EventCalendar />
-        <Announcements />
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+          <EventCalendar />
+        </div>
+        {/* <Announcements /> */}
       </div>
     </div>
   );

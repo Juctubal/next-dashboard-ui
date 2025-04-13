@@ -5,9 +5,18 @@ import TableSearch from "@/components/TableSearch";
 import { lessonsData, role } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
-import { Breeding, Prisma } from "@prisma/client";
+import { Breeding, Gamefowl, Prisma } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
+import BreedingForm from "@/components/forms/BreedingForm";
+import BreedingTableRow from "./BreedingTableRow";
+
+type BreedingWithRelations = Breeding & {
+  sire: Gamefowl;
+  dam: Gamefowl;
+  startDate: Date;
+  endDate: Date | null;
+};
 
 const columns = [
   {
@@ -15,13 +24,23 @@ const columns = [
     accessor: "breedingId",
   },
   {
-    header: "Sire ID",
+    header: "Sire",
     accessor: "sireId",
   },
   {
-    header: "Dam Id",
+    header: "Dam",
     accessor: "damId",
     className: "hidden md:table-cell",
+  },
+  {
+    header: "Start Date",
+    accessor: "startDate",
+    className: "hidden lg:table-cell",
+  },
+  {
+    header: "End Date",
+    accessor: "endDate",
+    className: "hidden lg:table-cell",
   },
   {
     header: "Breeding Description",
@@ -39,48 +58,25 @@ const columns = [
   },
 ];
 
-const renderRow = (item: Breeding) => (
-  <tr
-    key={item.id}
-    className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
-  >
-    <td className="flex items-center gap-4 p-4">{item.id}</td>
-    <td>{item.sireId}</td>
-    <td className="hidden md:table-cell">{item.damId}</td>
-    <td className="hidden md:table-cell">{item.notes}</td>
-    <td className="hidden md:table-cell">{item.status}</td>
-    <td>
-      <div className="flex items-center gap-2">
-        {/* <Link href={`/list/gamefowls/${item.id}`}>
-          <button className="w-7 h-7 flex items-center justify-center rounded-full bg-ggSky">
-            <Image src="/edit.png" alt="" width={16} height={16} />
-          </button>
-        </Link> */}
-        {role === "admin" && (
-          // <button className="w-7 h-7 flex items-center justify-center rounded-full bg-ggPurple">
-          //   <Image src="/delete.png" alt="" width={16} height={16} />
-          // </button>
-          <>
-            <FormModal table="class" type="update" data={item} />
-            <FormModal table="class" type="delete" id={item.id} />
-          </>
-        )}
-      </div>
-    </td>
-  </tr>
-);
+const renderRow = (item: BreedingWithRelations) => {
+  return <BreedingTableRow item={item} />;
+};
+
 const BreedingListPage = async ({
   searchParams,
 }: {
   searchParams: { [key: string]: string | undefined };
 }) => {
-  const { page, ...queryParams } = searchParams;
+  const { page, showArchived, ...queryParams } = searchParams;
 
   const p = page ? parseInt(page) : 1;
+  const isArchived = showArchived === "true";
 
   // URL PARAMS CONDITION
 
-  const query: Prisma.BreedingWhereInput = {};
+  const query: Prisma.BreedingWhereInput = {
+    isArchived: isArchived,
+  };
 
   if (queryParams.search) {
     const search = queryParams.search;
@@ -109,11 +105,27 @@ const BreedingListPage = async ({
   ]);
 
   return (
-    <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">All Breeding</h1>
+        <h1 className="hidden md:block text-lg font-semibold dark:text-gray-200">
+          {isArchived ? "Archived Breeding" : "All Breeding"}
+        </h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+          {role === "admin" && (
+            <Link
+              href={`/list/breeding?showArchived=${!isArchived}${
+                queryParams.search ? `&search=${queryParams.search}` : ""
+              }`}
+              className={`px-3 py-1 text-sm rounded-md text-center ${
+                isArchived
+                  ? "bg-ggPurple text-white"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600"
+              }`}
+            >
+              {isArchived ? "Active" : "Archive"}
+            </Link>
+          )}
           <TableSearch />
           <div className="flex items-center gap-4 self-end">
             <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
@@ -122,15 +134,11 @@ const BreedingListPage = async ({
             <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
               <Image src="/sort.png" alt="" width={14} height={14} />
             </button>
-            {role === "admin" && (
-              <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
-                <Image src="/plus.png" alt="" width={14} height={14} />
-              </button>
-            )}
+            <FormModal table="breeding" type="create" />
           </div>
         </div>
       </div>
-      {/* lIST */}
+      {/* LIST */}
       <Table columns={columns} renderRow={renderRow} data={data} />
       {/* PAGINATION */}
       <Pagination page={p} count={count} />

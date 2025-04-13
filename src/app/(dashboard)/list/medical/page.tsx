@@ -45,16 +45,20 @@ const commonColumns = [
 const renderVaccineRow = (item: Vaccine) => (
   <tr
     key={`vaccine-${item.id}`}
-    className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
+    className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
   >
-    <td className="flex items-center gap-4 p-4">{item.id}</td>
-    <td className="hidden md:table-cell">{item.gamefowlId}</td>
-    <td className="hidden md:table-cell">{item.name}</td>
-    <td className="hidden md:table-cell">{item.notes}</td>
-    <td className="hidden md:table-cell">
+    <td className="p-4 dark:text-gray-200">{item.id}</td>
+    <td className="hidden md:table-cell p-4 dark:text-gray-200">
+      {item.gamefowlId}
+    </td>
+    <td className="hidden md:table-cell p-4 dark:text-gray-200">{item.name}</td>
+    <td className="hidden md:table-cell p-4 dark:text-gray-200">
+      {item.notes}
+    </td>
+    <td className="hidden md:table-cell p-4 dark:text-gray-200">
       {new Intl.DateTimeFormat("en-US").format(item.vaccinationDate)}
     </td>
-    <td>
+    <td className="p-4">
       <div className="flex items-center gap-2">
         {role === "admin" && (
           <>
@@ -71,16 +75,20 @@ const renderVaccineRow = (item: Vaccine) => (
 const renderDewormingRow = (item: Deworming) => (
   <tr
     key={`deworming-${item.id}`}
-    className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
+    className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
   >
-    <td className="flex items-center gap-4 p-4">{item.id}</td>
-    <td className="hidden md:table-cell">{item.gamefowlId}</td>
-    <td className="hidden md:table-cell">{item.name}</td>
-    <td className="hidden md:table-cell">{item.notes}</td>
-    <td className="hidden md:table-cell">
+    <td className="p-4 dark:text-gray-200">{item.id}</td>
+    <td className="hidden md:table-cell p-4 dark:text-gray-200">
+      {item.gamefowlId}
+    </td>
+    <td className="hidden md:table-cell p-4 dark:text-gray-200">{item.name}</td>
+    <td className="hidden md:table-cell p-4 dark:text-gray-200">
+      {item.notes}
+    </td>
+    <td className="hidden md:table-cell p-4 dark:text-gray-200">
       {new Intl.DateTimeFormat("en-US").format(item.dewormDate)}
     </td>
-    <td>
+    <td className="p-4">
       <div className="flex items-center gap-2">
         {role === "admin" && (
           <>
@@ -151,10 +159,10 @@ const MedicalRecordsPage = async ({
   const renderRow = type === "vaccine" ? renderVaccineRow : renderDewormingRow;
 
   return (
-    <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">
+        <h1 className="hidden md:block text-lg font-semibold dark:text-gray-200">
           Medical Records
         </h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
@@ -177,15 +185,15 @@ const MedicalRecordsPage = async ({
       </div>
 
       {/* TABS */}
-      <div className="flex border-b border-gray-200 mt-4">
+      <div className="flex border-b border-gray-200 dark:border-gray-700 mt-4">
         <Link
           href={`/list/medical?type=vaccine${
             queryParams.search ? `&search=${queryParams.search}` : ""
           }`}
           className={`py-2 px-4 ${
             type === "vaccine"
-              ? "border-b-2 border-ggPurple text-ggPurple font-medium"
-              : "text-gray-500"
+              ? "border-b-2 border-ggPurple text-ggPurple dark:text-ggPurple font-medium"
+              : "text-gray-500 dark:text-gray-400"
           }`}
         >
           Vaccines
@@ -196,8 +204,8 @@ const MedicalRecordsPage = async ({
           }`}
           className={`py-2 px-4 ${
             type === "deworming"
-              ? "border-b-2 border-ggPurple text-ggPurple font-medium"
-              : "text-gray-500"
+              ? "border-b-2 border-ggPurple text-ggPurple dark:text-ggPurple font-medium"
+              : "text-gray-500 dark:text-gray-400"
           }`}
         >
           Deworming

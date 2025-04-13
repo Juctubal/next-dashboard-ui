@@ -11,18 +11,20 @@ export default function RootLayout({
   return (
     <div className="h-screen flex">
       {/* LEFT */}
-      <div className="w-[14%] md:w-[8%] lg:w-[20%] xl:w-[18%] p-4">
+      <div className="w-[14%] md:w-[8%] lg:w-[20%] xl:w-[18%] p-4 dark:bg-gray-900">
         <Link
           href="/"
           className="flex items-center justify-center lg:justify-start gap-2"
         >
           <Image src="/logo.ico" alt="logo" width={32} height={32} />
-          <span className="hidden lg:block font-bold">GamefowlGuardian</span>
+          <span className="hidden lg:block font-bold dark:text-white">
+            GamefowlGuardian
+          </span>
         </Link>
         <Menu />
       </div>
       {/* RIGHT */}
-      <div className="w-[86%] md:w-[92%] lg:w-[80%] xl:w-[82%] bg-[#F7F8FA] overflow-scroll flex flex-col">
+      <div className="w-[86%] md:w-[92%] lg:w-[80%] xl:w-[82%] bg-[#F7F8FA] dark:bg-gray-950 overflow-scroll flex flex-col">
         <Navbar />
         {children}
       </div>

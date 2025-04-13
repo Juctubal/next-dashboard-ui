@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Breeding" ADD COLUMN     "isArchived" BOOLEAN NOT NULL DEFAULT false,
+ALTER COLUMN "startDate" DROP NOT NULL,
+ALTER COLUMN "startDate" DROP DEFAULT;

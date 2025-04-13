@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
-const TableSearch = () => {
+const TableSearch = ({ className = "" }: { className?: string }) => {
   const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -25,13 +25,13 @@ const TableSearch = () => {
   return (
     <form
       onSubmit={handleSubmit}
-      className="w-full md:w-auto flex md:flex items-center gap-2 text-xs rounded-full ring-[1.5px] ring-gray-300 px-2"
+      className={`w-full md:w-auto flex md:flex items-center gap-2 text-xs rounded-full ring-[1.5px] ring-gray-300 dark:ring-gray-600 px-2 ${className}`}
     >
       <Image src="/search.png" alt="" width={14} height={14} />
       <input
         type="text"
         placeholder="Search..."
-        className="w-[200px] p-2 bg-transparent outline-none"
+        className="w-[200px] p-2 bg-transparent outline-none dark:text-gray-200 dark:placeholder-gray-400"
       />
     </form>
   );

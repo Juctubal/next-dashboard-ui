@@ -14,36 +14,32 @@ model Admin {
 
 model Vaccine {
   id              Int      @id @default(autoincrement())
-  name            String?
   gamefowlId      Int
   vaccinationDate DateTime
   notes           String
+  name            String?
   gamefowl        Gamefowl @relation(fields: [gamefowlId], references: [id])
 }
 
 model Breeding {
-  id     Int            @id @default(autoincrement())
-  sireId Int
-  damId  Int
-  notes  String
-  status BreedingStatus
-  dam    Gamefowl       @relation("DamBreeding", fields: [damId], references: [id])
-  sire   Gamefowl       @relation("SireBreeding", fields: [sireId], references: [id])
-}
-
-model Elo {
-  id         Int      @id @default(autoincrement())
-  gamefowlId Int      @unique
-  eloRating  Int      @default(1000)
-  gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
+  id         Int            @id @default(autoincrement())
+  sireId     Int
+  damId      Int
+  notes      String
+  status     BreedingStatus
+  startDate  DateTime?
+  endDate    DateTime?
+  isArchived Boolean        @default(false)
+  dam        Gamefowl       @relation("DamBreeding", fields: [damId], references: [id])
+  sire       Gamefowl       @relation("SireBreeding", fields: [sireId], references: [id])
 }
 
 model Deworming {
   id         Int      @id @default(autoincrement())
-  name       String?
   gamefowlId Int
   dewormDate DateTime
   notes      String
+  name       String?
   gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
 }
 
@@ -67,24 +63,25 @@ model Gamefowl {
   id              Int            @id @default(autoincrement())
   name            String
   bloodline       String
+  sex             GamefowlSex
   date_hatched    DateTime?
-  age             gamefowlAge?
   date_sold       DateTime?
-  img             String?
-  isArchived      Boolean        @default(false)
   /// *
-  ///    * Parent ID Relations
+  /// * Parent ID Relations
   sireId          Int?
   damId           Int?
   batchId         Int?
   /// *
-  ///    * End of Parent ID Relations
+  /// * End of Parent ID Relations
   createdAt       DateTime       @default(now())
+  img             String?
+  age             gamefowlAge?
+  isArchived      Boolean        @default(false)
+  eloRating       Int            @default(1000)
   damBreeding     Breeding[]     @relation("DamBreeding")
   sireBreeding    Breeding[]     @relation("SireBreeding")
   conditioning    Conditioning[] @relation("Conditioning")
   deworming       Deworming[]
-  gamefowl        Elo?
   dam             Gamefowl?      @relation("DamRelation", fields: [damId], references: [id])
   offspringDam    Gamefowl[]     @relation("DamRelation")
   sire            Gamefowl?      @relation("SireRelation", fields: [sireId], references: [id])
@@ -152,6 +149,8 @@ model Schedule {
   taskType     TaskType
   taskCategory TaskCategory
   descript     String
+  staffId      String?
+  staffType    UserRole?
   oneTime      OneTimeSched[]       @relation("OneTime")
   recurrent    RecurrentSchedules[]
 }
@@ -168,26 +167,26 @@ model Handler {
   phone        String?
   role         UserRole
   status       UserStatus
-  isArchived   Boolean        @default(false)
   createdAt    DateTime       @default(now())
+  isArchived   Boolean        @default(false)
   conditioning Conditioning[]
   event        Event[]
 }
 
 model Breeder {
   id          String     @id @default(cuid())
-  first_name  String
-  middle_name String?
-  last_name   String
   username    String     @unique
   password    String
+  first_name  String
+  last_name   String
   email       String?    @unique
-  phone       String?
   img         String?
+  phone       String?
   role        UserRole   @default(BREEDER)
   status      UserStatus @default(ACTIVE)
-  isArchived  Boolean    @default(false)
   createdAt   DateTime   @default(now())
+  middle_name String?
+  isArchived  Boolean    @default(false)
 }
 
 model Event {
@@ -213,7 +212,7 @@ model RecurrentSchedules {
 }
 
 /// *
-///  * ENUMS
+/// * ENUMS
 enum UserRole {
   OWNER
   HANDLER
@@ -283,4 +282,11 @@ enum gamefowlAge {
   STAG
   BULLSTAG
   COCK
+  PULLET
+  HEN
+}
+
+enum GamefowlSex {
+  MALE
+  FEMALE
 }

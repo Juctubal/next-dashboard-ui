@@ -80,23 +80,23 @@ const StaffForm = ({
 
   return (
     <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">
+      <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
         {type === "create" ? "Add Staff" : "Update Staff"}
       </h2>
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+        <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded relative">
           {error}
         </div>
       )}
       {success && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
+        <div className="bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded relative">
           {success}
         </div>
       )}
       <div>
         <label
           htmlFor="firstName"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
         >
           First Name
         </label>
@@ -105,14 +105,14 @@ const StaffForm = ({
           id="firstName"
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
           required
         />
       </div>
       <div>
         <label
           htmlFor="lastName"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
         >
           Last Name
         </label>
@@ -121,14 +121,14 @@ const StaffForm = ({
           id="lastName"
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
           required
         />
       </div>
       <div>
         <label
           htmlFor="username"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
         >
           Username
         </label>
@@ -137,14 +137,14 @@ const StaffForm = ({
           id="username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
           required
         />
       </div>
       <div>
         <label
           htmlFor="password"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
         >
           Password
         </label>
@@ -153,17 +153,17 @@ const StaffForm = ({
           id="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
           required
         />
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
           Password must be at least 8 characters long and not commonly used.
         </p>
       </div>
       <div>
         <label
           htmlFor="role"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
         >
           Role
         </label>
@@ -171,7 +171,7 @@ const StaffForm = ({
           id="role"
           value={role}
           onChange={(e) => setRole(e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
           required
         >
           <option value="HANDLER">Handler</option>
@@ -180,7 +180,7 @@ const StaffForm = ({
       </div>
       <button
         type="submit"
-        className="bg-indigo-600 text-white py-2 px-4 rounded-md border-none w-max self-center"
+        className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white py-2 px-4 rounded-md border-none w-max self-center transition-colors"
       >
         {type === "create" ? "Add Staff" : "Update Staff"}
       </button>

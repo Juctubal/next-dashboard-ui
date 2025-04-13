@@ -1,4 +1,11 @@
-import { PrismaClient } from "@prisma/client";
+import {
+  PrismaClient,
+  UserRole,
+  ConditioningStatus,
+  EventType,
+  AgeCategory,
+  EventStatus,
+} from "@prisma/client";
 import { faker } from "@faker-js/faker";
 
 const prisma = new PrismaClient();
@@ -7,43 +14,57 @@ async function main() {
   console.log("Seeding database...");
 
   // Seed Admin
-  const admin = await prisma.admin.create({
-    data: { username: "admin" },
+  await prisma.admin.upsert({
+    where: { username: "admin" },
+    update: {},
+    create: { username: "admin" },
   });
 
   // Seed Handlers
-  const handlers = await prisma.handler.createMany({
-    data: Array.from({ length: 5 }, () => ({
-      id: faker.string.uuid(),
-      username: faker.internet.userName(),
-      password: faker.internet.password(),
-      first_name: faker.person.firstName(),
-      last_name: faker.person.lastName(),
-      email: faker.internet.email(),
-      img: faker.image.avatar(),
-      phone: faker.phone.number(),
-      role: "HANDLER",
-      status: "ACTIVE",
-      createdAt: new Date(),
-    })),
-  });
+  const handlers = await Promise.all(
+    Array.from({ length: 5 }).map(async () => {
+      const username = faker.internet.userName();
+      return prisma.handler.upsert({
+        where: { username },
+        update: {},
+        create: {
+          username,
+          password: faker.internet.password(),
+          first_name: faker.person.firstName(),
+          last_name: faker.person.lastName(),
+          email: faker.internet.email(),
+          img: faker.image.avatar(),
+          phone: faker.phone.number(),
+          role: "HANDLER",
+          status: "ACTIVE",
+          createdAt: new Date(),
+        },
+      });
+    })
+  );
 
   // Seed Breeders
-  const breeders = await prisma.breeder.createMany({
-    data: Array.from({ length: 5 }, () => ({
-      id: faker.string.uuid(),
-      username: faker.internet.userName(),
-      password: faker.internet.password(),
-      first_name: faker.person.firstName(),
-      last_name: faker.person.lastName(),
-      email: faker.internet.email(),
-      img: faker.image.avatar(),
-      phone: faker.phone.number(),
-      role: "BREEDER",
-      status: "ACTIVE",
-      createdAt: new Date(),
-    })),
-  });
+  const breeders = await Promise.all(
+    Array.from({ length: 5 }).map(async () => {
+      const username = faker.internet.userName();
+      return prisma.breeder.upsert({
+        where: { username },
+        update: {},
+        create: {
+          username,
+          password: faker.internet.password(),
+          first_name: faker.person.firstName(),
+          last_name: faker.person.lastName(),
+          email: faker.internet.email(),
+          img: faker.image.avatar(),
+          phone: faker.phone.number(),
+          role: "BREEDER",
+          status: "ACTIVE",
+          createdAt: new Date(),
+        },
+      });
+    })
+  );
 
   // Seed Gamefowls
   const gamefowls = await Promise.all(
@@ -126,6 +147,160 @@ async function main() {
       dateHatched: faker.date.recent(),
     },
   });
+
+  // Seed ConditioningPrograms
+  const conditioningPrograms = await Promise.all(
+    Array.from({ length: 5 }).map(async () => {
+      return prisma.conditioningProgram.create({
+        data: {
+          programName: faker.helpers.arrayElement([
+            "Pre-Derby Conditioning",
+            "Post-Derby Recovery",
+            "Weight Management",
+            "Strength Building",
+            "Endurance Training",
+            "Speed Enhancement",
+            "Combat Readiness",
+            "Peak Performance",
+          ]),
+          description: faker.lorem.paragraph(),
+        },
+      });
+    })
+  );
+
+  // Seed Events
+  const events = await Promise.all(
+    Array.from({ length: 3 }).map(async () => {
+      return prisma.event.create({
+        data: {
+          eventName: faker.helpers.arrayElement([
+            "Summer Derby 2023",
+            "Winter Championship 2023",
+            "Spring Invitational 2024",
+            "Fall Classic 2023",
+            "Regional Championship 2024",
+          ]),
+          eventType: faker.helpers.arrayElement([
+            "THREE_COCK_DERBY",
+            "FOUR_COCK_DERBY",
+            "FIVE_COCK_DERBY",
+            "SOLO",
+          ]),
+          ageCategory: faker.helpers.arrayElement([
+            "STAG",
+            "BULLSTAG",
+            "COCK",
+            "ANY",
+          ]),
+          eventDate: faker.date.future(),
+          description: faker.lorem.paragraph(),
+          status: faker.helpers.arrayElement([
+            "PLANNED",
+            "ONGOING",
+            "FINISHED",
+          ]),
+        },
+      });
+    })
+  );
+
+  // Seed Conditioning
+  if (gamefowls.length >= 2 && handlers.length > 0 && events.length > 0) {
+    await Promise.all(
+      Array.from({ length: 5 }).map(async () => {
+        const randomGamefowl =
+          gamefowls[Math.floor(Math.random() * gamefowls.length)];
+        const randomHandler =
+          handlers[Math.floor(Math.random() * handlers.length)];
+        const randomEvent = events[Math.floor(Math.random() * events.length)];
+        const randomProgram =
+          conditioningPrograms[
+            Math.floor(Math.random() * conditioningPrograms.length)
+          ];
+
+        const startDate = faker.date.past();
+        const endDate = new Date(startDate);
+        endDate.setDate(
+          endDate.getDate() + faker.number.int({ min: 7, max: 30 })
+        );
+
+        return prisma.conditioning.create({
+          data: {
+            eventId: randomEvent.id,
+            conProgId: randomProgram.id,
+            gamefowlId: randomGamefowl.id,
+            handlerId: randomHandler.id,
+            startDate: startDate,
+            endDate: endDate,
+            status: faker.helpers.arrayElement([
+              "PLANNED",
+              "ONGOING",
+              "COMPLETED",
+            ]),
+          },
+        });
+      })
+    );
+  }
+
+  // Seed Schedules
+  for (const staff of [...handlers, ...breeders]) {
+    // Create 2-3 schedules for each staff member
+    const numSchedules = faker.number.int({ min: 2, max: 3 });
+
+    for (let i = 0; i < numSchedules; i++) {
+      const schedule = await prisma.schedule.create({
+        data: {
+          taskName: faker.helpers.arrayElement([
+            "Feeding",
+            "Vaccination",
+            "Health Check",
+            "Training",
+          ]),
+          taskType: faker.helpers.arrayElement(["RECURRING", "ONETIME"]),
+          taskCategory: faker.helpers.arrayElement([
+            "FEEDING",
+            "VACCINATION",
+            "DEWORMING",
+          ]),
+          descript: faker.lorem.sentence(),
+          staffId: staff.id,
+          staffType: staff.role,
+        },
+      });
+
+      // Add 2-3 one-time schedules
+      const numOneTime = faker.number.int({ min: 2, max: 3 });
+      for (let j = 0; j < numOneTime; j++) {
+        await prisma.oneTimeSched.create({
+          data: {
+            schedId: schedule.id,
+            taskName: faker.lorem.words(2),
+            taskDate: faker.date.future(),
+            time_of_day: faker.date.future(),
+          },
+        });
+      }
+
+      // Add 1-2 recurrent schedules
+      const numRecurrent = faker.number.int({ min: 1, max: 2 });
+      for (let j = 0; j < numRecurrent; j++) {
+        await prisma.recurrentSchedules.create({
+          data: {
+            schedId: schedule.id,
+            reccurencePattern: faker.helpers.arrayElement([
+              "DAILY",
+              "WEEKLY",
+              "MONTHLY",
+            ]),
+            taskDate: faker.date.future(),
+            time_of_day: faker.date.future(),
+          },
+        });
+      }
+    }
+  }
 
   console.log("Seeding complete!");
 }

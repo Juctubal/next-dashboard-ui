@@ -15,7 +15,13 @@ interface CalendarEvent {
 
 // Define the props for the BigCalendar component
 interface BigCalendarProps {
-  events: CalendarEvent[];
+  events: {
+    id: string;
+    title: string;
+    start: Date;
+    end: Date;
+    type?: string;
+  }[];
 }
 
 const locales = {
@@ -31,38 +37,32 @@ const localizer = dateFnsLocalizer({
 });
 
 // Custom event styling based on event type
-const eventStyleGetter = (event: CalendarEvent) => {
-  let style: React.CSSProperties = {
+const eventStyleGetter = (event: any) => {
+  let style: any = {
+    backgroundColor: "#C3EBFA",
     borderRadius: "4px",
     opacity: 0.8,
-    color: "#fff",
+    color: "#000",
     border: "0",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "2px 4px",
+    display: "block",
   };
 
-  switch (event.type) {
-    case "conditioning":
-      style.backgroundColor = "#3b82f6"; // blue
-      break;
-    case "sparring":
-      style.backgroundColor = "#ef4444"; // red
-      break;
-    case "medical":
-      style.backgroundColor = "#10b981"; // green
-      break;
-    default:
-      style.backgroundColor = "#6b7280"; // gray
+  if (event.type === "conditioning") {
+    style.backgroundColor = "#C3EBFA";
+  } else if (event.type === "sparring") {
+    style.backgroundColor = "#FAE27C";
+  } else if (event.type === "medical") {
+    style.backgroundColor = "#F2F1FF";
   }
 
-  return { style };
+  return {
+    style,
+  };
 };
 
 const BigCalendar = ({ events }: BigCalendarProps) => {
   return (
-    <div className="h-[700px] bg-white rounded-lg shadow-sm p-4">
+    <div className="h-[700px] bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
       <Calendar
         localizer={localizer}
         events={events}
@@ -75,7 +75,7 @@ const BigCalendar = ({ events }: BigCalendarProps) => {
         tooltipAccessor={(event) => `${event.title} (${event.type})`}
         popup
         selectable
-        className="rbc-calendar"
+        className="rbc-calendar dark:text-gray-200"
       />
     </div>
   );

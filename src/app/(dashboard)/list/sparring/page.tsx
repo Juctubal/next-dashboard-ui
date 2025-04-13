@@ -1,21 +1,23 @@
 import { prisma } from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
-import { Elo, Gamefowl, Prisma, Sparring } from "@prisma/client";
+import { Gamefowl, Prisma, Sparring } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
 import TableSearch from "@/components/TableSearch";
 import Pagination from "@/components/Pagination";
+import GamefowlEloList from "@/components/GamefowlEloList";
+import NewBattleButton from "@/components/NewBattleButton";
+import SparringListRow from "@/components/SparringListRow";
 
-// Define a type for Gamefowl with Elo
-type GamefowlWithElo = Gamefowl & {
-  gamefowl: Elo | null;
-};
+// Define a type for Gamefowl (no longer need Elo)
+// Using the Gamefowl type directly from Prisma
+type GamefowlType = Gamefowl;
 
 type SparringWithGamefowls = Sparring & {
-  gamefowl1: GamefowlWithElo;
-  gamefowl2: GamefowlWithElo;
-  winner: GamefowlWithElo;
-  loser: GamefowlWithElo;
+  gamefowl1: GamefowlType;
+  gamefowl2: GamefowlType;
+  winner: GamefowlType;
+  loser: GamefowlType;
 };
 
 const columns = [
@@ -36,70 +38,11 @@ const columns = [
     accessor: "notes",
     className: "hidden md:table-cell",
   },
+  {
+    header: "Actions",
+    accessor: "actions",
+  },
 ];
-
-const renderRow = (item: SparringWithGamefowls) => (
-  <tr
-    key={item.id}
-    className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
-  >
-    <td className="p-4">
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1">
-          <Image
-            src={item.gamefowl1.img || "/noAvatar.png"}
-            alt={item.gamefowl1.name}
-            width={30}
-            height={30}
-            className="rounded-full object-cover"
-          />
-          <div className="flex flex-col">
-            <span className="font-medium">{item.gamefowl1.name}</span>
-            <span className="text-xs text-gray-500">
-              ({item.gamefowl1.gamefowl?.eloRating})
-            </span>
-            <span className="text-xs text-gray-400">
-              ID: {item.gamefowl1.id}
-            </span>
-          </div>
-        </div>
-        <span className="text-gray-500">vs</span>
-        <div className="flex items-center gap-1">
-          <Image
-            src={item.gamefowl2.img || "/noAvatar.png"}
-            alt={item.gamefowl2.name}
-            width={30}
-            height={30}
-            className="rounded-full object-cover"
-          />
-          <div className="flex flex-col">
-            <span className="font-medium">{item.gamefowl2.name}</span>
-            <span className="text-xs text-gray-500">
-              ({item.gamefowl2.gamefowl?.eloRating})
-            </span>
-            <span className="text-xs text-gray-400">
-              ID: {item.gamefowl2.id}
-            </span>
-          </div>
-        </div>
-      </div>
-    </td>
-    <td className="p-4">
-      <div className="flex flex-col">
-        <span className="font-semibold text-green-600">
-          {item.winner.name} won
-        </span>
-        <span className="text-xs text-gray-500">
-          +{item.winner_elo_change} / -{item.loser_elo_change} ELO
-        </span>
-      </div>
-    </td>
-    <td className="p-4">{new Date(item.sparringDate).toLocaleDateString()}</td>
-    <td className="hidden md:table-cell p-4">
-      <p className="text-gray-600 line-clamp-2">{item.notes}</p>
-    </td>
-  </tr>
-);
 
 const SparringListPage = async ({
   searchParams,
@@ -179,30 +122,14 @@ const SparringListPage = async ({
     ];
   }
 
-  const [data, count] = await prisma.$transaction([
+  const [data, count, gamefowls] = await prisma.$transaction([
     prisma.sparring.findMany({
       where: query,
       include: {
-        gamefowl1: {
-          include: {
-            gamefowl: true,
-          },
-        },
-        gamefowl2: {
-          include: {
-            gamefowl: true,
-          },
-        },
-        winner: {
-          include: {
-            gamefowl: true,
-          },
-        },
-        loser: {
-          include: {
-            gamefowl: true,
-          },
-        },
+        gamefowl1: true,
+        gamefowl2: true,
+        winner: true,
+        loser: true,
       },
       orderBy: {
         sparringDate: "desc",
@@ -211,22 +138,33 @@ const SparringListPage = async ({
       skip: ITEM_PER_PAGE * (p - 1),
     }),
     prisma.sparring.count({ where: query }),
+    prisma.gamefowl.findMany({
+      where: {
+        isArchived: false,
+        sex: "MALE",
+      },
+      orderBy: {
+        eloRating: "desc",
+      },
+    }),
   ]);
 
   return (
-    <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">
+        <h1 className="hidden md:block text-lg font-semibold dark:text-gray-200">
           Sparring History
         </h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-          <TableSearch />
+          <TableSearch className="mb-4" />
           <div className="flex items-center gap-4 self-end">
-            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
+            <NewBattleButton gamefowls={gamefowls} />
+            <GamefowlEloList gamefowls={gamefowls} />
+            <button className="w-7 h-7 flex items-center justify-center rounded-full bg-ggYellow mb-4">
               <Image src="/filter.png" alt="" width={14} height={14} />
             </button>
-            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
+            <button className="w-7 h-7 flex items-center justify-center rounded-full bg-ggYellow mb-4">
               <Image src="/sort.png" alt="" width={14} height={14} />
             </button>
           </div>
@@ -236,18 +174,24 @@ const SparringListPage = async ({
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="bg-gray-100 text-left">
+            <tr className="bg-gray-100 dark:bg-gray-700 text-left">
               {columns.map((column) => (
                 <th
                   key={column.accessor}
-                  className={`p-4 font-semibold ${column.className || ""}`}
+                  className={`p-4 font-semibold dark:text-gray-200 ${
+                    column.className || ""
+                  }`}
                 >
                   {column.header}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody>{data.map((item) => renderRow(item))}</tbody>
+          <tbody>
+            {data.map((item) => (
+              <SparringListRow key={item.id} item={item} />
+            ))}
+          </tbody>
         </table>
       </div>
       {/* PAGINATION */}

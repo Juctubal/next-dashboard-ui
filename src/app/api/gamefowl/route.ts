@@ -4,7 +4,8 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, bloodline, date_hatched, age, sireId, damId, batchId } = body;
+    const { name, bloodline, date_hatched, age, sireId, damId, batchId, sex } =
+      body;
 
     const gamefowl = await prisma.gamefowl.create({
       data: {
@@ -12,6 +13,7 @@ export async function POST(request: Request) {
         bloodline,
         date_hatched: date_hatched ? new Date(date_hatched) : null,
         age,
+        sex,
         sireId: sireId ? parseInt(sireId) : null,
         damId: damId ? parseInt(damId) : null,
         batchId: batchId ? parseInt(batchId) : null,
@@ -31,8 +33,17 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, name, bloodline, date_hatched, age, sireId, damId, batchId } =
-      body;
+    const {
+      id,
+      name,
+      bloodline,
+      date_hatched,
+      age,
+      sireId,
+      damId,
+      batchId,
+      sex,
+    } = body;
 
     const gamefowl = await prisma.gamefowl.update({
       where: { id: parseInt(id) },
@@ -41,6 +52,7 @@ export async function PUT(request: Request) {
         bloodline,
         date_hatched: date_hatched ? new Date(date_hatched) : null,
         age,
+        sex,
         sireId: sireId ? parseInt(sireId) : null,
         damId: damId ? parseInt(damId) : null,
         batchId: batchId ? parseInt(batchId) : null,

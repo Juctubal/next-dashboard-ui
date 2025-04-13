@@ -19,7 +19,7 @@ const menuItems = [
         visible: ["admin"],
       },
       {
-        icon: "/student.png",
+        icon: "/gfowl.png",
         label: "Gamefowl Records",
         href: "/list/gamefowls",
         visible: ["admin", "handler", "breeder"],
@@ -37,7 +37,7 @@ const menuItems = [
         visible: ["admin", "breeder"],
       },
       {
-        icon: "/subject.png",
+        icon: "/schedule.png",
         label: "Schedules",
         href: "/list/schedules",
         visible: ["admin"],
@@ -78,12 +78,12 @@ const menuItems = [
       //   href: "/list/attendance",
       //   visible: ["admin", "teacher", "student", "parent"],
       // },
-      {
-        icon: "/message.png",
-        label: "Messages",
-        href: "/list/messages",
-        visible: ["admin", "teacher", "student", "parent"],
-      },
+      // {
+      //   icon: "/message.png",
+      //   label: "Messages",
+      //   href: "/list/messages",
+      //   visible: ["admin", "teacher", "student", "parent"],
+      // },
       // {
       //   icon: "/announcement.png",
       //   label: "Announcements",
@@ -125,7 +125,7 @@ const Menu = async () => {
     <div className="mt-4 text-sm">
       {menuItems.map((i) => (
         <div className="flex flex-col gap-2" key={i.title}>
-          <span className="hidden lg:block text-gray-400 font-light my-4">
+          <span className="hidden lg:block text-gray-400 dark:text-gray-500 font-light my-4">
             {i.title}
           </span>
           {i.items.map((item) => {
@@ -134,7 +134,7 @@ const Menu = async () => {
                 <Link
                   href={item.href}
                   key={item.label}
-                  className="flex items-center justify-center lg:justify-start gap-4 text-gray-500 py-2 md:px-2 rounded-md hover:bg-ggSkyLight"
+                  className="flex items-center justify-center lg:justify-start gap-4 text-gray-500 dark:text-gray-400 py-2 md:px-2 rounded-md hover:bg-ggSkyLight dark:hover:bg-gray-800"
                 >
                   <Image src={item.icon} alt="" width={20} height={20} />
                   <span className="hidden lg:block">{item.label}</span>

@@ -87,3 +87,36 @@ export async function fetchStaffData(searchParams: {
 
   return combinedStaff;
 }
+
+export async function fetchStaffById(id: string) {
+  // Try to find the staff member in the Handler table
+  const handler = await prisma.handler.findUnique({
+    where: { id },
+  });
+
+  // If found in Handler table, return it
+  if (handler) {
+    return {
+      ...handler,
+      role: handler.role || "HANDLER",
+      type: "staff",
+    };
+  }
+
+  // If not found in Handler table, try the Breeder table
+  const breeder = await prisma.breeder.findUnique({
+    where: { id },
+  });
+
+  // If found in Breeder table, return it
+  if (breeder) {
+    return {
+      ...breeder,
+      role: breeder.role || "BREEDER",
+      type: "staff",
+    };
+  }
+
+  // If not found in either table, return null
+  return null;
+}

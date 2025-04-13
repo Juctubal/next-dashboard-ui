@@ -17,35 +17,42 @@ const columns = [
   {
     header: "Info",
     accessor: "info",
+    className: "w-1/3",
   },
   {
     header: "Gamefowl ID",
     accessor: "gamefowId",
-    className: "hidden md:table-cell",
+    className: "hidden md:table-cell w-1/12",
   },
   {
     header: "Sire ID",
     accessor: "sireId",
-    className: "hidden md:table-cell",
+    className: "hidden md:table-cell w-1/12",
   },
   {
     header: "Dam ID",
     accessor: "damId",
-    className: "hidden lg:table-cell",
+    className: "hidden lg:table-cell w-1/12",
   },
   {
     header: "Batch ID",
     accessor: "batchId",
-    className: "hidden lg:table-cell",
+    className: "hidden lg:table-cell w-1/12",
   },
   {
     header: "Age Classification",
     accessor: "age",
-    className: "hidden lg:table-cell",
+    className: "hidden lg:table-cell w-1/12",
+  },
+  {
+    header: "Sex",
+    accessor: "sex",
+    className: "hidden lg:table-cell w-1/12",
   },
   {
     header: "Actions",
     accessor: "action",
+    className: "w-1/12",
   },
 ];
 
@@ -56,7 +63,7 @@ const renderRow = (
 ) => (
   <tr
     key={item.id}
-    className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-ggPurpleLight"
+    className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
   >
     <td className="flex items-center gap-4 p-4">
       <Image
@@ -67,18 +74,31 @@ const renderRow = (
         className="md:hidden xl:block w-10 h-10 rounded-full object-cover"
       />
       <div className="flex flex-col">
-        <h3 className="font-semibold">{item.name}</h3>
-        <p className="text-xs text-gray-500">{item.bloodline}</p>
+        <h3 className="font-semibold dark:text-gray-200">{item.name}</h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          {item.bloodline}
+        </p>
       </div>
     </td>
-    <td className="hidden md:table-cell">{item.id}</td>
-    <td className="hidden md:table-cell">{item.sireId}</td>
-    <td className="hidden md:table-cell">{item.damId}</td>
-    <td className="hidden md:table-cell">{item.batchId}</td>
-    <td className="hidden md:table-cell">
-      {calculateGamefowlAge(item.date_hatched)}
+    <td className="hidden md:table-cell py-3 px-4 dark:text-gray-200">
+      {item.id}
     </td>
-    <td>
+    <td className="hidden md:table-cell py-3 px-4 dark:text-gray-200">
+      {item.sireId}
+    </td>
+    <td className="hidden md:table-cell py-3 px-4 dark:text-gray-200">
+      {item.damId}
+    </td>
+    <td className="hidden md:table-cell py-3 px-4 dark:text-gray-200">
+      {item.batchId}
+    </td>
+    <td className="hidden md:table-cell py-3 px-4 dark:text-gray-200">
+      {item.age}
+    </td>
+    <td className="hidden md:table-cell py-3 px-4 dark:text-gray-200">
+      {item.sex}
+    </td>
+    <td className="py-3 px-4">
       <div className="flex items-center gap-2">
         <Link href={`/list/gamefowls/${item.id}`}>
           <button className="w-7 h-7 flex items-center justify-center rounded-full bg-ggSky">
@@ -123,6 +143,7 @@ const GamefowlListClient = ({
     null
   );
   const [selectedAges, setSelectedAges] = useState<string[]>([]);
+  const [selectedSexes, setSelectedSexes] = useState<string[]>([]);
   const router = useRouter();
 
   const toggleDropdown = () => {
@@ -139,7 +160,13 @@ const GamefowlListClient = ({
     }
   };
 
-  const { page = "1", search = "", age, showArchived = "false" } = searchParams;
+  const {
+    page = "1",
+    search = "",
+    age,
+    sex,
+    showArchived = "false",
+  } = searchParams;
   const isArchived = showArchived === "true";
   const p = parseInt(page);
   const take = ITEM_PER_PAGE;
@@ -153,6 +180,15 @@ const GamefowlListClient = ({
       setSelectedAges([]);
     }
   }, [age]);
+
+  // Initialize selected sexes from URL params
+  useEffect(() => {
+    if (sex) {
+      setSelectedSexes(sex.split(","));
+    } else {
+      setSelectedSexes([]);
+    }
+  }, [sex]);
 
   const handleAgeChange = (ageValue: string) => {
     let newSelectedAges: string[];
@@ -179,30 +215,64 @@ const GamefowlListClient = ({
     }
 
     setSelectedAges(newSelectedAges);
+    updateFilters(newSelectedAges, selectedSexes);
+  };
 
-    // Update URL with selected ages
-    const ageParam = newSelectedAges.includes("all")
-      ? ""
-      : newSelectedAges.join(",");
+  const handleSexChange = (sexValue: string) => {
+    let newSelectedSexes: string[];
+
+    if (sexValue === "all") {
+      // If "All" is selected, clear other selections
+      newSelectedSexes = selectedSexes.includes("all") ? [] : ["all"];
+    } else {
+      // Remove 'all' if it was previously selected
+      const filteredSexes = selectedSexes.filter((s) => s !== "all");
+
+      if (selectedSexes.includes(sexValue)) {
+        // Remove the sex if it's already selected
+        newSelectedSexes = filteredSexes.filter((s) => s !== sexValue);
+      } else {
+        // Add the sex if it's not selected
+        newSelectedSexes = [...filteredSexes, sexValue];
+      }
+
+      // If no sexes are selected, select 'all'
+      if (newSelectedSexes.length === 0) {
+        newSelectedSexes = ["all"];
+      }
+    }
+
+    setSelectedSexes(newSelectedSexes);
+    updateFilters(selectedAges, newSelectedSexes);
+  };
+
+  const updateFilters = (ages: string[], sexes: string[]) => {
+    // Update URL with selected filters
+    const ageParam = ages.includes("all") ? "" : ages.join(",");
+    const sexParam = sexes.includes("all") ? "" : sexes.join(",");
     const searchParam = search ? `&search=${search}` : "";
-    const pageParam = page ? `&page=${page}` : "";
+    // Reset to page 1 when filters change
+    const pageParam = "&page=1";
     const archivedParam = showArchived === "true" ? `&showArchived=true` : "";
 
-    router.push(
-      `/list/gamefowls?${
-        ageParam ? `age=${ageParam}` : ""
-      }${searchParam}${pageParam}${archivedParam}`
-    );
+    let url = `/list/gamefowls?`;
+    if (ageParam) url += `age=${ageParam}`;
+    if (sexParam) url += `${ageParam ? "&" : ""}sex=${sexParam}`;
+    url += `${searchParam}${pageParam}${archivedParam}`;
+
+    router.push(url);
   };
 
   const toggleArchived = () => {
     const newShowArchived = showArchived === "true" ? "false" : "true";
     const ageParam = age ? `age=${age}` : "";
     const searchParam = search ? `&search=${search}` : "";
-    const pageParam = page ? `&page=${page}` : "";
+    // Reset to page 1 when toggling archived status
+    const pageParam = "&page=1";
+    const sexParam = sex ? `&sex=${sex}` : "";
 
     router.push(
-      `/list/gamefowls?${ageParam}${searchParam}${pageParam}&showArchived=${newShowArchived}`
+      `/list/gamefowls?${ageParam}${searchParam}${pageParam}${sexParam}&showArchived=${newShowArchived}`
     );
   };
 
@@ -245,13 +315,9 @@ const GamefowlListClient = ({
     }
   };
 
-  // Filter data based on age classification
-  const filteredData = data.filter((gamefowl) => {
-    if (selectedAges.length === 0 || selectedAges.includes("all")) return true;
-
-    const gamefowlAge = calculateGamefowlAge(gamefowl.date_hatched);
-    return selectedAges.includes(gamefowlAge || "");
-  });
+  // Filter data based on age classification and sex
+  // No longer needed as filtering is done on the server
+  const filteredData = data;
 
   // Sort the data based on sortDirection
   const sortedData = [...filteredData].sort((a, b) => {
@@ -267,16 +333,16 @@ const GamefowlListClient = ({
   // The server has already paginated the data
   const displayData = sortedData;
 
-  // Get the total count from the URL params if available
+  // Get the total count from the URL params
   const totalCount = searchParams.count
     ? parseInt(searchParams.count)
     : data.length;
 
   return (
-    <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
       <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold">
+        <h1 className="hidden md:block text-lg font-semibold dark:text-gray-200">
           {isArchived ? "Archived Gamefowls" : "All Gamefowls"}
         </h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
@@ -286,11 +352,11 @@ const GamefowlListClient = ({
               <Link
                 href={`/list/gamefowls?showArchived=${!isArchived}${
                   search ? `&search=${search}` : ""
-                }${age ? `&age=${age}` : ""}`}
+                }${age ? `&age=${age}` : ""}${sex ? `&sex=${sex}` : ""}`}
                 className={`px-3 py-1 text-sm rounded-md text-center ${
                   isArchived
                     ? "bg-ggPurple text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600"
                 }`}
               >
                 {isArchived ? "Active" : "Archive"}
@@ -304,70 +370,144 @@ const GamefowlListClient = ({
                 <Image src="/filter.png" alt="" width={14} height={14} />
               </button>
               {isDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 bg-white shadow-md rounded-md z-10 w-48">
+                <div className="absolute right-0 top-full mt-2 bg-white shadow-md rounded-md z-10 w-64">
                   <div className="p-2">
-                    <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
-                      <input
-                        type="checkbox"
-                        id="all"
-                        checked={
-                          selectedAges.includes("all") ||
-                          selectedAges.length === 0
-                        }
-                        onChange={() => handleAgeChange("all")}
-                        className="mr-2"
-                      />
-                      <label htmlFor="all" className="cursor-pointer">
-                        All
-                      </label>
+                    {/* Age Filter Section */}
+                    <div className="mb-2 pb-2 border-b border-gray-200">
+                      <h3 className="font-medium text-sm mb-2">
+                        Age Classification
+                      </h3>
+                      <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="all-age"
+                          checked={
+                            selectedAges.includes("all") ||
+                            selectedAges.length === 0
+                          }
+                          onChange={() => handleAgeChange("all")}
+                          className="mr-2"
+                        />
+                        <label htmlFor="all-age" className="cursor-pointer">
+                          All Ages
+                        </label>
+                      </div>
+                      <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="chick"
+                          checked={selectedAges.includes("CHICK")}
+                          onChange={() => handleAgeChange("CHICK")}
+                          className="mr-2"
+                        />
+                        <label htmlFor="chick" className="cursor-pointer">
+                          Chicks
+                        </label>
+                      </div>
+                      <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="pullet"
+                          checked={selectedAges.includes("PULLET")}
+                          onChange={() => handleAgeChange("PULLET")}
+                          className="mr-2"
+                        />
+                        <label htmlFor="pullet" className="cursor-pointer">
+                          Pullets
+                        </label>
+                      </div>
+                      <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="hen"
+                          checked={selectedAges.includes("HEN")}
+                          onChange={() => handleAgeChange("HEN")}
+                          className="mr-2"
+                        />
+                        <label htmlFor="hen" className="cursor-pointer">
+                          Hens
+                        </label>
+                      </div>
+                      <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="stag"
+                          checked={selectedAges.includes("STAG")}
+                          onChange={() => handleAgeChange("STAG")}
+                          className="mr-2"
+                        />
+                        <label htmlFor="stag" className="cursor-pointer">
+                          Stags
+                        </label>
+                      </div>
+                      <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="bullstag"
+                          checked={selectedAges.includes("BULLSTAG")}
+                          onChange={() => handleAgeChange("BULLSTAG")}
+                          className="mr-2"
+                        />
+                        <label htmlFor="bullstag" className="cursor-pointer">
+                          Bullstags
+                        </label>
+                      </div>
+                      <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="cock"
+                          checked={selectedAges.includes("COCK")}
+                          onChange={() => handleAgeChange("COCK")}
+                          className="mr-2"
+                        />
+                        <label htmlFor="cock" className="cursor-pointer">
+                          Cocks
+                        </label>
+                      </div>
                     </div>
-                    <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
-                      <input
-                        type="checkbox"
-                        id="chick"
-                        checked={selectedAges.includes("CHICK")}
-                        onChange={() => handleAgeChange("CHICK")}
-                        className="mr-2"
-                      />
-                      <label htmlFor="chick" className="cursor-pointer">
-                        Chicks
-                      </label>
-                    </div>
-                    <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
-                      <input
-                        type="checkbox"
-                        id="stag"
-                        checked={selectedAges.includes("STAG")}
-                        onChange={() => handleAgeChange("STAG")}
-                        className="mr-2"
-                      />
-                      <label htmlFor="stag" className="cursor-pointer">
-                        Stags
-                      </label>
-                    </div>
-                    <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
-                      <input
-                        type="checkbox"
-                        id="bullstag"
-                        checked={selectedAges.includes("BULLSTAG")}
-                        onChange={() => handleAgeChange("BULLSTAG")}
-                        className="mr-2"
-                      />
-                      <label htmlFor="bullstag" className="cursor-pointer">
-                        Bullstags
-                      </label>
-                    </div>
-                    <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
-                      <input
-                        type="checkbox"
-                        id="cock"
-                        checked={selectedAges.includes("COCK")}
-                        onChange={() => handleAgeChange("COCK")}
-                        className="mr-2"
-                      />
-                      <label htmlFor="cock" className="cursor-pointer">
-                        Cocks
-                      </label>
+
+                    {/* Sex Filter Section */}
+                    <div>
+                      <h3 className="font-medium text-sm mb-2">Sex</h3>
+                      <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="all-sex"
+                          checked={
+                            selectedSexes.includes("all") ||
+                            selectedSexes.length === 0
+                          }
+                          onChange={() => handleSexChange("all")}
+                          className="mr-2"
+                        />
+                        <label htmlFor="all-sex" className="cursor-pointer">
+                          All Sexes
+                        </label>
+                      </div>
+                      <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="female"
+                          checked={selectedSexes.includes("FEMALE")}
+                          onChange={() => handleSexChange("FEMALE")}
+                          className="mr-2"
+                        />
+                        <label htmlFor="female" className="cursor-pointer">
+                          Female
+                        </label>
+                      </div>
+                      <div className="flex items-center p-2 hover:bg-gray-100 rounded cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="male"
+                          checked={selectedSexes.includes("MALE")}
+                          onChange={() => handleSexChange("MALE")}
+                          className="mr-2"
+                        />
+                        <label htmlFor="male" className="cursor-pointer">
+                          Male
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>

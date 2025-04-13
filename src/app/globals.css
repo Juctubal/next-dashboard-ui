@@ -2,6 +2,149 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Dark mode styles */
+.dark body {
+  color-scheme: dark;
+}
+
+/* Global dark mode styles */
+.dark {
+  --bg-primary: #111827;
+  --bg-secondary: #1f2937;
+  --bg-tertiary: #374151;
+  --text-primary: #f9fafb;
+  --text-secondary: #e5e7eb;
+  --text-tertiary: #9ca3af;
+  --border-color: #374151;
+  --accent-color: #3b82f6;
+}
+
+/* Light mode styles */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f4f6;
+  --bg-tertiary: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #6b7280;
+  --border-color: #e5e7eb;
+  --accent-color: #3b82f6;
+}
+
+/* Common component styles */
+.dark .card {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.dark .table {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.dark .table th {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.dark .table td {
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.dark .input {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.dark .button-primary {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.dark .button-secondary {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.dark .modal {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+.dark .dropdown {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.dark .dropdown-item:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.dark .form-label {
+  color: var(--text-secondary);
+}
+
+.dark .form-input {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.dark .form-select {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.dark .form-checkbox {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-color);
+}
+
+.dark .form-radio {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-color);
+}
+
+.dark .badge {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.dark .alert {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.dark .alert-success {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.dark .alert-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.dark .alert-warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.dark .alert-info {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
 .react-calendar {
   width: 100% !important;
   border: none !important;
@@ -115,4 +258,223 @@ abbr:where([title]) {
 .rbc-event-label {
   color: gray !important;
   margin-bottom: 5px;
+}
+
+/* Calendar styles for dates with events */
+.has-events {
+  background-color: rgba(
+    255,
+    235,
+    59,
+    0.2
+  ) !important; /* Light yellow background */
+  font-weight: bold;
+  color: inherit !important; /* Keep the default text color */
+}
+
+.has-events:hover {
+  background-color: rgba(
+    255,
+    235,
+    59,
+    0.3
+  ) !important; /* Slightly darker yellow on hover */
+  outline: 2px solid white !important; /* White outline on hover */
+  outline-offset: -2px !important;
+}
+
+/* Ensure the yellow highlight remains when a date with events is selected */
+.react-calendar__tile--active.has-events {
+  background-color: rgba(255, 235, 59, 0.2) !important;
+  border: 2px solid #3b82f6 !important; /* Blue outline */
+  border-radius: 4px !important;
+}
+
+.react-calendar__tile--active.has-events:hover {
+  background-color: rgba(255, 235, 59, 0.3) !important;
+  outline: 2px solid white !important; /* White outline on hover */
+  outline-offset: -2px !important;
+}
+
+/* Remove highlight on year navigation */
+.react-calendar__navigation__label {
+  background-color: transparent !important;
+}
+
+.react-calendar__navigation__label:hover {
+  background-color: transparent !important;
+  outline: 2px solid white !important; /* White outline on hover */
+  outline-offset: -2px !important;
+}
+
+.react-calendar__navigation__label:focus {
+  background-color: transparent !important;
+}
+
+/* Ensure year navigation doesn't have highlight */
+.react-calendar__navigation__label__labelText {
+  background-color: transparent !important;
+}
+
+/* Remove highlighting from months in year view */
+.react-calendar__year-view__months__month {
+  background-color: transparent !important;
+}
+
+/* Add a subtle hover effect for months in year view */
+.react-calendar__year-view__months__month:hover {
+  background-color: transparent !important;
+  outline: 2px solid white !important; /* White outline on hover */
+  outline-offset: -2px !important;
+  cursor: pointer;
+}
+
+.react-calendar__year-view__months__month:focus {
+  background-color: transparent !important;
+}
+
+/* Remove any active state highlighting in year view */
+.react-calendar__year-view__months__month--selected {
+  background-color: transparent !important;
+}
+
+.react-calendar__year-view__months__month--selected:hover {
+  background-color: transparent !important;
+  outline: 2px solid white !important; /* White outline on hover */
+  outline-offset: -2px !important;
+}
+
+/* Override any other potential highlighting */
+.react-calendar__tile--active {
+  background-color: transparent !important;
+}
+
+.react-calendar__tile--active:hover {
+  background-color: transparent !important;
+  outline: 2px solid white !important; /* White outline on hover */
+  outline-offset: -2px !important;
+}
+
+/* Highlight the selected date */
+.react-calendar__tile--now {
+  background-color: transparent !important;
+  font-weight: bold;
+}
+
+.react-calendar__tile--now:hover {
+  background-color: transparent !important;
+  outline: 2px solid white !important; /* White outline on hover */
+  outline-offset: -2px !important;
+}
+
+/* Ensure the selected date is clearly visible with a blue outline */
+.react-calendar__tile--active {
+  background-color: transparent !important;
+  font-weight: bold;
+  border: 2px solid #3b82f6 !important; /* Blue outline */
+  border-radius: 4px !important;
+}
+
+.react-calendar__tile--active:hover {
+  background-color: transparent !important;
+  outline: 2px solid white !important; /* White outline on hover */
+  outline-offset: -2px !important;
+}
+
+/* Dark mode styles for calendar */
+.dark .react-calendar {
+  background-color: #1f2937 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark .react-calendar__tile {
+  color: #f3f4f6 !important;
+}
+
+.dark .react-calendar__tile--active {
+  background-color: #3b82f6 !important;
+  color: white !important;
+}
+
+.dark .react-calendar__tile--now {
+  background-color: #374151 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark .react-calendar__navigation button:enabled:hover,
+.dark .react-calendar__navigation button:enabled:focus {
+  background-color: #374151 !important;
+  outline: 2px solid white !important; /* White outline on hover */
+  outline-offset: -2px !important;
+}
+
+.dark .react-calendar__month-view__weekdays__weekday {
+  color: #9ca3af !important;
+}
+
+.dark .react-calendar__month-view__days__day--weekend {
+  color: #ef4444 !important;
+}
+
+.dark .react-calendar__month-view__days__day--neighboringMonth {
+  color: #6b7280 !important;
+}
+
+/* Dark mode styles for RBC calendar */
+.dark .rbc-time-slot-group {
+  background-color: #1f2937 !important;
+}
+
+.dark .rbc-time-gutter {
+  color: #9ca3af !important;
+}
+
+.dark .rbc-event {
+  color: #f3f4f6 !important;
+}
+
+.dark .rbc-event:nth-child(1) {
+  background-color: #1e40af !important;
+}
+
+.dark .rbc-event:nth-child(2) {
+  background-color: #7c3aed !important;
+}
+
+.dark .rbc-event:nth-child(3) {
+  background-color: #059669 !important;
+}
+
+.dark .rbc-event:nth-child(4) {
+  background-color: #dc2626 !important;
+}
+
+.dark .rbc-event:nth-child(5) {
+  background-color: #1e40af !important;
+}
+
+.dark .rbc-event:nth-child(6) {
+  background-color: #7c3aed !important;
+}
+
+.dark .rbc-event:nth-child(7) {
+  background-color: #059669 !important;
+}
+
+.dark .rbc-event:nth-child(8) {
+  background-color: #dc2626 !important;
+}
+
+.dark .rbc-event-label {
+  color: #d1d5db !important;
+}
+
+.dark .rbc-btn-group:last-child button {
+  background-color: #374151 !important;
+  color: #f3f4f6 !important;
+}
+
+.dark .rbc-toolbar button.rbc-active {
+  background-color: #4b5563 !important;
+  color: #f3f4f6 !important;
 }

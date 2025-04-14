@@ -18,6 +18,7 @@ model Vaccine {
   vaccinationDate DateTime
   notes           String
   name            String?
+  isArchived      Boolean  @default(false)
   gamefowl        Gamefowl @relation(fields: [gamefowlId], references: [id])
 }
 
@@ -40,6 +41,7 @@ model Deworming {
   dewormDate DateTime
   notes      String
   name       String?
+  isArchived Boolean  @default(false)
   gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
 }
 

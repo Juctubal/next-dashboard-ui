@@ -23,11 +23,14 @@ const ConditioningProgramForm = ({
 
   return (
     <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-4">
-      <h2 className="text-xl font-semibold mb-4">
+      <h2 className="text-xl font-semibold mb-4 dark:text-white">
         {type === "create" ? "Create" : "Update"} Conditioning Program
       </h2>
       <div className="flex flex-col gap-2">
-        <label htmlFor="programName" className="font-medium">
+        <label
+          htmlFor="programName"
+          className="font-medium text-gray-700 dark:text-gray-300"
+        >
           Program Name
         </label>
         <input
@@ -37,12 +40,15 @@ const ConditioningProgramForm = ({
           onChange={(e) =>
             setFormData({ ...formData, programName: e.target.value })
           }
-          className="border border-gray-300 rounded-md p-2"
+          className="border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
           required
         />
       </div>
       <div className="flex flex-col gap-2">
-        <label htmlFor="description" className="font-medium">
+        <label
+          htmlFor="description"
+          className="font-medium text-gray-700 dark:text-gray-300"
+        >
           Description
         </label>
         <textarea
@@ -51,14 +57,14 @@ const ConditioningProgramForm = ({
           onChange={(e) =>
             setFormData({ ...formData, description: e.target.value })
           }
-          className="border border-gray-300 rounded-md p-2"
+          className="border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
           rows={4}
           required
         />
       </div>
       <button
         type="submit"
-        className="bg-ggPurple text-white py-2 px-4 rounded-md border-none w-max self-end"
+        className="bg-ggPurple text-white py-2 px-4 rounded-md border-none w-max self-end hover:bg-ggPurple/90 transition-colors"
       >
         {type === "create" ? "Create" : "Update"}
       </button>

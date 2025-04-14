@@ -22,6 +22,22 @@ export async function GET() {
       },
     });
 
+    // Get male gamefowl count
+    const maleGamefowlCount = await prisma.gamefowl.count({
+      where: {
+        isArchived: false,
+        sex: "MALE",
+      },
+    });
+
+    // Get female gamefowl count
+    const femaleGamefowlCount = await prisma.gamefowl.count({
+      where: {
+        isArchived: false,
+        sex: "FEMALE",
+      },
+    });
+
     // Get handler count (excluding archived)
     const handlerCount = await prisma.handler.count({
       where: {
@@ -51,6 +67,8 @@ export async function GET() {
 
     return NextResponse.json({
       gamefowlCount,
+      maleGamefowlCount,
+      femaleGamefowlCount,
       handlerCount,
       breederCount,
       upcomingEvents,

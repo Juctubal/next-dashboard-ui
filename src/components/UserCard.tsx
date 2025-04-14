@@ -6,8 +6,27 @@ import { useState, useEffect } from "react";
 const UserCard = ({ type }: { type: string }) => {
   const [count, setCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
+  const [currentMonth, setCurrentMonth] = useState<string>("");
 
   useEffect(() => {
+    // Get current month name
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    const currentDate = new Date();
+    setCurrentMonth(monthNames[currentDate.getMonth()]);
+
     const fetchCount = async () => {
       try {
         setLoading(true);
@@ -58,8 +77,8 @@ const UserCard = ({ type }: { type: string }) => {
       <h1 className="text-2xl font-semibold my-4 dark:text-gray-200">
         {loading ? "..." : count.toLocaleString()}
       </h1>
-      <h2 className="capitalize text-small font-medium text-gray-500 dark:text-gray-400">
-        {type}
+      <h2 className="capitalize text-small font-medium text-gray-500 dark:text-gray-200">
+        {type === "events" ? `${currentMonth}'s Events` : type}
       </h2>
     </div>
   );

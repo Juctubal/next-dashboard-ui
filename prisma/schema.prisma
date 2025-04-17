@@ -100,7 +100,7 @@ model OneTimeSched {
   schedId     Int
   taskName    String
   taskDate    DateTime
-  time_of_day DateTime
+  time_of_day String
   schedule    Schedule @relation("OneTime", fields: [schedId], references: [id])
 }
 
@@ -166,6 +166,7 @@ model Schedule {
   descript     String
   staffId      String?
   staffType    UserRole?
+  status       EventStatus          @default(PLANNED)
   oneTime      OneTimeSched[]       @relation("OneTime")
   recurrent    RecurrentSchedules[]
 }
@@ -221,8 +222,10 @@ model RecurrentSchedules {
   id                Int               @id @default(autoincrement())
   schedId           Int
   reccurencePattern RecurrencePattern
-  taskDate          DateTime
-  time_of_day       DateTime
+  startDate         DateTime
+  endDate           DateTime
+  time_of_day       String
+  weekDays          String? // Store selected days of the week as a JSON string
   schedule          Schedule          @relation(fields: [schedId], references: [id])
 }
 

@@ -8,7 +8,7 @@ interface Task {
   title: string;
   date: Date;
   type: "oneTime" | "recurrent";
-  status: "upcoming" | "completed" | "overdue";
+  status: "upcoming" | "completed" | "overdue" | string;
 }
 
 interface StaffTasksProps {
@@ -17,6 +17,7 @@ interface StaffTasksProps {
     title: string;
     start: Date;
     type: string;
+    status?: string;
   }[];
 }
 
@@ -30,7 +31,9 @@ const StaffTasks = ({ events }: StaffTasksProps) => {
       const eventDate = new Date(event.start);
       let status: Task["status"] = "upcoming";
 
-      if (eventDate < now) {
+      if (event.status) {
+        status = event.status;
+      } else if (eventDate < now) {
         status = "completed";
       } else if (eventDate.getTime() - now.getTime() < 24 * 60 * 60 * 1000) {
         status = "overdue";
@@ -55,9 +58,13 @@ const StaffTasks = ({ events }: StaffTasksProps) => {
       case "upcoming":
         return "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800";
       case "completed":
+      case "FINISHED":
         return "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800";
       case "overdue":
-        return "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800";
+      case "ONGOING":
+        return "bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800";
+      case "PLANNED":
+        return "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800";
       default:
         return "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700";
     }
@@ -71,6 +78,25 @@ const StaffTasks = ({ events }: StaffTasksProps) => {
         return "/recurrent.png";
       default:
         return "/task.png";
+    }
+  };
+
+  const getStatusText = (status: Task["status"]) => {
+    switch (status) {
+      case "upcoming":
+        return "Upcoming";
+      case "completed":
+        return "Completed";
+      case "overdue":
+        return "Overdue";
+      case "PLANNED":
+        return "Planned";
+      case "ONGOING":
+        return "Ongoing";
+      case "FINISHED":
+        return "Finished";
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
     }
   };
 
@@ -151,7 +177,7 @@ const StaffTasks = ({ events }: StaffTasksProps) => {
                     task.status
                   )}`}
                 >
-                  {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+                  {getStatusText(task.status)}
                 </span>
               </div>
             </div>

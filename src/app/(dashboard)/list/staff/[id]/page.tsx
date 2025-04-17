@@ -13,6 +13,7 @@ import {
   Schedule,
   TaskCategory,
   UserRole,
+  EventStatus,
 } from "@prisma/client";
 
 interface SingleStaffPageProps {
@@ -23,17 +24,20 @@ interface SingleStaffPageProps {
 
 // Define the type for calendar events
 interface CalendarEvent {
+  id: string;
   title: string;
   start: Date;
   end: Date;
   allDay?: boolean;
-  type?: string;
+  type: string;
+  status?: string;
 }
 
 // Define the type for schedule with included relations
 type ScheduleWithRelations = Schedule & {
   oneTime: OneTimeSched[];
   recurrent: RecurrentSchedules[];
+  status: EventStatus;
 };
 
 const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
@@ -45,7 +49,7 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
   }
 
   // Fetch schedules associated with this staff member
-  const staffSchedules = await prisma.schedule.findMany({
+  const staffSchedules = (await prisma.schedule.findMany({
     where: {
       staffId: id,
       staffType: staff.role,
@@ -54,7 +58,7 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
       oneTime: true,
       recurrent: true,
     },
-  });
+  })) as ScheduleWithRelations[];
 
   console.log("Raw staff schedules:", staffSchedules);
 
@@ -67,11 +71,13 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
     schedule.oneTime.forEach((oneTime) => {
       console.log("Processing one-time schedule:", oneTime);
       calendarEvents.push({
+        id: `oneTime-${oneTime.id}`,
         title: `${schedule.taskName}: ${oneTime.taskName}`,
         start: new Date(oneTime.taskDate),
         end: new Date(new Date(oneTime.taskDate).getTime() + 60 * 60 * 1000), // 1 hour duration
         allDay: false,
         type: "oneTime",
+        status: schedule.status.toString(),
       });
     });
 
@@ -79,11 +85,13 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
     schedule.recurrent.forEach((recurrent) => {
       console.log("Processing recurrent schedule:", recurrent);
       calendarEvents.push({
+        id: `recurrent-${recurrent.id}`,
         title: `${schedule.taskName} (${recurrent.reccurencePattern})`,
-        start: new Date(recurrent.taskDate),
-        end: new Date(new Date(recurrent.taskDate).getTime() + 60 * 60 * 1000), // 1 hour duration
+        start: new Date(recurrent.startDate),
+        end: new Date(new Date(recurrent.startDate).getTime() + 60 * 60 * 1000), // 1 hour duration
         allDay: false,
         type: "recurrent",
+        status: schedule.status.toString(),
       });
     });
   });

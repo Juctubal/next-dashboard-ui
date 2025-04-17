@@ -14,12 +14,19 @@ import {
 } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type ScheduleList = Schedule & {
   oneTime: OneTimeSched[];
   recurrent: RecurrentSchedules[];
   staffId?: string;
   staffType?: UserRole;
+  staffName: string;
 };
 
 const columns = [
@@ -44,7 +51,12 @@ const columns = [
   },
   {
     header: "Staff",
-    accessor: "staff",
+    accessor: "staffName",
+    className: "hidden md:table-cell",
+  },
+  {
+    header: "Status",
+    accessor: "status",
     className: "hidden md:table-cell",
   },
   {
@@ -68,12 +80,61 @@ const renderRow = (item: ScheduleList) => (
     <td className="hidden md:table-cell dark:text-gray-200">{item.descript}</td>
     <td className="hidden md:table-cell dark:text-gray-200">
       {item.staffId ? (
-        <span>
-          {item.staffType === "HANDLER" ? "Handler" : "Breeder"}: {item.staffId}
-        </span>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href={`/list/staff/${item.staffId}`}>
+                {item.staffName.includes("Handler:") ? (
+                  <>
+                    Handler:{" "}
+                    <span className="underline">
+                      {item.staffName.replace("Handler: ", "")}
+                    </span>
+                  </>
+                ) : item.staffName.includes("Breeder:") ? (
+                  <>
+                    Breeder:{" "}
+                    <span className="underline">
+                      {item.staffName.replace("Breeder: ", "")}
+                    </span>
+                  </>
+                ) : (
+                  <span className="underline">{item.staffName}</span>
+                )}
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="flex flex-col gap-1">
+                <p className="font-medium">
+                  {item.staffName.replace(/^(Handler:|Breeder:)\s/, "")}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {item.staffName.includes("Handler:") ? "Handler" : "Breeder"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  ID: {item.staffId}
+                </p>
+                <p className="text-xs">Click to view full profile</p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       ) : (
         <span>Not assigned</span>
       )}
+    </td>
+    <td className="hidden md:table-cell dark:text-gray-200">
+      <span
+        className={`px-2 py-1 rounded-full text-xs ${
+          item.status === "PLANNED"
+            ? "bg-blue-100 text-blue-800"
+            : item.status === "ONGOING"
+            ? "bg-yellow-100 text-yellow-800"
+            : "bg-green-100 text-green-800"
+        }`}
+      >
+        {item.status.charAt(0) + item.status.slice(1).toLowerCase()}
+      </span>
     </td>
     <td>
       <div className="flex items-center gap-2">
@@ -135,15 +196,34 @@ const ScheduleListPage = async ({
   ]);
 
   // Process the data to include staff information
-  const processedData = data.map((schedule) => {
-    // Use type assertion to tell TypeScript about our new fields
-    const scheduleWithStaff = schedule as unknown as ScheduleList;
-    return {
-      ...scheduleWithStaff,
-      staffId: scheduleWithStaff.staffId || null,
-      staffType: scheduleWithStaff.staffType || null,
-    };
-  });
+  const processedData = await Promise.all(
+    data.map(async (schedule) => {
+      let staffName = "Not assigned";
+      if (schedule.staffId) {
+        if (schedule.staffType === "HANDLER") {
+          const handler = await prisma.handler.findUnique({
+            where: { id: schedule.staffId },
+            select: { first_name: true, last_name: true },
+          });
+          if (handler) {
+            staffName = `Handler: ${handler.first_name} ${handler.last_name}`;
+          }
+        } else if (schedule.staffType === "BREEDER") {
+          const breeder = await prisma.breeder.findUnique({
+            where: { id: schedule.staffId },
+            select: { first_name: true, last_name: true },
+          });
+          if (breeder) {
+            staffName = `Breeder: ${breeder.first_name} ${breeder.last_name}`;
+          }
+        }
+      }
+      return {
+        ...schedule,
+        staffName,
+      };
+    })
+  );
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded-md flex-1 m-4 mt-0">

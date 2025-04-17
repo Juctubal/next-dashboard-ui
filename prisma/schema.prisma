@@ -28,8 +28,8 @@ model Breeding {
   damId      Int
   notes      String
   status     BreedingStatus
-  startDate  DateTime?
   endDate    DateTime?
+  startDate  DateTime?
   isArchived Boolean        @default(false)
   dam        Gamefowl       @relation("DamBreeding", fields: [damId], references: [id])
   sire       Gamefowl       @relation("SireBreeding", fields: [sireId], references: [id])
@@ -65,7 +65,6 @@ model Gamefowl {
   id              Int            @id @default(autoincrement())
   name            String
   bloodline       String
-  sex             GamefowlSex
   date_hatched    DateTime?
   date_sold       DateTime?
   /// *
@@ -80,6 +79,7 @@ model Gamefowl {
   age             gamefowlAge?
   isArchived      Boolean        @default(false)
   eloRating       Int            @default(1000)
+  sex             GamefowlSex
   damBreeding     Breeding[]     @relation("DamBreeding")
   sireBreeding    Breeding[]     @relation("SireBreeding")
   conditioning    Conditioning[] @relation("Conditioning")
@@ -105,10 +105,23 @@ model OneTimeSched {
 }
 
 model ConditioningProgram {
-  id           Int            @id @default(autoincrement())
+  id           Int                    @id @default(autoincrement())
   programName  String
   description  String
-  conditioning Conditioning[]
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  Conditioning Conditioning[]
+  activities   ConditioningActivity[]
+}
+
+model ConditioningActivity {
+  id          Int                 @id @default(autoincrement())
+  name        String
+  description String
+  programId   Int
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  program     ConditioningProgram @relation(fields: [programId], references: [id])
 }
 
 model Conditioning {

@@ -37,6 +37,9 @@ const MedicalForm = dynamic(() => import("./forms/MedicalForm"), {
 const EventForm = dynamic(() => import("./forms/EventForm"), {
   loading: () => <h1>Loading...</h1>,
 });
+const ScheduleForm = dynamic(() => import("./forms/ScheduleForm"), {
+  loading: () => <h1>Loading...</h1>,
+});
 
 const forms: {
   [key: string]: (
@@ -49,8 +52,12 @@ const forms: {
   student: (type, data) => <StudentForm type={type} data={data} />,
   staff: (type, data) => <StaffForm type={type} data={data} />,
   gamefowl: (type, data) => <GamefowlForm type={type} data={data} />,
-  conditioningProgram: (type, data) => (
-    <ConditioningProgramForm type={type} data={data} />
+  conditioningProgram: (type, data, onClose) => (
+    <ConditioningProgramForm
+      type={type}
+      data={data}
+      onClose={onClose || (() => {})}
+    />
   ),
   conditioning: (type, data) => <ConditioningForm type={type} data={data} />,
   sparring: (type, data, onClose) => (
@@ -58,7 +65,7 @@ const forms: {
       type={type}
       data={data}
       gamefowls={data?.gamefowls || []}
-      onClose={onClose}
+      onClose={onClose || (() => {})}
     />
   ),
   breeding: (type, data) => <BreedingForm type={type} data={data} />,
@@ -69,6 +76,7 @@ const forms: {
     <MedicalForm type={type} data={data} recordType="deworming" />
   ),
   event: (type, data) => <EventForm type={type} data={data} />,
+  schedule: (type, data) => <ScheduleForm type={type} data={data} />,
 };
 
 const FormModal = ({
@@ -97,7 +105,8 @@ const FormModal = ({
     | "conditioningProgram"
     | "conditioning"
     | "sparring"
-    | "breeding";
+    | "breeding"
+    | "schedule";
   type: "create" | "update" | "delete" | "archive" | "unarchive";
   data?: any;
   id?: number | String;

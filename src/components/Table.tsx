@@ -21,7 +21,20 @@ const Table = ({
           ))}
         </tr>
       </thead>
-      <tbody>{data.map((item) => renderRow(item))}</tbody>
+      <tbody>
+        {data.length > 0 ? (
+          data.map((item) => renderRow(item))
+        ) : (
+          <tr>
+            <td
+              colSpan={columns.length}
+              className="py-8 text-center text-gray-500 dark:text-gray-400"
+            >
+              No information available
+            </td>
+          </tr>
+        )}
+      </tbody>
     </table>
   );
 };

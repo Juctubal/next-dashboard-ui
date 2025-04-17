@@ -68,11 +68,12 @@ async function main() {
 
   // Seed Gamefowls
   const gamefowls = await Promise.all(
-    Array.from({ length: 10 }, async () => {
+    Array.from({ length: 10 }).map(async () => {
       return prisma.gamefowl.create({
         data: {
           name: faker.animal.bird(),
           bloodline: faker.lorem.word(),
+          sex: faker.helpers.arrayElement(["MALE", "FEMALE"]),
           date_hatched: faker.date.past(),
           date_sold: faker.datatype.boolean() ? faker.date.recent() : null,
           createdAt: new Date(),

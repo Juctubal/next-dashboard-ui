@@ -87,8 +87,8 @@ const renderRow = (item: ScheduleList) => (
           //   <Image src="/delete.png" alt="" width={16} height={16} />
           // </button>
           <>
-            <FormModal table="event" type="update" data={item} />
-            <FormModal table="event" type="delete" id={item.id} />
+            <FormModal table="schedule" type="update" data={item} />
+            <FormModal table="schedule" type="delete" id={item.id} />
           </>
         )}
       </div>
@@ -165,7 +165,7 @@ const ScheduleListPage = async ({
               // <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
               //   <Image src="/plus.png" alt="" width={14} height={14} />
               // </button>
-              <FormModal table="event" type="create" />
+              <FormModal table="schedule" type="create" />
             )}
           </div>
         </div>

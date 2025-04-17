@@ -87,3 +87,49 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function GET() {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Fetch both handlers and breeders
+    const [handlers, breeders] = await Promise.all([
+      prisma.handler.findMany({
+        where: {
+          isArchived: false,
+        },
+        select: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          role: true,
+        },
+      }),
+      prisma.breeder.findMany({
+        where: {
+          isArchived: false,
+        },
+        select: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          role: true,
+        },
+      }),
+    ]);
+
+    // Combine and return the staff data
+    return NextResponse.json([...handlers, ...breeders]);
+  } catch (error) {
+    console.error("Server error:", error);
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Internal Server Error",
+      },
+      { status: 500 }
+    );
+  }
+}

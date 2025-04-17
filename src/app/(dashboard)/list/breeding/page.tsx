@@ -126,7 +126,7 @@ const BreedingListPage = async ({
               {isArchived ? "Active" : "Archive"}
             </Link>
           )}
-          <TableSearch />
+          <TableSearch disabled={data.length === 0} />
           <div className="flex items-center gap-4 self-end">
             <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
               <Image src="/filter.png" alt="" width={14} height={14} />

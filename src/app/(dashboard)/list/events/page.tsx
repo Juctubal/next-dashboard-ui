@@ -311,7 +311,7 @@ const EventListPage = async ({
           Events & Conditioning
         </h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-          <TableSearch />
+          <TableSearch disabled={data.length === 0} />
           <div className="flex items-center gap-4 self-end">
             <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
               <Image src="/filter.png" alt="" width={14} height={14} />

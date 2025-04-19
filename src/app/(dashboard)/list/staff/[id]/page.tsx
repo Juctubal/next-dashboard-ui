@@ -68,11 +68,25 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
     },
   });
 
+  // Fetch all breeding records for breeders
+  const breedingRecords =
+    staff.role === "breeder"
+      ? await prisma.breeding.findMany({
+          where: {
+            isArchived: false,
+          },
+        })
+      : [];
+
   // Count the number of conditioning records
   const conditioningCount = conditioningRecords.length;
 
+  // Count the number of breeding records
+  const breedingCount = breedingRecords.length;
+
   console.log("Raw staff schedules:", staffSchedules);
   console.log("Conditioning records:", conditioningRecords);
+  console.log("Breeding records:", breedingRecords);
 
   // Create calendar events from schedules
   const calendarEvents: CalendarEvent[] = [];
@@ -167,11 +181,15 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
               />
               <div className="flex flex-col w-full">
                 <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
-                  Conditioning
+                  {staff.role === "handler"
+                    ? "Conditioning"
+                    : "Breeding Projects"}
                 </h1>
                 <div className="flex-1 flex items-center justify-center">
                   <span className="text-3xl font-bold text-gray-800 dark:text-gray-200">
-                    {conditioningCount}
+                    {staff.role === "handler"
+                      ? conditioningCount
+                      : breedingCount}
                   </span>
                 </div>
               </div>

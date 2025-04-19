@@ -49,22 +49,34 @@ const BreedingStats = () => {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
-        <h3 className="text-lg font-semibold mb-4">Ongoing Breedings</h3>
-        <div className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-          {ongoingBreedings.length}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4 h-full">
+      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col justify-between">
+        <div>
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-sm bg-ggPurple/10 dark:bg-ggPurple/20 px-3 py-1.5 rounded-full text-ggPurple dark:text-ggPurple/90 font-medium">
+              Active
+            </span>
+          </div>
+          <div className="text-2xl font-semibold text-center md:text-left dark:text-gray-200">
+            {ongoingBreedings.length}
+          </div>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 sm:mt-2 text-center md:text-left">
           Active breeding pairs
         </p>
       </div>
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
-        <h3 className="text-lg font-semibold mb-4">Completed Breedings</h3>
-        <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-          {finishedBreedings.length}
+      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 p-3 sm:p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col justify-between">
+        <div>
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-sm bg-green-100 dark:bg-green-900/20 px-3 py-1.5 rounded-full text-green-600 dark:text-green-400 font-medium">
+              Completed
+            </span>
+          </div>
+          <div className="text-2xl font-semibold text-center md:text-left dark:text-gray-200">
+            {finishedBreedings.length}
+          </div>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 sm:mt-2 text-center md:text-left">
           Successfully completed breedings
         </p>
       </div>

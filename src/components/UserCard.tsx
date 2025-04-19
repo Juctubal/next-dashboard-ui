@@ -67,17 +67,17 @@ const UserCard = ({ type }: { type: string }) => {
   }, [type]);
 
   return (
-    <div className="rounded-2xl odd:bg-ggPurple even:bg-ggYellow p-4 flex-1 min-w-[130px] dark:odd:bg-ggPurple/80 dark:even:bg-ggYellow/80">
+    <div className="rounded-2xl odd:bg-indigo-100 even:bg-amber-100 p-4 flex-1 min-w-[130px] dark:odd:bg-indigo-900/70 dark:even:bg-amber-900/70 shadow-sm hover:shadow-md transition-shadow duration-300">
       <div className="flex justify-between items-center">
-        <span className="=text-[10px] bg-white dark:bg-gray-700 px-2 py-1 rounded-full text-green-600 dark:text-green-400">
-          2024/25
+        <span className="text-sm bg-white dark:bg-gray-800 px-2 py-1 rounded-full text-indigo-600 dark:text-indigo-300 font-medium">
+          {new Date().getFullYear()}
         </span>
         <Image src="/more.png" alt="" width={20} height={20} />
       </div>
-      <h1 className="text-2xl font-semibold my-4 dark:text-gray-200">
+      <h1 className="text-2xl font-semibold my-4 text-gray-800 dark:text-gray-100 text-center sm:text-left">
         {loading ? "..." : count.toLocaleString()}
       </h1>
-      <h2 className="capitalize text-small font-medium text-gray-500 dark:text-gray-200">
+      <h2 className="capitalize text-small font-medium text-gray-600 dark:text-gray-300 text-center sm:text-left">
         {type === "events" ? `${currentMonth}'s Events` : type}
       </h2>
     </div>

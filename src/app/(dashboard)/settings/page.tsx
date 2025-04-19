@@ -1,10 +1,10 @@
 "use client";
 
-import { useTheme } from "@/components/ThemeProvider";
+import { useTheme } from "next-themes";
 import Image from "next/image";
 
 export default function SettingsPage() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
 
   return (
     <div className="p-6">
@@ -32,7 +32,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <button
-            onClick={toggleTheme}
+            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
             className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-md text-sm font-medium dark:text-white"
           >
             {theme === "light" ? "Switch to Dark" : "Switch to Light"}

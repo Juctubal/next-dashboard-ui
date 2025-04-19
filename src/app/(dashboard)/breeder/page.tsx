@@ -47,9 +47,13 @@ const BreederPage = () => {
       {/* LEFT */}
       <div className="w-full lg:w-2/3 flex flex-col gap-8">
         {/* USER CARDS  */}
-        <div className="flex gap-4 justify-between flex-wrap">
-          <UserCard type="gamefowl" />
-          <BreedingStats />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="w-full">
+            <UserCard type="gamefowl" />
+          </div>
+          <div className="w-full">
+            <BreedingStats />
+          </div>
         </div>
 
         {/* MIDDLE CHARTS */}

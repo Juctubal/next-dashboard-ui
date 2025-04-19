@@ -7,28 +7,52 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import InputField from "../InputField";
 import { RecurrencePattern, TaskType, EventStatus } from "@prisma/client";
+import { useUser } from "@clerk/nextjs";
 
 // Define the schema for the form
-const schema = z.object({
-  taskName: z.string().min(1, "Task name is required"),
-  taskType: z.string().min(1, "Task type is required"),
-  taskCategory: z.string().min(1, "Task category is required"),
-  taskDesc: z.string().min(1, "Task description is required"),
-  status: z.enum(["PLANNED", "ONGOING", "FINISHED"]).default("PLANNED"),
-  staffId: z.string().optional(),
-  staffType: z.enum(["HANDLER", "BREEDER"]).optional(),
-  // One-time schedule fields
-  taskDate: z.string().optional(),
-  // Recurring schedule fields
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-  reccurencePattern: z.string().optional(),
-  time_of_day: z.string().optional(),
-  // Weekly specific fields
-  weekDays: z.array(z.string()).optional(),
-  // Monthly specific fields
-  monthDay: z.string().optional(),
-});
+const schema = z
+  .object({
+    taskName: z.string().min(1, "Task name is required"),
+    taskType: z.string().min(1, "Task type is required"),
+    taskCategory: z.string().min(1, "Task category is required"),
+    taskDesc: z.string().min(1, "Task description is required"),
+    status: z.enum(["PLANNED", "ONGOING", "FINISHED"]).default("PLANNED"),
+    staffId: z.string().optional(),
+    staffType: z.enum(["handler", "breeder"]).optional(),
+    // One-time schedule fields
+    taskDate: z.string().optional(),
+    // Recurring schedule fields
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    reccurencePattern: z.string().optional(),
+    time_of_day: z.string().optional(),
+    // Weekly specific fields
+    weekDays: z.array(z.string()).optional(),
+    // Monthly specific fields
+    monthDay: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // If taskType is ONETIME, taskDate and time_of_day are required
+      if (data.taskType === "ONETIME") {
+        return !!data.taskDate && !!data.time_of_day;
+      }
+      // If taskType is RECURRING, startDate, endDate, reccurencePattern, and time_of_day are required
+      if (data.taskType === "RECURRING") {
+        return (
+          !!data.startDate &&
+          !!data.endDate &&
+          !!data.reccurencePattern &&
+          !!data.time_of_day
+        );
+      }
+      return true;
+    },
+    {
+      message: "Please fill in all required fields for the selected task type",
+      path: ["taskType"],
+    }
+  );
 
 type Inputs = z.infer<typeof schema>;
 
@@ -36,7 +60,7 @@ type Staff = {
   id: string;
   first_name: string;
   last_name: string;
-  role: "HANDLER" | "BREEDER";
+  role: "handler" | "breeder";
 };
 
 const ScheduleForm = ({
@@ -47,6 +71,7 @@ const ScheduleForm = ({
   data?: any;
 }) => {
   const router = useRouter();
+  const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -116,6 +141,20 @@ const ScheduleForm = ({
     }
   }, [data, staff, setValue]);
 
+  // Set staff fields for non-admin users
+  useEffect(() => {
+    if (user && user.publicMetadata.role !== "admin") {
+      setValue("staffId", user.id);
+      // Convert role to lowercase to match Prisma enum values
+      setValue(
+        "staffType",
+        (user.publicMetadata.role as string).toLowerCase() as
+          | "handler"
+          | "breeder"
+      );
+    }
+  }, [user, setValue]);
+
   const selectedStaffType = watch("staffType");
   const selectedTaskType = watch("taskType");
   const selectedRecurrencePattern = watch("reccurencePattern");
@@ -184,6 +223,15 @@ const ScheduleForm = ({
     setSuccessMessage(null);
 
     try {
+      // For non-admin users, ensure staffId and staffType are set
+      if (user && user.publicMetadata.role !== "admin") {
+        formData.staffId = user.id;
+        // Convert role to lowercase to match Prisma enum values
+        formData.staffType = (
+          user.publicMetadata.role as string
+        ).toLowerCase() as "handler" | "breeder";
+      }
+
       const formDataObj = new FormData();
       // Add the ID to the form data when updating
       if (type === "update" && data?.id) {
@@ -200,6 +248,8 @@ const ScheduleForm = ({
       });
 
       console.log("Submitting form data:", Object.fromEntries(formDataObj));
+      console.log("User role:", user?.publicMetadata.role);
+      console.log("User ID:", user?.id);
 
       // Simulate a small delay to show loading state
       await new Promise((resolve) => setTimeout(resolve, 800));
@@ -215,7 +265,9 @@ const ScheduleForm = ({
               body: formDataObj,
             });
 
+      console.log("API Response status:", result.status);
       const responseData = await result.json();
+      console.log("API Response data:", responseData);
 
       if (result.ok) {
         setSuccessMessage(
@@ -237,13 +289,13 @@ const ScheduleForm = ({
             ? `Error: ${responseData.details}`
             : responseData.error || "An error occurred"
         );
+        console.error("Form submission error:", responseData);
       }
     } catch (err) {
       setError("An unexpected error occurred");
-      console.error(err);
-    } finally {
-      setIsSubmitting(false);
+      console.error("Form submission error:", err);
     }
+    setIsSubmitting(false);
   });
 
   return (
@@ -314,6 +366,7 @@ const ScheduleForm = ({
           <option value="FEEDING">Feeding</option>
           <option value="VACCINATION">Vaccination</option>
           <option value="DEWORMING">Deworming</option>
+          <option value="OTHER">Other</option>
         </select>
         {errors.taskCategory?.message && (
           <p className="text-xs text-red-400 dark:text-red-400">
@@ -411,6 +464,7 @@ const ScheduleForm = ({
               <option value="DAILY">Daily</option>
               <option value="WEEKLY">Weekly</option>
               <option value="MONTHLY">Monthly</option>
+              <option value="OTHER">Other</option>
             </select>
             {errors.reccurencePattern?.message && (
               <p className="text-xs text-red-400 dark:text-red-400">
@@ -506,53 +560,110 @@ const ScheduleForm = ({
         </>
       )}
 
-      <div className="flex flex-col gap-2">
-        <label className="text-xs text-gray-500 dark:text-gray-400">
-          Staff Type
-        </label>
-        <select
-          className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          {...register("staffType")}
-          defaultValue={mappedData.staffType}
-        >
-          <option value="">Select Staff Type</option>
-          <option value="HANDLER">Handler</option>
-          <option value="BREEDER">Breeder</option>
-        </select>
-        {errors.staffType?.message && (
-          <p className="text-xs text-red-400 dark:text-red-400">
-            {errors.staffType.message.toString()}
-          </p>
-        )}
-      </div>
+      {/* Only show staff fields for admin users */}
+      {user?.publicMetadata.role === "admin" && (
+        <>
+          <div className="flex flex-col gap-2">
+            <label className="text-xs text-gray-500 dark:text-gray-400">
+              Staff Type
+            </label>
+            <select
+              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              {...register("staffType")}
+              defaultValue={mappedData.staffType}
+            >
+              <option value="">Select Staff Type</option>
+              <option value="handler">Handler</option>
+              <option value="breeder">Breeder</option>
+            </select>
+            {errors.staffType?.message && (
+              <p className="text-xs text-red-400 dark:text-red-400">
+                {errors.staffType.message.toString()}
+              </p>
+            )}
+          </div>
 
-      <div className="flex flex-col gap-2">
-        <label className="text-xs text-gray-500 dark:text-gray-400">
-          Staff
-        </label>
-        <select
-          className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          {...register("staffId")}
-          defaultValue={mappedData.staffId}
-          disabled={!selectedStaffType}
-        >
-          <option value="">
-            {selectedStaffType
-              ? `Select ${selectedStaffType}`
-              : "Select staff type first"}
-          </option>
-          {filteredStaff.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.id} - {s.first_name} {s.last_name}
-            </option>
-          ))}
-        </select>
-        {errors.staffId?.message && (
-          <p className="text-xs text-red-400 dark:text-red-400">
-            {errors.staffId.message.toString()}
-          </p>
+          <div className="flex flex-col gap-2">
+            <label className="text-xs text-gray-500 dark:text-gray-400">
+              Staff
+            </label>
+            <select
+              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              {...register("staffId")}
+              defaultValue={mappedData.staffId}
+              disabled={!selectedStaffType}
+            >
+              <option value="">
+                {selectedStaffType
+                  ? `Select ${selectedStaffType}`
+                  : "Select staff type first"}
+              </option>
+              {filteredStaff.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.id} - {s.first_name} {s.last_name}
+                </option>
+              ))}
+            </select>
+            {errors.staffId?.message && (
+              <p className="text-xs text-red-400 dark:text-red-400">
+                {errors.staffId.message.toString()}
+              </p>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Show staff fields for handler users with pre-filled values */}
+      {user?.publicMetadata.role === "handler" && (
+        <>
+          <div className="flex flex-col gap-2">
+            <label className="text-xs text-gray-500 dark:text-gray-400">
+              Staff Type
+            </label>
+            <input
+              type="text"
+              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              value="handler"
+              disabled
+            />
+            <input type="hidden" {...register("staffType")} value="handler" />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-xs text-gray-500 dark:text-gray-400">
+              Staff
+            </label>
+            <input
+              type="text"
+              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              value={user?.id || ""}
+              disabled
+            />
+            <input
+              type="hidden"
+              {...register("staffId")}
+              value={user?.id || ""}
+            />
+          </div>
+        </>
+      )}
+
+      {/* Hidden fields for non-admin and non-handler users */}
+      {user?.publicMetadata.role !== "admin" &&
+        user?.publicMetadata.role !== "handler" && (
+          <>
+            <input
+              type="hidden"
+              {...register("staffId")}
+              value={user?.id || ""}
+            />
+            <input
+              type="hidden"
+              {...register("staffType")}
+              value={(user?.publicMetadata.role as string) || ""}
+            />
+          </>
         )}
-      </div>
 
       {error && <p className="text-red-500 text-sm">{error}</p>}
       {successMessage && (

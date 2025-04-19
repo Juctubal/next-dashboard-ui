@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+import { useUser } from "@clerk/nextjs";
 
 type ValuePiece = Date | null;
 
@@ -17,11 +18,14 @@ interface CalendarItem {
   type?: "event" | "schedule" | "breeding";
 }
 
-interface EventCalendarProps {
+interface BreedingCalendarProps {
   events?: CalendarItem[];
 }
 
-const EventCalendar = ({ events: initialEvents = [] }: EventCalendarProps) => {
+const BreedingCalendar = ({
+  events: initialEvents = [],
+}: BreedingCalendarProps) => {
+  const { user } = useUser();
   const [value, setValue] = useState<Value>(new Date());
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -46,23 +50,17 @@ const EventCalendar = ({ events: initialEvents = [] }: EventCalendarProps) => {
       try {
         setLoading(true);
 
-        // Fetch events
-        const eventsResponse = await fetch("/api/events");
-        let eventsData: CalendarItem[] = [];
-        if (eventsResponse.ok) {
-          eventsData = await eventsResponse.json();
-          // Add type property to events
-          eventsData = eventsData.map((event) => ({
-            ...event,
-            type: "event",
-          }));
-        }
-
-        // Fetch schedules
+        // Fetch schedules for the logged-in user
         const schedulesResponse = await fetch("/api/schedules");
         let schedulesData: CalendarItem[] = [];
         if (schedulesResponse.ok) {
-          schedulesData = await schedulesResponse.json();
+          const allSchedules = await schedulesResponse.json();
+          // Filter schedules for the logged-in user
+          schedulesData = allSchedules.filter(
+            (schedule: any) =>
+              schedule.staffId === user?.id &&
+              schedule.staffType === user?.publicMetadata?.role
+          );
         }
 
         // Fetch breeding records
@@ -80,8 +78,8 @@ const EventCalendar = ({ events: initialEvents = [] }: EventCalendarProps) => {
           }));
         }
 
-        // Combine events, schedules, and breeding records
-        const allItems = [...eventsData, ...schedulesData, ...breedingData];
+        // Combine schedules and breeding records
+        const allItems = [...schedulesData, ...breedingData];
         setCalendarItems(allItems);
 
         // Mark that we've fetched the data
@@ -93,12 +91,12 @@ const EventCalendar = ({ events: initialEvents = [] }: EventCalendarProps) => {
       }
     };
 
-    if (initialEvents.length === 0) {
+    if (initialEvents.length === 0 && user) {
       fetchCalendarItems();
     } else {
       setLoading(false);
     }
-  }, [initialEvents]);
+  }, [initialEvents, user]);
 
   // Filter items for the selected date
   const filteredItems = calendarItems.filter((item) => {
@@ -263,4 +261,4 @@ const EventCalendar = ({ events: initialEvents = [] }: EventCalendarProps) => {
   );
 };
 
-export default EventCalendar;
+export default BreedingCalendar;

@@ -58,7 +58,9 @@ export async function POST(request: Request) {
 
     // Create a new staff member in the database
     const staffMember = await (
-      (role === "HANDLER" ? prisma.handler : prisma.breeder) as any
+      (role.toLowerCase() === "handler"
+        ? prisma.handler
+        : prisma.breeder) as any
     ).create({
       data: {
         id: clerkUserData.id,
@@ -69,7 +71,7 @@ export async function POST(request: Request) {
         email: "",
         phone: "",
         img: "",
-        role: role as UserRole,
+        role: role.toLowerCase() as UserRole,
         status: "ACTIVE",
       },
     });

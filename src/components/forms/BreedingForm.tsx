@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 interface Gamefowl {
   id: number;
@@ -15,6 +16,7 @@ const BreedingForm = ({
   type: "create" | "update";
   data?: any;
 }) => {
+  const router = useRouter();
   const [sireId, setSireId] = useState(data?.sireId || "");
   const [damId, setDamId] = useState(data?.damId || "");
   const [notes, setNotes] = useState(data?.notes || "");
@@ -30,6 +32,8 @@ const BreedingForm = ({
   const [gamefowls, setGamefowls] = useState<Gamefowl[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchGamefowls = async () => {
@@ -53,8 +57,12 @@ const BreedingForm = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsSubmitting(true);
 
     try {
+      // Simulate a small delay to show loading state
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
       const response = await fetch("/api/breeding", {
         method: type === "create" ? "POST" : "PUT",
         headers: {
@@ -76,10 +84,24 @@ const BreedingForm = ({
         throw new Error(errorData.error || "Failed to save breeding record");
       }
 
-      // Close the modal and refresh the page
-      window.location.reload();
+      // Show success message
+      setSuccessMessage(
+        type === "create"
+          ? "Breeding record successfully created!"
+          : "Breeding record successfully updated!"
+      );
+
+      // Show success message for 1.5 seconds before closing the modal and refreshing
+      setTimeout(() => {
+        // Close the modal
+        window.dispatchEvent(new CustomEvent("closeModal"));
+        // Refresh the page to show the new data
+        router.refresh();
+      }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -107,6 +129,11 @@ const BreedingForm = ({
       {error && (
         <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded relative">
           {error}
+        </div>
+      )}
+      {successMessage && (
+        <div className="bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded relative">
+          {successMessage}
         </div>
       )}
       <div className="space-y-2">
@@ -218,12 +245,52 @@ const BreedingForm = ({
           <option value="FINISHED">Finished</option>
         </select>
       </div>
-      <button
-        type="submit"
-        className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white py-2 px-6 rounded-md border-none w-max self-center transition-colors mt-4"
-      >
-        {type === "create" ? "Add Breeding Record" : "Update Breeding Record"}
-      </button>
+      <div className="flex justify-end gap-4 mt-4">
+        <button
+          type="button"
+          className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent("closeModal"));
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white py-2 px-6 rounded-md border-none w-max transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          {isSubmitting ? (
+            <>
+              <svg
+                className="animate-spin h-4 w-4 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              {type === "create" ? "Creating..." : "Updating..."}
+            </>
+          ) : type === "create" ? (
+            "Add Breeding Record"
+          ) : (
+            "Update Breeding Record"
+          )}
+        </button>
+      </div>
     </form>
   );
 };

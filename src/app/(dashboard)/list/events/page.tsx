@@ -11,10 +11,20 @@ import {
   Event,
   Handler,
   Prisma,
+  EventGamefowl,
+  Gamefowl,
 } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { format } from "date-fns";
+import { ColumnDef, Row } from "@tanstack/react-table";
+
+type EventWithRelations = Event & {
+  gamefowl: (EventGamefowl & {
+    gamefowl: Gamefowl;
+  })[];
+};
 
 // Event columns
 const eventColumns = [
@@ -25,27 +35,22 @@ const eventColumns = [
   {
     header: "Event Type",
     accessor: "eventType",
-    className: "hidden md:table-cell",
   },
   {
     header: "Age Category",
     accessor: "ageCategory",
-    className: "hidden md:table-cell",
   },
   {
     header: "Event Date",
-    accessor: "date",
-    className: "hidden md:table-cell",
-  },
-  {
-    header: "Description",
-    accessor: "desc",
-    className: "hidden md:table-cell",
+    accessor: "eventDate",
   },
   {
     header: "Status",
     accessor: "status",
-    className: "hidden md:table-cell",
+  },
+  {
+    header: "Gamefowls",
+    accessor: "gamefowl",
   },
   {
     header: "Actions",
@@ -55,10 +60,6 @@ const eventColumns = [
 
 // Conditioning Program columns
 const conditioningProgramColumns = [
-  {
-    header: "ID",
-    accessor: "id",
-  },
   {
     header: "Program Name",
     accessor: "programName",
@@ -77,8 +78,8 @@ const conditioningProgramColumns = [
 // Conditioning columns
 const conditioningColumns = [
   {
-    header: "Gamefowl ID",
-    accessor: "gamefowlId",
+    header: "Gamefowls",
+    accessor: "gamefowls",
   },
   {
     header: "Program Name",
@@ -108,7 +109,9 @@ const conditioningColumns = [
   },
 ];
 
-const renderEventRow = (item: Event) => (
+const renderEventRow = (
+  item: Event & { gamefowl: { gamefowl: { id: number; name: string } }[] }
+) => (
   <tr
     key={item.id}
     className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
@@ -125,10 +128,26 @@ const renderEventRow = (item: Event) => (
     <td className="hidden md:table-cell dark:text-gray-200">
       {new Intl.DateTimeFormat("en-US").format(item.eventDate)}
     </td>
-    <td className="hidden md:table-cell dark:text-gray-200">
+    {/* <td className="hidden md:table-cell dark:text-gray-200">
       {item.description}
-    </td>
+    </td> */}
     <td className="hidden md:table-cell dark:text-gray-200">{item.status}</td>
+    <td className="hidden md:table-cell dark:text-gray-200">
+      {item.gamefowl && item.gamefowl.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {item.gamefowl.map((gamefowl) => (
+            <span
+              key={gamefowl.gamefowl.id}
+              className="px-2 py-1 bg-ggPurpleLight dark:bg-gray-700 rounded-md text-xs"
+            >
+              {gamefowl.gamefowl.name} (ID: {gamefowl.gamefowl.id})
+            </span>
+          ))}
+        </div>
+      ) : (
+        <span className="text-gray-400">No gamefowls</span>
+      )}
+    </td>
     <td>
       <div className="flex items-center gap-2">
         {role === "admin" && (
@@ -147,8 +166,14 @@ const renderConditioningProgramRow = (item: ConditioningProgram) => (
     key={item.id}
     className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
   >
-    <td className="p-4 dark:text-gray-200">{item.id}</td>
-    <td className="p-4 dark:text-gray-200">{item.programName}</td>
+    <td className="p-4 dark:text-gray-200">
+      <div className="flex flex-col">
+        <span>{item.programName}</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          ID: {item.id}
+        </span>
+      </div>
+    </td>
     <td className="hidden md:table-cell p-4 dark:text-gray-200">
       {item.description}
     </td>
@@ -170,13 +195,27 @@ const renderConditioningRow = (
     conProg: ConditioningProgram;
     event: Event;
     handler: Handler;
+    gamefowls: {
+      gamefowl: Gamefowl;
+    }[];
   }
 ) => (
   <tr
     key={item.id}
     className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
   >
-    <td className="p-4 dark:text-gray-200">{item.gamefowlId}</td>
+    <td className="p-4 dark:text-gray-200">
+      <div className="flex flex-wrap gap-1">
+        {item.gamefowls.map(({ gamefowl }) => (
+          <span
+            key={gamefowl.id}
+            className="px-2 py-1 bg-ggPurpleLight dark:bg-gray-700 rounded-md text-xs"
+          >
+            {gamefowl.name} (ID: {gamefowl.id})
+          </span>
+        ))}
+      </div>
+    </td>
     <td className="p-4 dark:text-gray-200">{item.conProg.programName}</td>
     <td className="p-4 dark:text-gray-200">{item.event.eventName}</td>
     <td className="p-4 dark:text-gray-200">
@@ -235,7 +274,15 @@ const EventListPage = async ({
               ];
             } else if (tab === "conditioning") {
               conditioningQuery.OR = [
-                { gamefowlId: parseInt(value) || undefined },
+                {
+                  gamefowls: {
+                    some: {
+                      gamefowl: {
+                        id: parseInt(value) || undefined,
+                      },
+                    },
+                  },
+                },
                 {
                   conProg: {
                     programName: { contains: value, mode: "insensitive" },
@@ -267,17 +314,20 @@ const EventListPage = async ({
   let count = 0;
 
   if (tab === "events") {
-    [data, count] = await prisma.$transaction([
-      prisma.event.findMany({
-        where: eventQuery,
-        include: {
-          conditioning: true,
+    const events = await prisma.event.findMany({
+      include: {
+        gamefowl: {
+          include: {
+            gamefowl: true,
+          },
         },
-        take: ITEM_PER_PAGE,
-        skip: ITEM_PER_PAGE * (p - 1),
-      }),
-      prisma.event.count({ where: eventQuery }),
-    ]);
+      },
+      orderBy: {
+        eventDate: "desc",
+      },
+    });
+    data = events;
+    count = events.length;
   } else if (tab === "conditioningPrograms") {
     [data, count] = await prisma.$transaction([
       prisma.conditioningProgram.findMany({
@@ -295,6 +345,11 @@ const EventListPage = async ({
           conProg: true,
           event: true,
           handler: true,
+          gamefowls: {
+            include: {
+              gamefowl: true,
+            },
+          },
         },
         take: ITEM_PER_PAGE,
         skip: ITEM_PER_PAGE * (p - 1),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ConditioningProgram, ConditioningActivity } from "@prisma/client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -32,6 +32,42 @@ const ConditioningProgramForm = ({
     message: string;
     type: "success" | "error";
   } | null>(null);
+  const [isLoading, setIsLoading] = useState(type === "update");
+
+  // Fetch existing activities when in update mode
+  useEffect(() => {
+    const fetchActivities = async () => {
+      if (type === "update" && data?.id) {
+        try {
+          const response = await fetch(
+            `/api/conditioning-program/${data.id}/activities`
+          );
+          if (!response.ok) {
+            throw new Error("Failed to fetch activities");
+          }
+          const activitiesData = await response.json();
+          setActivities(
+            activitiesData.map((activity: ConditioningActivity) => ({
+              name: activity.name,
+              description: activity.description,
+            }))
+          );
+        } catch (error) {
+          console.error("Error fetching activities:", error);
+          setNotification({
+            message: "Failed to load existing activities",
+            type: "error",
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        setIsLoading(false);
+      }
+    };
+
+    fetchActivities();
+  }, [type, data?.id]);
 
   const handleClose = () => {
     if (typeof onClose === "function") {
@@ -67,11 +103,12 @@ const ConditioningProgramForm = ({
 
     try {
       const response = await fetch("/api/conditioning-program", {
-        method: "POST",
+        method: type === "create" ? "POST" : "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          id: data?.id,
           ...formData,
           activities: activities.map((activity) => ({
             name: activity.name,
@@ -81,12 +118,14 @@ const ConditioningProgramForm = ({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create conditioning program");
+        throw new Error(`Failed to ${type} conditioning program`);
       }
 
       // Show success message first
       setNotification({
-        message: "Conditioning program successfully created",
+        message: `Conditioning program successfully ${
+          type === "create" ? "created" : "updated"
+        }`,
         type: "success",
       });
 
@@ -99,9 +138,9 @@ const ConditioningProgramForm = ({
         router.refresh();
       }, 1500);
     } catch (error) {
-      console.error("Error creating conditioning program:", error);
+      console.error(`Error ${type}ing conditioning program:`, error);
       setNotification({
-        message: "Failed to create conditioning program. Please try again.",
+        message: `Failed to ${type} conditioning program. Please try again.`,
         type: "error",
       });
     } finally {
@@ -173,62 +212,77 @@ const ConditioningProgramForm = ({
             </button>
           </div>
 
-          {activities.map((activity, index) => (
-            <div
-              key={index}
-              className="border border-gray-200 dark:border-gray-700 rounded-md p-4"
-            >
-              <div className="flex justify-between items-start mb-2">
-                <h4 className="font-medium text-gray-700 dark:text-gray-300">
-                  Activity {index + 1}
-                </h4>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveActivity(index)}
-                  className="text-gray-500 hover:text-red-500 transition-colors p-1"
-                  title="Remove Activity"
-                >
-                  <Image src="/close.png" alt="Remove" width={16} height={16} />
-                </button>
-              </div>
-              <div className="flex flex-col gap-2">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Activity Name
-                  </label>
-                  <input
-                    type="text"
-                    value={activity.name}
-                    onChange={(e) =>
-                      handleActivityChange(index, "name", e.target.value)
-                    }
-                    className="mt-1 w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Activity Description
-                  </label>
-                  <textarea
-                    value={activity.description}
-                    onChange={(e) =>
-                      handleActivityChange(index, "description", e.target.value)
-                    }
-                    className="mt-1 w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
-                    rows={2}
-                    required
-                  />
-                </div>
-              </div>
+          {isLoading ? (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ggPurple"></div>
             </div>
-          ))}
+          ) : (
+            activities.map((activity, index) => (
+              <div
+                key={index}
+                className="border border-gray-200 dark:border-gray-700 rounded-md p-4"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <h4 className="font-medium text-gray-700 dark:text-gray-300">
+                    Activity {index + 1}
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveActivity(index)}
+                    className="text-gray-500 hover:text-red-500 transition-colors p-1"
+                    title="Remove Activity"
+                  >
+                    <Image
+                      src="/close.png"
+                      alt="Remove"
+                      width={16}
+                      height={16}
+                    />
+                  </button>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Activity Name
+                    </label>
+                    <input
+                      type="text"
+                      value={activity.name}
+                      onChange={(e) =>
+                        handleActivityChange(index, "name", e.target.value)
+                      }
+                      className="mt-1 w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Activity Description
+                    </label>
+                    <textarea
+                      value={activity.description}
+                      onChange={(e) =>
+                        handleActivityChange(
+                          index,
+                          "description",
+                          e.target.value
+                        )
+                      }
+                      className="mt-1 w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
+                      rows={2}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         <button
           type="submit"
           disabled={isSubmitting}
-          className="bg-ggPurple text-white py-2 px-4 rounded-md border-none w-max self-end hover:bg-ggPurple/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white py-2 px-4 rounded-md border-none w-max self-end transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           {isSubmitting ? (
             <>

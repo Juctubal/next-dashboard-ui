@@ -9,6 +9,11 @@ export async function GET() {
           select: {
             id: true,
             name: true,
+            eventGamefowls: {
+              select: {
+                eventId: true,
+              },
+            },
           },
           orderBy: {
             name: "asc",
@@ -18,6 +23,7 @@ export async function GET() {
           select: {
             id: true,
             eventName: true,
+            eventDate: true,
           },
           orderBy: {
             eventName: "asc",

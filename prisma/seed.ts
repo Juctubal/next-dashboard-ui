@@ -35,7 +35,7 @@ async function main() {
           email: faker.internet.email(),
           img: faker.image.avatar(),
           phone: faker.phone.number(),
-          role: "HANDLER",
+          role: UserRole.handler,
           status: "ACTIVE",
           createdAt: new Date(),
         },
@@ -58,7 +58,7 @@ async function main() {
           email: faker.internet.email(),
           img: faker.image.avatar(),
           phone: faker.phone.number(),
-          role: "BREEDER",
+          role: UserRole.breeder,
           status: "ACTIVE",
           createdAt: new Date(),
         },
@@ -187,6 +187,7 @@ async function main() {
             "FOUR_COCK_DERBY",
             "FIVE_COCK_DERBY",
             "SOLO",
+            "OTHER",
           ]),
           ageCategory: faker.helpers.arrayElement([
             "STAG",
@@ -230,7 +231,6 @@ async function main() {
           data: {
             eventId: randomEvent.id,
             conProgId: randomProgram.id,
-            gamefowlId: randomGamefowl.id,
             handlerId: randomHandler.id,
             startDate: startDate,
             endDate: endDate,
@@ -239,6 +239,11 @@ async function main() {
               "ONGOING",
               "COMPLETED",
             ]),
+            gamefowls: {
+              create: {
+                gamefowlId: randomGamefowl.id,
+              },
+            },
           },
         });
       })
@@ -279,7 +284,7 @@ async function main() {
             schedId: schedule.id,
             taskName: faker.lorem.words(2),
             taskDate: faker.date.future(),
-            time_of_day: faker.date.future(),
+            time_of_day: faker.date.future().toISOString(),
           },
         });
       }
@@ -295,8 +300,9 @@ async function main() {
               "WEEKLY",
               "MONTHLY",
             ]),
-            taskDate: faker.date.future(),
-            time_of_day: faker.date.future(),
+            startDate: faker.date.future(),
+            endDate: faker.date.future(),
+            time_of_day: faker.date.future().toISOString(),
           },
         });
       }

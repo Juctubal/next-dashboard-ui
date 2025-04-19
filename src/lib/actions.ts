@@ -12,9 +12,21 @@ export async function createEvent(formData: FormData) {
   const eventDate = formData.get("eventDate") as string;
   const description = formData.get("description") as string;
   const status = formData.get("status") as EventStatus;
+  const gamefowlIdsJson = formData.get("gamefowlIds") as string;
+
+  let gamefowlIds: number[] = [];
+  if (gamefowlIdsJson) {
+    try {
+      gamefowlIds = JSON.parse(gamefowlIdsJson);
+    } catch (error) {
+      console.error("Error parsing gamefowlIds:", error);
+      return { success: false, error: "Invalid gamefowl selection" };
+    }
+  }
 
   try {
-    await prisma.event.create({
+    // Create the event
+    const event = await prisma.event.create({
       data: {
         eventName,
         eventType,
@@ -24,6 +36,16 @@ export async function createEvent(formData: FormData) {
         status,
       },
     });
+
+    // Create event gamefowls
+    if (gamefowlIds.length > 0) {
+      await prisma.eventGamefowl.createMany({
+        data: gamefowlIds.map((gamefowlId) => ({
+          eventId: event.id,
+          gamefowlId,
+        })),
+      });
+    }
 
     revalidatePath("/list/events");
     return { success: true };
@@ -40,8 +62,20 @@ export async function updateEvent(id: number, formData: FormData) {
   const eventDate = formData.get("eventDate") as string;
   const description = formData.get("description") as string;
   const status = formData.get("status") as EventStatus;
+  const gamefowlIdsJson = formData.get("gamefowlIds") as string;
+
+  let gamefowlIds: number[] = [];
+  if (gamefowlIdsJson) {
+    try {
+      gamefowlIds = JSON.parse(gamefowlIdsJson);
+    } catch (error) {
+      console.error("Error parsing gamefowlIds:", error);
+      return { success: false, error: "Invalid gamefowl selection" };
+    }
+  }
 
   try {
+    // Update the event
     await prisma.event.update({
       where: { id },
       data: {
@@ -53,6 +87,21 @@ export async function updateEvent(id: number, formData: FormData) {
         status,
       },
     });
+
+    // Delete existing gamefowls
+    await prisma.eventGamefowl.deleteMany({
+      where: { eventId: id },
+    });
+
+    // Create new gamefowls
+    if (gamefowlIds.length > 0) {
+      await prisma.eventGamefowl.createMany({
+        data: gamefowlIds.map((gamefowlId) => ({
+          eventId: id,
+          gamefowlId,
+        })),
+      });
+    }
 
     revalidatePath("/list/events");
     return { success: true };

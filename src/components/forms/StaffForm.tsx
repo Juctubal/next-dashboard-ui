@@ -11,7 +11,7 @@ const StaffForm = ({
   const [lastName, setLastName] = useState(data?.last_name || "");
   const [username, setUsername] = useState(data?.username || "");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState(data?.role || "HANDLER");
+  const [role, setRole] = useState(data?.role || "handler");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -20,37 +20,46 @@ const StaffForm = ({
     setError(null);
     setSuccess(null);
 
-    // Password validation
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters long");
-      return;
+    // Password validation only for create or if password is provided in update
+    if (type === "create" || (type === "update" && password)) {
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters long");
+        return;
+      }
     }
 
     try {
-      console.log("Submitting form with data:", {
+      const endpoint =
+        type === "create" ? "/api/staff" : `/api/staff/${data.id}`;
+      const method = type === "create" ? "POST" : "PUT";
+
+      const requestBody = {
         firstName,
         lastName,
         username,
         role,
-      });
+        ...(password && { password }), // Only include password if it's provided
+      };
 
-      const response = await fetch("/api/staff", {
-        method: "POST",
+      console.log(`Submitting ${type} form with data:`, requestBody);
+
+      const response = await fetch(endpoint, {
+        method,
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ firstName, lastName, username, password, role }),
+        body: JSON.stringify(requestBody),
       });
 
-      const data = await response.json();
+      const responseData = await response.json();
 
       if (!response.ok) {
-        if (data.error?.includes("username is taken")) {
+        if (responseData.error?.includes("username is taken")) {
           setError(
             "This username is already taken. Please choose another one."
           );
         } else if (
-          data.error?.includes(
+          responseData.error?.includes(
             "password has been found in an online data breach"
           )
         ) {
@@ -58,22 +67,26 @@ const StaffForm = ({
             "This password is too common. Please choose a stronger password."
           );
         } else {
-          throw new Error(data.error || "Failed to create staff member");
+          throw new Error(
+            responseData.error || `Failed to ${type} staff member`
+          );
         }
         return;
       }
 
-      console.log("Staff member created successfully:", data);
-      setSuccess("Staff record successfully created");
+      console.log(`Staff member ${type}d successfully:`, responseData);
+      setSuccess(`Staff record successfully ${type}d`);
 
       // Wait for 2 seconds to show the success message before reloading
       setTimeout(() => {
         window.location.reload();
       }, 2000);
     } catch (error) {
-      console.error("Error creating staff member:", error);
+      console.error(`Error ${type}ing staff member:`, error);
       setError(
-        error instanceof Error ? error.message : "Failed to create staff member"
+        error instanceof Error
+          ? error.message
+          : `Failed to ${type} staff member`
       );
     }
   };
@@ -146,7 +159,9 @@ const StaffForm = ({
           htmlFor="password"
           className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
         >
-          Password
+          {type === "create"
+            ? "Password"
+            : "New Password (leave blank to keep current)"}
         </label>
         <input
           type="password"
@@ -154,11 +169,13 @@ const StaffForm = ({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
-          required
+          required={type === "create"}
         />
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          Password must be at least 8 characters long and not commonly used.
-        </p>
+        {type === "create" && (
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Password must be at least 8 characters long and not commonly used.
+          </p>
+        )}
       </div>
       <div>
         <label
@@ -174,8 +191,8 @@ const StaffForm = ({
           className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
           required
         >
-          <option value="HANDLER">Handler</option>
-          <option value="BREEDER">Breeder</option>
+          <option value="handler">Handler</option>
+          <option value="breeder">Breeder</option>
         </select>
       </div>
       <button

@@ -40,7 +40,7 @@ const menuItems = [
         icon: "/schedule.png",
         label: "Schedules",
         href: "/list/schedules",
-        visible: ["admin"],
+        visible: ["admin", "handler", "breeder"],
       },
       // {
       //   icon: "/exam.png",
@@ -119,7 +119,7 @@ const menuItems = [
 
 const Menu = async () => {
   const user = await currentUser();
-  const role = user?.publicMetadata.role as string;
+  const role = (user?.publicMetadata.role as string)?.toLowerCase();
 
   return (
     <div className="mt-4 text-sm">
@@ -129,7 +129,7 @@ const Menu = async () => {
             {i.title}
           </span>
           {i.items.map((item) => {
-            if (item.visible.includes(role)) {
+            if (item.visible.map((r) => r.toLowerCase()).includes(role)) {
               return (
                 <Link
                   href={item.href}

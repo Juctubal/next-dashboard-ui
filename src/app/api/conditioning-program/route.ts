@@ -34,3 +34,54 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, programName, description, activities } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Program ID is required for updates" },
+        { status: 400 }
+      );
+    }
+
+    // First, delete existing activities
+    await prisma.conditioningActivity.deleteMany({
+      where: {
+        programId: id,
+      },
+    });
+
+    // Update the conditioning program and create new activities
+    const conditioningProgram = await prisma.conditioningProgram.update({
+      where: {
+        id: id,
+      },
+      data: {
+        programName,
+        description,
+        activities: {
+          create: activities.map(
+            (activity: { name: string; description: string }) => ({
+              name: activity.name,
+              description: activity.description,
+            })
+          ),
+        },
+      },
+      include: {
+        activities: true,
+      },
+    });
+
+    return NextResponse.json(conditioningProgram);
+  } catch (error) {
+    console.error("Error updating conditioning program:", error);
+    return NextResponse.json(
+      { error: "Failed to update conditioning program" },
+      { status: 500 }
+    );
+  }
+}

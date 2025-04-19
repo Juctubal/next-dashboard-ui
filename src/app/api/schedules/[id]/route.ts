@@ -19,7 +19,7 @@ export async function PUT(
     const taskCategory = formData.get("taskCategory") as string;
     const taskDesc = formData.get("taskDesc") as string;
     const staffId = formData.get("staffId") as string;
-    const staffType = formData.get("staffType") as string;
+    let staffType = formData.get("staffType") as string;
     const status = formData.get("status") as string;
 
     // One-time schedule fields
@@ -47,6 +47,11 @@ export async function PUT(
 
     // Validate and convert taskCategory
     if (!Object.values(TaskCategory).includes(taskCategory as TaskCategory)) {
+      console.log(
+        "Available TaskCategory values:",
+        Object.values(TaskCategory)
+      );
+      console.log("Provided taskCategory:", taskCategory);
       return NextResponse.json(
         {
           error: `Invalid taskCategory. Must be one of: ${Object.values(
@@ -58,15 +63,28 @@ export async function PUT(
     }
 
     // Validate staffType if provided
-    if (staffType && !Object.values(UserRole).includes(staffType as UserRole)) {
-      return NextResponse.json(
-        {
-          error: `Invalid staffType. Must be one of: ${Object.values(
-            UserRole
-          ).join(", ")}`,
-        },
-        { status: 400 }
-      );
+    if (staffType) {
+      // Convert to lowercase for case-insensitive comparison
+      const normalizedStaffType = staffType.toLowerCase();
+      if (!Object.values(UserRole).includes(normalizedStaffType as UserRole)) {
+        console.error(
+          "Invalid staffType:",
+          staffType,
+          "Normalized:",
+          normalizedStaffType
+        );
+        console.error("Available UserRole values:", Object.values(UserRole));
+        return NextResponse.json(
+          {
+            error: `Invalid staff type: ${staffType}. Must be one of: ${Object.values(
+              UserRole
+            ).join(", ")}`,
+          },
+          { status: 400 }
+        );
+      }
+      // Use the normalized value for the database
+      staffType = normalizedStaffType as UserRole;
     }
 
     // Update the schedule
@@ -78,7 +96,7 @@ export async function PUT(
         taskCategory: taskCategory as TaskCategory,
         descript: taskDesc,
         staffId: staffId || null,
-        staffType: (staffType as UserRole) || null,
+        staffType: staffType ? (staffType as UserRole) : null,
         status: status as EventStatus,
       },
     });

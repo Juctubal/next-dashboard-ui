@@ -59,7 +59,9 @@ const forms: {
       onClose={onClose || (() => {})}
     />
   ),
-  conditioning: (type, data) => <ConditioningForm type={type} data={data} />,
+  conditioning: (type, data, onClose) => (
+    <ConditioningForm type={type} data={data} onClose={onClose || (() => {})} />
+  ),
   sparring: (type, data, onClose) => (
     <SparringForm
       type={type}
@@ -203,20 +205,8 @@ const FormModal = ({
       );
     }
 
-    return (
-      forms[table]?.(type, data, handleClose) || (
-        <div className="p-6">
-          <h2 className="text-xl font-semibold mb-4 dark:text-white">
-            {type === "create" ? "Create" : "Update"} {table}
-          </h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">
-            {type === "create"
-              ? `Add a new ${table} to the system.`
-              : `Update the details of this ${table}.`}
-          </p>
-        </div>
-      )
-    );
+    // Return the appropriate form component
+    return forms[table](type, data, handleClose);
   };
 
   return (

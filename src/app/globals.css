@@ -296,6 +296,31 @@ abbr:where([title]) {
   outline-offset: -2px !important;
 }
 
+/* Fix for weekend days with events */
+.react-calendar__month-view__days__day--weekend.has-events {
+  background-color: rgba(255, 235, 59, 0.2) !important;
+  color: inherit !important;
+}
+
+.react-calendar__month-view__days__day--weekend.has-events:hover {
+  background-color: rgba(255, 235, 59, 0.3) !important;
+  outline: 2px solid white !important;
+  outline-offset: -2px !important;
+}
+
+/* Ensure weekend days with events that are also active maintain the highlight */
+.react-calendar__tile--active.react-calendar__month-view__days__day--weekend.has-events {
+  background-color: rgba(255, 235, 59, 0.2) !important;
+  border: 2px solid #3b82f6 !important;
+  border-radius: 4px !important;
+}
+
+.react-calendar__tile--active.react-calendar__month-view__days__day--weekend.has-events:hover {
+  background-color: rgba(255, 235, 59, 0.3) !important;
+  outline: 2px solid white !important;
+  outline-offset: -2px !important;
+}
+
 /* Remove highlight on year navigation */
 .react-calendar__navigation__label {
   background-color: transparent !important;

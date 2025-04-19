@@ -33,9 +33,13 @@ const SingleGamefowlPage = async ({ params }: GamefowlPageProps) => {
     include: {
       conditioning: {
         include: {
-          conProg: true,
-          event: true,
-          handler: true,
+          conditioning: {
+            include: {
+              conProg: true,
+              event: true,
+              handler: true,
+            },
+          },
         },
       },
       sparring_1: true,
@@ -68,11 +72,11 @@ const SingleGamefowlPage = async ({ params }: GamefowlPageProps) => {
 
   // Create calendar events from conditioning data
   const calendarEvents: CalendarEvent[] = gamefowl.conditioning.map(
-    (conditioning) => ({
-      id: `conditioning-${conditioning.id}`,
-      title: `Conditioning: ${conditioning.conProg.programName}`,
-      start: conditioning.startDate,
-      end: conditioning.endDate,
+    (conditioningGamefowl) => ({
+      id: `conditioning-${conditioningGamefowl.conditioning.id}`,
+      title: `Conditioning: ${conditioningGamefowl.conditioning.conProg.programName}`,
+      start: conditioningGamefowl.conditioning.startDate,
+      end: conditioningGamefowl.conditioning.endDate,
       allDay: false,
       type: "conditioning",
     })

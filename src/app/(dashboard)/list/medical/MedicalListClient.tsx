@@ -160,17 +160,6 @@ const MedicalListClient = ({
       <td className="hidden md:table-cell p-4 dark:text-gray-200">
         {new Intl.DateTimeFormat("en-US").format(item.vaccinationDate)}
       </td>
-      <td className="hidden md:table-cell p-4 dark:text-gray-200">
-        <span
-          className={`px-2 py-1 rounded-full text-xs ${
-            item.isArchived
-              ? "bg-gray-200 text-gray-700"
-              : "bg-green-200 text-green-700"
-          }`}
-        >
-          {item.isArchived ? "Archived" : "Active"}
-        </span>
-      </td>
       <td className="p-4">
         <div className="flex items-center gap-2">
           {role === "admin" && (

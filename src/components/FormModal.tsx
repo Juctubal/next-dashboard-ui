@@ -77,11 +77,21 @@ const forms: {
     console.log("FormModal breeding data:", data);
     return <BreedingForm type={type} data={data} />;
   },
-  vaccine: (type, data) => (
-    <MedicalForm type={type} data={data} recordType="vaccine" />
+  vaccine: (type, data, onClose) => (
+    <MedicalForm
+      type={type}
+      data={data}
+      recordType="vaccine"
+      onClose={onClose}
+    />
   ),
-  deworming: (type, data) => (
-    <MedicalForm type={type} data={data} recordType="deworming" />
+  deworming: (type, data, onClose) => (
+    <MedicalForm
+      type={type}
+      data={data}
+      recordType="deworming"
+      onClose={onClose}
+    />
   ),
   event: (type, data) => <EventForm type={type} data={data} />,
   schedule: (type, data) => <ScheduleForm type={type} data={data} />,

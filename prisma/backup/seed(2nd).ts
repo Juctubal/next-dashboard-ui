@@ -17,8 +17,10 @@ async function main() {
     data: Array.from({ length: 5 }).map(() => ({
       eventName: faker.company.name(),
       eventType: faker.helpers.arrayElement([
+        "TWO_COCK_DERBY",
         "THREE_COCK_DERBY",
         "FOUR_COCK_DERBY",
+        "SOLO",
       ]),
       ageCategory: faker.helpers.arrayElement(["STAG", "BULLSTAG", "COCK"]),
       eventDate: faker.date.future(),

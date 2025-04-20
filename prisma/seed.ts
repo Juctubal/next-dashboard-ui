@@ -133,17 +133,15 @@ async function main() {
     data: {
       incStart: faker.date.past(),
       incEnd: faker.date.recent(),
-      turningSched: faker.date.future(),
       status: "ONGOING",
+      eggCount: faker.number.int({ min: 10, max: 50 }),
     },
   });
 
   // Seed Batch
   await prisma.batch.create({
     data: {
-      incubate_sched_id: incubation.id,
-      eggCount: faker.number.int({ min: 10, max: 50 }),
-      fertilityRate: faker.number.float({ min: 60, max: 90 }),
+      incubate_id: incubation.id,
       hatchRate: faker.number.float({ min: 50, max: 80 }),
       dateHatched: faker.date.recent(),
     },
@@ -183,6 +181,7 @@ async function main() {
             "Regional Championship 2024",
           ]),
           eventType: faker.helpers.arrayElement([
+            "TWO_COCK_DERBY",
             "THREE_COCK_DERBY",
             "FOUR_COCK_DERBY",
             "FIVE_COCK_DERBY",

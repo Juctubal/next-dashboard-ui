@@ -90,7 +90,15 @@ const HandlerPage = () => {
       {/* RIGHT */}
       <div className="w-full lg:w-1/3 flex flex-col gap-8">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-          <HandlerCalendar />
+          <HandlerCalendar
+            events={events.map((event) => ({
+              id: event.id,
+              eventName: event.title,
+              eventDate: event.start.toISOString(),
+              description: event.title,
+              type: "event" as const,
+            }))}
+          />
         </div>
       </div>
     </div>

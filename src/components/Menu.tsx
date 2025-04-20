@@ -44,6 +44,12 @@ const Menu = async () => {
           visible: ["admin", "breeder"],
         },
         {
+          icon: "/egg.png",
+          label: "Incubation",
+          href: "/list/incubation",
+          visible: ["admin", "breeder"],
+        },
+        {
           icon: "/schedule.png",
           label: "Schedules",
           href: "/list/schedules",

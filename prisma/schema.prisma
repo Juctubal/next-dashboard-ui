@@ -33,6 +33,7 @@ model Breeding {
   isArchived Boolean        @default(false)
   dam        Gamefowl       @relation("DamBreeding", fields: [damId], references: [id])
   sire       Gamefowl       @relation("SireBreeding", fields: [sireId], references: [id])
+  incubation Incubation[]
 }
 
 model Deworming {
@@ -84,6 +85,7 @@ model Gamefowl {
   sireBreeding    Breeding[]             @relation("SireBreeding")
   conditioning    ConditioningGamefowl[]
   deworming       Deworming[]
+  eventGamefowls  EventGamefowl[]
   dam             Gamefowl?              @relation("DamRelation", fields: [damId], references: [id])
   offspringDam    Gamefowl[]             @relation("DamRelation")
   sire            Gamefowl?              @relation("SireRelation", fields: [sireId], references: [id])
@@ -93,7 +95,6 @@ model Gamefowl {
   sparring_loser  Sparring[]             @relation("SparLose")
   sparring_winner Sparring[]             @relation("SparWin")
   vaccine         Vaccine[]
-  eventGamefowls  EventGamefowl[]
 }
 
 model OneTimeSched {
@@ -135,8 +136,8 @@ model Conditioning {
   status    ConditioningStatus
   conProg   ConditioningProgram    @relation(fields: [conProgId], references: [id])
   event     Event                  @relation(fields: [eventId], references: [id])
-  gamefowls ConditioningGamefowl[]
   handler   Handler                @relation(fields: [handlerId], references: [id])
+  gamefowls ConditioningGamefowl[]
 }
 
 model ConditioningGamefowl {
@@ -150,22 +151,23 @@ model ConditioningGamefowl {
 }
 
 model Batch {
-  id                Int        @id @default(autoincrement())
-  incubate_sched_id Int
-  eggCount          Int
-  fertilityRate     Float
-  hatchRate         Float
-  dateHatched       DateTime
-  incubation        Incubation @relation(fields: [incubate_sched_id], references: [id])
+  id          Int        @id @default(autoincrement())
+  hatchRate   Float
+  dateHatched DateTime
+  incubate_id Int
+  incubation  Incubation @relation(fields: [incubate_id], references: [id])
 }
 
 model Incubation {
-  id           Int              @id @default(autoincrement())
-  incStart     DateTime
-  incEnd       DateTime
-  turningSched DateTime
-  status       IncubationStatus
-  batch        Batch[]
+  id         Int              @id @default(autoincrement())
+  incStart   DateTime
+  incEnd     DateTime
+  status     IncubationStatus
+  eggCount   Int
+  batch      Batch[]
+  breedingId Int?
+  breeding   Breeding?        @relation(fields: [breedingId], references: [id])
+  isArchived Boolean          @default(false)
 }
 
 model Schedule {
@@ -233,10 +235,10 @@ model RecurrentSchedules {
   id                Int               @id @default(autoincrement())
   schedId           Int
   reccurencePattern RecurrencePattern
-  startDate         DateTime
-  endDate           DateTime
   time_of_day       String
-  weekDays          String? // Store selected days of the week as a JSON string
+  endDate           DateTime
+  startDate         DateTime
+  weekDays          String?
   schedule          Schedule          @relation(fields: [schedId], references: [id])
 }
 
@@ -299,6 +301,7 @@ enum EventType {
   FIVE_COCK_DERBY
   SOLO
   OTHER
+  TWO_COCK_DERBY
 }
 
 enum AgeCategory {

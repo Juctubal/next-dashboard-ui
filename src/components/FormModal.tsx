@@ -40,6 +40,9 @@ const EventForm = dynamic(() => import("./forms/EventForm"), {
 const ScheduleForm = dynamic(() => import("./forms/ScheduleForm"), {
   loading: () => <h1>Loading...</h1>,
 });
+const IncubationForm = dynamic(() => import("./forms/IncubationForm"), {
+  loading: () => <h1>Loading...</h1>,
+});
 
 const forms: {
   [key: string]: (
@@ -70,7 +73,10 @@ const forms: {
       onClose={onClose || (() => {})}
     />
   ),
-  breeding: (type, data) => <BreedingForm type={type} data={data} />,
+  breeding: (type, data) => {
+    console.log("FormModal breeding data:", data);
+    return <BreedingForm type={type} data={data} />;
+  },
   vaccine: (type, data) => (
     <MedicalForm type={type} data={data} recordType="vaccine" />
   ),
@@ -79,6 +85,14 @@ const forms: {
   ),
   event: (type, data) => <EventForm type={type} data={data} />,
   schedule: (type, data) => <ScheduleForm type={type} data={data} />,
+  incubation: (type, data, onClose) => (
+    <IncubationForm
+      type={type}
+      data={data}
+      onClose={onClose || (() => {})}
+      breedingId={data?.breedingId}
+    />
+  ),
 };
 
 const FormModal = ({
@@ -108,7 +122,8 @@ const FormModal = ({
     | "conditioning"
     | "sparring"
     | "breeding"
-    | "schedule";
+    | "schedule"
+    | "incubation";
   type: "create" | "update" | "delete" | "archive" | "unarchive";
   data?: any;
   id?: number | String;

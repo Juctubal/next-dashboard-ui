@@ -132,6 +132,8 @@ const EventForm = ({
 
   const getRequiredGamefowlCount = () => {
     switch (watchEventType) {
+      case "TWO_COCK_DERBY":
+        return 2;
       case "THREE_COCK_DERBY":
         return 3;
       case "FOUR_COCK_DERBY":

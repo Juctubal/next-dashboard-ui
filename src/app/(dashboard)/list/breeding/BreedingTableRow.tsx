@@ -32,6 +32,11 @@ const BreedingTableRow = ({ item }: BreedingTableRowProps) => {
   const [showFinishConfirmation, setShowFinishConfirmation] = useState(false);
   const [showEggCountingConfirmation, setShowEggCountingConfirmation] =
     useState(false);
+  const [showIncubationForm, setShowIncubationForm] = useState(false);
+  const [incubationFormData, setIncubationFormData] = useState({
+    incStart: "",
+    eggCount: "",
+  });
   const statusDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -80,34 +85,37 @@ const BreedingTableRow = ({ item }: BreedingTableRowProps) => {
   };
 
   const handleStatusChange = async (newStatus: BreedingStatus) => {
-    if (newStatus === "FINISHED") {
-      setShowFinishConfirmation(true);
-      return;
-    }
-
     try {
       setIsUpdatingStatus(true);
-      const response = await fetch(`/api/breeding/${item.id}`, {
+      const response = await fetch("/api/breeding", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({
+          id: item.id,
+          sireId: item.sireId,
+          damId: item.damId,
+          notes: item.notes,
+          status: newStatus,
+          startDate: item.startDate,
+          endDate: newStatus === "FINISHED" ? new Date() : item.endDate,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update status");
+        throw new Error("Failed to update breeding status");
       }
 
       setCurrentStatus(newStatus);
-      toast.success("Status updated successfully");
+      setIsEditingStatus(false);
+      toast.success("Breeding status updated successfully");
       router.refresh();
     } catch (error) {
-      console.error("Error updating status:", error);
-      toast.error("Failed to update status");
+      console.error("Error updating breeding status:", error);
+      toast.error("Failed to update breeding status");
     } finally {
       setIsUpdatingStatus(false);
-      setIsEditingStatus(false);
     }
   };
 
@@ -135,7 +143,6 @@ const BreedingTableRow = ({ item }: BreedingTableRowProps) => {
     } finally {
       setIsUpdatingStatus(false);
       setIsEditingStatus(false);
-      setShowFinishConfirmation(false);
     }
   };
 
@@ -146,6 +153,42 @@ const BreedingTableRow = ({ item }: BreedingTableRowProps) => {
   const handleEggCountingClick = () => {
     setShowEggCountingConfirmation(true);
   };
+
+  const handleIncubationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const response = await fetch("/api/incubation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          incStart: incubationFormData.incStart,
+          eggCount: incubationFormData.eggCount,
+          status: "ONGOING",
+          breedingId: item.id,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create incubation record");
+      }
+
+      const data = await response.json();
+      toast.success("Incubation record created successfully");
+      router.refresh();
+      setShowIncubationForm(false);
+      // Redirect to the incubation page
+      router.push("/list/incubation");
+    } catch (error) {
+      console.error("Error creating incubation record:", error);
+      toast.error("Failed to create incubation record");
+    }
+  };
+
+  // Log the item data for debugging
+  console.log("BreedingTableRow item data:", item);
 
   return (
     <tr
@@ -274,16 +317,77 @@ const BreedingTableRow = ({ item }: BreedingTableRowProps) => {
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       setShowEggCountingConfirmation(false);
-                      // TODO: Add navigation to egg counting page
-                      router.push(`/list/egg-counting?breedingId=${item.id}`);
+                      await confirmFinishStatus();
+                      setShowIncubationForm(true);
                     }}
                     className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
                   >
                     Proceed
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+          {showIncubationForm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  Create Incubation Record
+                </h3>
+                <form onSubmit={handleIncubationSubmit}>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={incubationFormData.incStart}
+                      onChange={(e) =>
+                        setIncubationFormData({
+                          ...incubationFormData,
+                          incStart: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ggPurple focus:border-ggPurple dark:bg-gray-700 dark:text-white"
+                      required
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Number of Eggs
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={incubationFormData.eggCount}
+                      onChange={(e) =>
+                        setIncubationFormData({
+                          ...incubationFormData,
+                          eggCount: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-ggPurple focus:border-ggPurple dark:bg-gray-700 dark:text-white"
+                      required
+                    />
+                  </div>
+                  <div className="flex justify-end gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowIncubationForm(false)}
+                      className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                    >
+                      Submit
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}

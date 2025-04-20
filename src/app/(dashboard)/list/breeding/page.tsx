@@ -104,6 +104,11 @@ const BreedingListPage = async ({
     prisma.breeding.count({ where: query }),
   ]);
 
+  // Get total count of breeding records in the database (regardless of search or filter)
+  const totalBreedingCount = await prisma.breeding.count({
+    where: { isArchived: isArchived },
+  });
+
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
@@ -126,7 +131,7 @@ const BreedingListPage = async ({
               {isArchived ? "Active" : "Archive"}
             </Link>
           )}
-          <TableSearch disabled={data.length === 0} />
+          <TableSearch disabled={totalBreedingCount === 0} />
           <div className="flex items-center gap-4 self-end">
             <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
               <Image src="/filter.png" alt="" width={14} height={14} />

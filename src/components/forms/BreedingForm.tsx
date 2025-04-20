@@ -17,23 +17,46 @@ const BreedingForm = ({
   data?: any;
 }) => {
   const router = useRouter();
-  const [sireId, setSireId] = useState(data?.sireId || "");
-  const [damId, setDamId] = useState(data?.damId || "");
+  const [sireId, setSireId] = useState(data?.sireId?.toString() || "");
+  const [damId, setDamId] = useState(data?.damId?.toString() || "");
   const [notes, setNotes] = useState(data?.notes || "");
   const [status, setStatus] = useState(data?.status || "ONGOING");
-  const [startDate, setStartDate] = useState(
-    data?.startDate
-      ? new Date(data.startDate).toISOString().split("T")[0]
-      : new Date().toISOString().split("T")[0]
-  );
-  const [endDate, setEndDate] = useState(
-    data?.endDate ? new Date(data.endDate).toISOString().split("T")[0] : ""
-  );
+  const [startDate, setStartDate] = useState(() => {
+    if (data?.startDate) {
+      // Handle both string and Date objects
+      const date =
+        typeof data.startDate === "string"
+          ? new Date(data.startDate)
+          : data.startDate;
+      return date.toISOString().split("T")[0];
+    }
+    return new Date().toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = useState(() => {
+    if (data?.endDate) {
+      // Handle both string and Date objects
+      const date =
+        typeof data.endDate === "string"
+          ? new Date(data.endDate)
+          : data.endDate;
+      return date.toISOString().split("T")[0];
+    }
+    return "";
+  });
   const [gamefowls, setGamefowls] = useState<Gamefowl[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Log the data to see what's being passed
+  useEffect(() => {
+    console.log("BreedingForm data:", data);
+    console.log("SireId:", data?.sireId);
+    console.log("DamId:", data?.damId);
+    console.log("StartDate:", data?.startDate);
+    console.log("EndDate:", data?.endDate);
+  }, [data]);
 
   useEffect(() => {
     const fetchGamefowls = async () => {

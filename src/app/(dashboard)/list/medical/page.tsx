@@ -76,12 +76,20 @@ export default async function MedicalListPage({
       ? vaccineCount
       : dewormingCount;
 
-  // Combine and sort records
-  const records = [...vaccines, ...dewormings].sort((a, b) => {
-    const dateA = "vaccinationDate" in a ? a.vaccinationDate : a.dewormDate;
-    const dateB = "vaccinationDate" in b ? b.vaccinationDate : b.dewormDate;
-    return dateB.getTime() - dateA.getTime();
-  });
+  // Filter records based on type
+  let records = [];
+  if (type === "vaccine") {
+    records = vaccines;
+  } else if (type === "deworming") {
+    records = dewormings;
+  } else {
+    // For "all" type, combine and sort records
+    records = [...vaccines, ...dewormings].sort((a, b) => {
+      const dateA = "vaccinationDate" in a ? a.vaccinationDate : a.dewormDate;
+      const dateB = "vaccinationDate" in b ? b.vaccinationDate : b.dewormDate;
+      return dateB.getTime() - dateA.getTime();
+    });
+  }
 
   return (
     <MedicalListClient

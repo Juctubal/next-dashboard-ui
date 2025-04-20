@@ -97,39 +97,45 @@ export async function POST(request: Request) {
       conditioning.conProg.activities.length
     );
 
-    // Create a schedule entry for each conditioning activity
-    for (const activity of conditioning.conProg.activities) {
-      console.log("Creating schedule for activity:", activity);
+    // Try to create schedules for activities, but don't fail the whole request if this fails
+    try {
+      // Create a schedule entry for each conditioning activity
+      for (const activity of conditioning.conProg.activities) {
+        console.log("Creating schedule for activity:", activity);
 
-      // Create the main schedule
-      const schedule = await prisma.schedule.create({
-        data: {
-          taskName: `${activity.name} - ${conditioning.gamefowls
-            .map((g) => g.gamefowl.name)
-            .join(", ")}`,
-          taskType: "RECURRING",
-          taskCategory: "OTHER" as any,
-          descript: `${activity.description} - Part of ${conditioning.conProg.programName} for ${conditioning.event.eventName}`,
-          staffId: handlerId,
-          staffType: "HANDLER",
-          status: "PLANNED",
-        },
-      });
+        // Create the main schedule
+        const schedule = await prisma.schedule.create({
+          data: {
+            taskName: `${activity.name} - ${conditioning.gamefowls
+              .map((g) => g.gamefowl.name)
+              .join(", ")}`,
+            taskType: "RECURRING",
+            taskCategory: "OTHER" as any,
+            descript: `${activity.description} - Part of ${conditioning.conProg.programName} for ${conditioning.event.eventName}`,
+            staffId: handlerId,
+            staffType: "handler",
+            status: "PLANNED",
+          },
+        });
 
-      console.log("Created schedule:", schedule);
+        console.log("Created schedule:", schedule);
 
-      // Create the recurrent schedule
-      const recurrentSchedule = await prisma.recurrentSchedules.create({
-        data: {
-          schedId: schedule.id,
-          reccurencePattern: "OTHER",
-          startDate: conditioning.startDate,
-          endDate: conditioning.endDate,
-          time_of_day: "09:00", // Default time, can be adjusted as needed
-        },
-      });
+        // Create the recurrent schedule
+        const recurrentSchedule = await prisma.recurrentSchedules.create({
+          data: {
+            schedId: schedule.id,
+            reccurencePattern: "OTHER",
+            startDate: conditioning.startDate,
+            endDate: conditioning.endDate,
+            time_of_day: "09:00", // Default time, can be adjusted as needed
+          },
+        });
 
-      console.log("Created recurrent schedule:", recurrentSchedule);
+        console.log("Created recurrent schedule:", recurrentSchedule);
+      }
+    } catch (scheduleError) {
+      // Log the error but don't fail the request
+      console.error("Error creating schedules:", scheduleError);
     }
 
     return NextResponse.json(conditioning);

@@ -12,6 +12,7 @@ export async function POST(request: Request) {
         name,
         notes,
         vaccinationDate: new Date(date),
+        isArchived: false,
       },
     });
 

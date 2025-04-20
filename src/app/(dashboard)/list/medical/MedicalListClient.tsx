@@ -26,14 +26,14 @@ type MedicalListClientProps = {
   data: (VaccineWithGamefowl | DewormingWithGamefowl)[];
   searchParams: { [key: string]: string | undefined };
   count: number;
-  type: "vaccine" | "deworming";
+  type: "vaccine" | "deworming" | "all";
 };
 
 // Common columns for both vaccine and deworming records
 const commonColumns = [
   {
     header: "Record ID",
-    accessor: "recordId",
+    accessor: "id",
   },
   {
     header: "Gamefowl ID",
@@ -42,7 +42,7 @@ const commonColumns = [
   },
   {
     header: "Medicine Name",
-    accessor: "medName",
+    accessor: "name",
     className: "hidden md:table-cell",
   },
   {
@@ -52,7 +52,7 @@ const commonColumns = [
   },
   {
     header: "Date Administered",
-    accessor: "adminsteredDate",
+    accessor: "date",
     className: "hidden md:table-cell",
   },
   {
@@ -73,6 +73,7 @@ const MedicalListClient = ({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
     null
   );
+  const [sortBy, setSortBy] = useState<"name" | "date" | null>(null);
 
   const toggleDropdown = () => {
     setDropdownOpen(!isDropdownOpen);
@@ -92,14 +93,25 @@ const MedicalListClient = ({
   const isArchived = showArchived === "true";
   const p = parseInt(page);
 
-  // Sort the data based on sortDirection
+  // Sort the data based on sortDirection and sortBy
   const sortedData = [...data].sort((a, b) => {
-    if (!sortDirection) return 0;
-    const nameA = a.name?.toLowerCase() || "";
-    const nameB = b.name?.toLowerCase() || "";
-    return sortDirection === "asc"
-      ? nameA.localeCompare(nameB)
-      : nameB.localeCompare(nameA);
+    if (!sortDirection || !sortBy) return 0;
+
+    if (sortBy === "name") {
+      const nameA = a.name?.toLowerCase() || "";
+      const nameB = b.name?.toLowerCase() || "";
+      return sortDirection === "asc"
+        ? nameA.localeCompare(nameB)
+        : nameB.localeCompare(nameA);
+    } else if (sortBy === "date") {
+      const dateA = "vaccinationDate" in a ? a.vaccinationDate : a.dewormDate;
+      const dateB = "vaccinationDate" in b ? b.vaccinationDate : b.dewormDate;
+      return sortDirection === "asc"
+        ? dateA.getTime() - dateB.getTime()
+        : dateB.getTime() - dateA.getTime();
+    }
+
+    return 0;
   });
 
   const handleArchiveToggle = async (id: number, archive: boolean) => {
@@ -231,8 +243,20 @@ const MedicalListClient = ({
       <div className="flex items-center justify-between">
         <h1 className="hidden md:block text-lg font-semibold dark:text-gray-200">
           {isArchived
-            ? `Archived ${type === "vaccine" ? "Vaccines" : "Deworming"}`
-            : `${type === "vaccine" ? "Vaccines" : "Deworming"}`}
+            ? `Archived ${
+                type === "all"
+                  ? "Medical Records"
+                  : type === "vaccine"
+                  ? "Vaccines"
+                  : "Deworming"
+              }`
+            : `${
+                type === "all"
+                  ? "Medical Records"
+                  : type === "vaccine"
+                  ? "Vaccines"
+                  : "Deworming"
+              }`}
         </h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
@@ -299,24 +323,56 @@ const MedicalListClient = ({
               </button>
               {isSortDropdownOpen && (
                 <div className="absolute right-0 top-full mt-2 bg-white shadow-md rounded-md z-10">
-                  <button
-                    className="block w-full px-4 py-2 text-gray-700 hover:bg-gray-100 text-left"
-                    onClick={() => {
-                      setSortDirection("asc");
-                      setSortDropdownOpen(false);
-                    }}
-                  >
-                    Name (A-Z)
-                  </button>
-                  <button
-                    className="block w-full px-4 py-2 text-gray-700 hover:bg-gray-100 text-left"
-                    onClick={() => {
-                      setSortDirection("desc");
-                      setSortDropdownOpen(false);
-                    }}
-                  >
-                    Name (Z-A)
-                  </button>
+                  <div className="py-1">
+                    <div className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-200">
+                      Sort by Name
+                    </div>
+                    <button
+                      className="block w-full px-4 py-2 text-gray-700 hover:bg-gray-100 text-left"
+                      onClick={() => {
+                        setSortBy("name");
+                        setSortDirection("asc");
+                        setSortDropdownOpen(false);
+                      }}
+                    >
+                      Name (A-Z)
+                    </button>
+                    <button
+                      className="block w-full px-4 py-2 text-gray-700 hover:bg-gray-100 text-left"
+                      onClick={() => {
+                        setSortBy("name");
+                        setSortDirection("desc");
+                        setSortDropdownOpen(false);
+                      }}
+                    >
+                      Name (Z-A)
+                    </button>
+                  </div>
+                  <div className="py-1">
+                    <div className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-200">
+                      Sort by Date
+                    </div>
+                    <button
+                      className="block w-full px-4 py-2 text-gray-700 hover:bg-gray-100 text-left"
+                      onClick={() => {
+                        setSortBy("date");
+                        setSortDirection("asc");
+                        setSortDropdownOpen(false);
+                      }}
+                    >
+                      Date (Oldest First)
+                    </button>
+                    <button
+                      className="block w-full px-4 py-2 text-gray-700 hover:bg-gray-100 text-left"
+                      onClick={() => {
+                        setSortBy("date");
+                        setSortDirection("desc");
+                        setSortDropdownOpen(false);
+                      }}
+                    >
+                      Date (Newest First)
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -361,7 +417,13 @@ const MedicalListClient = ({
       {/* LIST */}
       <Table
         columns={commonColumns}
-        renderRow={type === "vaccine" ? renderVaccineRow : renderDewormingRow}
+        renderRow={(item) => {
+          if ("vaccinationDate" in item) {
+            return renderVaccineRow(item as VaccineWithGamefowl);
+          } else {
+            return renderDewormingRow(item as DewormingWithGamefowl);
+          }
+        }}
         data={sortedData}
       />
 

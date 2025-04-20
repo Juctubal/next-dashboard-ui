@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { calculateGamefowlAge } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import Notification from "../ui/Notification";
 
 const GamefowlForm = ({
   type,
@@ -8,6 +10,7 @@ const GamefowlForm = ({
   type: "create" | "update";
   data?: any;
 }) => {
+  const router = useRouter();
   const [name, setName] = useState(data?.name || "");
   const [bloodline, setBloodline] = useState(data?.bloodline || "");
   const [dateHatched, setDateHatched] = useState(
@@ -21,6 +24,11 @@ const GamefowlForm = ({
   const [sex, setSex] = useState(data?.sex || "MALE");
   const [error, setError] = useState<string | null>(null);
   const [calculatedAge, setCalculatedAge] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   // Calculate age whenever date_hatched changes
   useEffect(() => {
@@ -32,9 +40,15 @@ const GamefowlForm = ({
     }
   }, [dateHatched, sex]);
 
+  const handleNotificationClose = () => {
+    setNotification(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsSubmitting(true);
+    setNotification(null);
 
     try {
       const response = await fetch("/api/gamefowl", {
@@ -60,10 +74,27 @@ const GamefowlForm = ({
         throw new Error(errorData.error || "Failed to save gamefowl");
       }
 
-      // Close the modal and refresh the page
-      window.location.reload();
+      // Show success message
+      setNotification({
+        message: `Gamefowl ${
+          type === "create" ? "created" : "updated"
+        } successfully`,
+        type: "success",
+      });
+
+      // Close the modal after a delay
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("closeModal"));
+        router.refresh();
+      }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
+      setNotification({
+        message: `Failed to ${type} gamefowl`,
+        type: "error",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -193,12 +224,57 @@ const GamefowlForm = ({
           className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
         />
       </div>
-      <button
-        type="submit"
-        className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white py-2 px-6 rounded-md border-none w-max self-center transition-colors mt-4"
-      >
-        {type === "create" ? "Add Gamefowl" : "Update Gamefowl"}
-      </button>
+      <div className="flex justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("closeModal"))}
+          className="px-6 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white py-2 px-6 rounded-md border-none w-max transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          {isSubmitting ? (
+            <>
+              <svg
+                className="animate-spin h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              <span>{type === "create" ? "Creating..." : "Updating..."}</span>
+            </>
+          ) : type === "create" ? (
+            "Add Gamefowl"
+          ) : (
+            "Update Gamefowl"
+          )}
+        </button>
+      </div>
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={handleNotificationClose}
+        />
+      )}
     </form>
   );
 };

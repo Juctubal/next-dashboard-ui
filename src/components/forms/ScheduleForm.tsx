@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import InputField from "../InputField";
 import { RecurrencePattern, TaskType, EventStatus } from "@prisma/client";
 import { useUser } from "@clerk/nextjs";
+import Notification from "../ui/Notification";
 
 // Define the schema for the form
 const schema = z
@@ -74,7 +75,10 @@ const ScheduleForm = ({
   const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [filteredStaff, setFilteredStaff] = useState<Staff[]>([]);
   const [selectedWeekDays, setSelectedWeekDays] = useState<string[]>([]);
@@ -217,10 +221,14 @@ const ScheduleForm = ({
     }
   };
 
+  const handleNotificationClose = () => {
+    setNotification(null);
+  };
+
   const onSubmit = handleSubmit(async (formData) => {
     setIsSubmitting(true);
     setError(null);
-    setSuccessMessage(null);
+    setNotification(null);
 
     try {
       // For non-admin users, ensure staffId and staffType are set
@@ -232,49 +240,41 @@ const ScheduleForm = ({
         ).toLowerCase() as "handler" | "breeder";
       }
 
-      const formDataObj = new FormData();
-      // Add the ID to the form data when updating
-      if (type === "update" && data?.id) {
-        formDataObj.append("id", data.id.toString());
-      }
+      // Create FormData object
+      const formDataToSend = new FormData();
+
+      // Add all form fields to FormData
       Object.entries(formData).forEach(([key, value]) => {
-        if (value !== undefined && value !== "") {
+        if (value !== undefined && value !== null) {
           if (Array.isArray(value)) {
-            formDataObj.append(key, JSON.stringify(value));
+            // Handle array values (like weekDays)
+            value.forEach((item) => formDataToSend.append(key, item));
           } else {
-            formDataObj.append(key, value);
+            formDataToSend.append(key, value.toString());
           }
         }
       });
 
-      console.log("Submitting form data:", Object.fromEntries(formDataObj));
-      console.log("User role:", user?.publicMetadata.role);
-      console.log("User ID:", user?.id);
+      // Add ID if it exists (for updates)
+      if (data?.id) {
+        formDataToSend.append("id", data.id.toString());
+      }
 
-      // Simulate a small delay to show loading state
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      const response = await fetch("/api/schedules", {
+        method: type === "create" ? "POST" : "PUT",
+        body: formDataToSend,
+      });
 
-      const result =
-        type === "create"
-          ? await fetch("/api/schedules", {
-              method: "POST",
-              body: formDataObj,
-            })
-          : await fetch(`/api/schedules/${data.id}`, {
-              method: "PUT",
-              body: formDataObj,
-            });
+      const responseData = await response.json();
 
-      console.log("API Response status:", result.status);
-      const responseData = await result.json();
-      console.log("API Response data:", responseData);
-
-      if (result.ok) {
-        setSuccessMessage(
-          type === "create"
-            ? "Schedule successfully created!"
-            : "Schedule successfully updated!"
-        );
+      if (response.ok) {
+        setNotification({
+          message:
+            type === "create"
+              ? "Schedule successfully created!"
+              : "Schedule successfully updated!",
+          type: "success",
+        });
 
         // Show success message for 1.5 seconds before closing the modal and refreshing
         setTimeout(() => {
@@ -284,445 +284,449 @@ const ScheduleForm = ({
           router.refresh();
         }, 1500);
       } else {
-        setError(
-          responseData.details
+        setNotification({
+          message: responseData.details
             ? `Error: ${responseData.details}`
-            : responseData.error || "An error occurred"
-        );
+            : responseData.error || "An error occurred",
+          type: "error",
+        });
         console.error("Form submission error:", responseData);
       }
     } catch (err) {
-      setError("An unexpected error occurred");
+      setNotification({
+        message: "An unexpected error occurred",
+        type: "error",
+      });
       console.error("Form submission error:", err);
     }
     setIsSubmitting(false);
   });
 
   return (
-    <form className="flex flex-col gap-6 p-6" onSubmit={onSubmit}>
-      <div className="flex flex-col gap-2">
-        <label className="text-xs text-gray-500 dark:text-gray-400">
-          Task Name
-        </label>
-        <input
-          className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          {...register("taskName")}
-          defaultValue={mappedData.taskName}
-        />
-        {errors.taskName?.message && (
-          <p className="text-xs text-red-400 dark:text-red-400">
-            {errors.taskName.message.toString()}
-          </p>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label className="text-xs text-gray-500 dark:text-gray-400">
-          Task Description
-        </label>
-        <textarea
-          className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          {...register("taskDesc")}
-          defaultValue={mappedData.taskDesc}
-          rows={4}
-        />
-        {errors.taskDesc?.message && (
-          <p className="text-xs text-red-400 dark:text-red-400">
-            {errors.taskDesc.message.toString()}
-          </p>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label className="text-xs text-gray-500 dark:text-gray-400">
-          Task Status
-        </label>
-        <select
-          className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          {...register("status")}
-          defaultValue={mappedData.status}
-        >
-          <option value="PLANNED">Planned</option>
-          <option value="ONGOING">Ongoing</option>
-          <option value="FINISHED">Finished</option>
-        </select>
-        {errors.status?.message && (
-          <p className="text-xs text-red-400 dark:text-red-400">
-            {errors.status.message.toString()}
-          </p>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label className="text-xs text-gray-500 dark:text-gray-400">
-          Task Category
-        </label>
-        <select
-          className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          {...register("taskCategory")}
-          defaultValue={mappedData.taskCategory}
-        >
-          <option value="">Select Task Category</option>
-          <option value="FEEDING">Feeding</option>
-          <option value="VACCINATION">Vaccination</option>
-          <option value="DEWORMING">Deworming</option>
-          <option value="OTHER">Other</option>
-        </select>
-        {errors.taskCategory?.message && (
-          <p className="text-xs text-red-400 dark:text-red-400">
-            {errors.taskCategory.message.toString()}
-          </p>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label className="text-xs text-gray-500 dark:text-gray-400">
-          Task Type
-        </label>
-        <select
-          className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          {...register("taskType")}
-          defaultValue={mappedData.taskType}
-        >
-          <option value="">Select Task Type</option>
-          <option value="RECURRING">Recurring</option>
-          <option value="ONETIME">One Time</option>
-        </select>
-        {errors.taskType?.message && (
-          <p className="text-xs text-red-400 dark:text-red-400">
-            {errors.taskType.message.toString()}
-          </p>
-        )}
-      </div>
-
-      {/* Conditional fields based on task type */}
-      {selectedTaskType === "ONETIME" && (
+    <>
+      <form className="flex flex-col gap-6 p-6" onSubmit={onSubmit}>
         <div className="flex flex-col gap-2">
           <label className="text-xs text-gray-500 dark:text-gray-400">
-            Task Date
+            Task Name
           </label>
           <input
-            type="date"
             className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-            {...register("taskDate")}
-            defaultValue={mappedData.taskDate}
+            {...register("taskName")}
+            defaultValue={mappedData.taskName}
           />
-          {errors.taskDate?.message && (
+          {errors.taskName?.message && (
             <p className="text-xs text-red-400 dark:text-red-400">
-              {errors.taskDate.message.toString()}
+              {errors.taskName.message.toString()}
             </p>
           )}
         </div>
-      )}
 
-      {selectedTaskType === "RECURRING" && (
-        <>
-          <div className="flex flex-col gap-2">
-            <label className="text-xs text-gray-500 dark:text-gray-400">
-              Start Date
-            </label>
-            <input
-              type="date"
-              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-              {...register("startDate")}
-              defaultValue={mappedData.startDate}
-            />
-            {errors.startDate?.message && (
-              <p className="text-xs text-red-400 dark:text-red-400">
-                {errors.startDate.message.toString()}
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-xs text-gray-500 dark:text-gray-400">
-              End Date
-            </label>
-            <input
-              type="date"
-              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-              {...register("endDate")}
-              defaultValue={mappedData.endDate}
-            />
-            {errors.endDate?.message && (
-              <p className="text-xs text-red-400 dark:text-red-400">
-                {errors.endDate.message.toString()}
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-xs text-gray-500 dark:text-gray-400">
-              Recurrence Pattern
-            </label>
-            <select
-              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-              {...register("reccurencePattern")}
-              defaultValue={mappedData.reccurencePattern}
-            >
-              <option value="">Select Recurrence Pattern</option>
-              <option value="DAILY">Daily</option>
-              <option value="WEEKLY">Weekly</option>
-              <option value="MONTHLY">Monthly</option>
-              <option value="OTHER">Other</option>
-            </select>
-            {errors.reccurencePattern?.message && (
-              <p className="text-xs text-red-400 dark:text-red-400">
-                {errors.reccurencePattern.message.toString()}
-              </p>
-            )}
-          </div>
-
-          {/* Time picker for all recurrence patterns */}
-          <div className="flex flex-col gap-2">
-            <label className="text-xs text-gray-500 dark:text-gray-400">
-              Time of Day
-            </label>
-            <input
-              type="time"
-              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-              {...register("time_of_day")}
-              defaultValue={mappedData.time_of_day}
-            />
-            {errors.time_of_day?.message && (
-              <p className="text-xs text-red-400 dark:text-red-400">
-                {errors.time_of_day.message.toString()}
-              </p>
-            )}
-          </div>
-
-          {/* Weekly specific fields */}
-          {selectedRecurrencePattern === "WEEKLY" && (
-            <div className="flex flex-col gap-2">
-              <label className="text-xs text-gray-500 dark:text-gray-400">
-                Days of the Week
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  "Monday",
-                  "Tuesday",
-                  "Wednesday",
-                  "Thursday",
-                  "Friday",
-                  "Saturday",
-                  "Sunday",
-                ].map((day) => (
-                  <div key={day} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id={day}
-                      checked={selectedWeekDays.includes(day)}
-                      onChange={() => handleWeekDayChange(day)}
-                      className="mr-2"
-                    />
-                    <label
-                      htmlFor={day}
-                      className="text-xs text-gray-500 dark:text-gray-400"
-                    >
-                      {day}
-                    </label>
-                  </div>
-                ))}
-              </div>
-              <input
-                type="hidden"
-                {...register("weekDays")}
-                value={JSON.stringify(selectedWeekDays)}
-              />
-            </div>
+        <div className="flex flex-col gap-2">
+          <label className="text-xs text-gray-500 dark:text-gray-400">
+            Task Description
+          </label>
+          <textarea
+            className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            {...register("taskDesc")}
+            defaultValue={mappedData.taskDesc}
+            rows={4}
+          />
+          {errors.taskDesc?.message && (
+            <p className="text-xs text-red-400 dark:text-red-400">
+              {errors.taskDesc.message.toString()}
+            </p>
           )}
+        </div>
 
-          {/* Monthly specific fields */}
-          {selectedRecurrencePattern === "MONTHLY" && (
+        <div className="flex flex-col gap-2">
+          <label className="text-xs text-gray-500 dark:text-gray-400">
+            Task Status
+          </label>
+          <select
+            className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            {...register("status")}
+            defaultValue={mappedData.status}
+          >
+            <option value="PLANNED">Planned</option>
+            <option value="ONGOING">Ongoing</option>
+            <option value="FINISHED">Finished</option>
+          </select>
+          {errors.status?.message && (
+            <p className="text-xs text-red-400 dark:text-red-400">
+              {errors.status.message.toString()}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-xs text-gray-500 dark:text-gray-400">
+            Task Category
+          </label>
+          <select
+            className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            {...register("taskCategory")}
+            defaultValue={mappedData.taskCategory}
+          >
+            <option value="">Select Task Category</option>
+            <option value="FEEDING">Feeding</option>
+            <option value="VACCINATION">Vaccination</option>
+            <option value="DEWORMING">Deworming</option>
+            <option value="OTHER">Other</option>
+          </select>
+          {errors.taskCategory?.message && (
+            <p className="text-xs text-red-400 dark:text-red-400">
+              {errors.taskCategory.message.toString()}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-xs text-gray-500 dark:text-gray-400">
+            Task Type
+          </label>
+          <select
+            className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            {...register("taskType")}
+            defaultValue={mappedData.taskType}
+          >
+            <option value="">Select Task Type</option>
+            <option value="RECURRING">Recurring</option>
+            <option value="ONETIME">One Time</option>
+          </select>
+          {errors.taskType?.message && (
+            <p className="text-xs text-red-400 dark:text-red-400">
+              {errors.taskType.message.toString()}
+            </p>
+          )}
+        </div>
+
+        {/* Conditional fields based on task type */}
+        {selectedTaskType === "ONETIME" && (
+          <div className="flex flex-col gap-2">
+            <label className="text-xs text-gray-500 dark:text-gray-400">
+              Task Date
+            </label>
+            <input
+              type="date"
+              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              {...register("taskDate")}
+              defaultValue={mappedData.taskDate}
+            />
+            {errors.taskDate?.message && (
+              <p className="text-xs text-red-400 dark:text-red-400">
+                {errors.taskDate.message.toString()}
+              </p>
+            )}
+          </div>
+        )}
+
+        {selectedTaskType === "RECURRING" && (
+          <>
             <div className="flex flex-col gap-2">
               <label className="text-xs text-gray-500 dark:text-gray-400">
-                Day of the Month
+                Start Date
               </label>
-              <select
+              <input
+                type="date"
                 className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                {...register("monthDay")}
-                defaultValue={mappedData.monthDay}
-              >
-                <option value="">Select Day of Month</option>
-                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                  <option key={day} value={day}>
-                    {day}
-                  </option>
-                ))}
-              </select>
-              {errors.monthDay?.message && (
+                {...register("startDate")}
+                defaultValue={mappedData.startDate}
+              />
+              {errors.startDate?.message && (
                 <p className="text-xs text-red-400 dark:text-red-400">
-                  {errors.monthDay.message.toString()}
+                  {errors.startDate.message.toString()}
                 </p>
               )}
             </div>
-          )}
-        </>
-      )}
 
-      {/* Only show staff fields for admin users */}
-      {user?.publicMetadata.role === "admin" && (
-        <>
-          <div className="flex flex-col gap-2">
-            <label className="text-xs text-gray-500 dark:text-gray-400">
-              Staff Type
-            </label>
-            <select
-              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-              {...register("staffType")}
-              defaultValue={mappedData.staffType}
-            >
-              <option value="">Select Staff Type</option>
-              <option value="handler">Handler</option>
-              <option value="breeder">Breeder</option>
-            </select>
-            {errors.staffType?.message && (
-              <p className="text-xs text-red-400 dark:text-red-400">
-                {errors.staffType.message.toString()}
-              </p>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs text-gray-500 dark:text-gray-400">
+                End Date
+              </label>
+              <input
+                type="date"
+                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                {...register("endDate")}
+                defaultValue={mappedData.endDate}
+              />
+              {errors.endDate?.message && (
+                <p className="text-xs text-red-400 dark:text-red-400">
+                  {errors.endDate.message.toString()}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs text-gray-500 dark:text-gray-400">
+                Recurrence Pattern
+              </label>
+              <select
+                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                {...register("reccurencePattern")}
+                defaultValue={mappedData.reccurencePattern}
+              >
+                <option value="">Select Recurrence Pattern</option>
+                <option value="DAILY">Daily</option>
+                <option value="WEEKLY">Weekly</option>
+                <option value="MONTHLY">Monthly</option>
+                <option value="OTHER">Other</option>
+              </select>
+              {errors.reccurencePattern?.message && (
+                <p className="text-xs text-red-400 dark:text-red-400">
+                  {errors.reccurencePattern.message.toString()}
+                </p>
+              )}
+            </div>
+
+            {/* Time picker for all recurrence patterns */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs text-gray-500 dark:text-gray-400">
+                Time of Day
+              </label>
+              <input
+                type="time"
+                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                {...register("time_of_day")}
+                defaultValue={mappedData.time_of_day}
+              />
+              {errors.time_of_day?.message && (
+                <p className="text-xs text-red-400 dark:text-red-400">
+                  {errors.time_of_day.message.toString()}
+                </p>
+              )}
+            </div>
+
+            {/* Weekly specific fields */}
+            {selectedRecurrencePattern === "WEEKLY" && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400">
+                  Days of the Week
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                    "Saturday",
+                    "Sunday",
+                  ].map((day) => (
+                    <div key={day} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id={day}
+                        checked={selectedWeekDays.includes(day)}
+                        onChange={() => handleWeekDayChange(day)}
+                        className="mr-2"
+                      />
+                      <label
+                        htmlFor={day}
+                        className="text-xs text-gray-500 dark:text-gray-400"
+                      >
+                        {day}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <input
+                  type="hidden"
+                  {...register("weekDays")}
+                  value={JSON.stringify(selectedWeekDays)}
+                />
+              </div>
             )}
-          </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-xs text-gray-500 dark:text-gray-400">
-              Staff
-            </label>
-            <select
-              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-              {...register("staffId")}
-              defaultValue={mappedData.staffId}
-              disabled={!selectedStaffType}
-            >
-              <option value="">
-                {selectedStaffType
-                  ? `Select ${selectedStaffType}`
-                  : "Select staff type first"}
-              </option>
-              {filteredStaff.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.id} - {s.first_name} {s.last_name}
-                </option>
-              ))}
-            </select>
-            {errors.staffId?.message && (
-              <p className="text-xs text-red-400 dark:text-red-400">
-                {errors.staffId.message.toString()}
-              </p>
+            {/* Monthly specific fields */}
+            {selectedRecurrencePattern === "MONTHLY" && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400">
+                  Day of the Month
+                </label>
+                <select
+                  className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  {...register("monthDay")}
+                  defaultValue={mappedData.monthDay}
+                >
+                  <option value="">Select Day of Month</option>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                    <option key={day} value={day}>
+                      {day}
+                    </option>
+                  ))}
+                </select>
+                {errors.monthDay?.message && (
+                  <p className="text-xs text-red-400 dark:text-red-400">
+                    {errors.monthDay.message.toString()}
+                  </p>
+                )}
+              </div>
             )}
-          </div>
-        </>
-      )}
-
-      {/* Show staff fields for handler users with pre-filled values */}
-      {user?.publicMetadata.role === "handler" && (
-        <>
-          <div className="flex flex-col gap-2">
-            <label className="text-xs text-gray-500 dark:text-gray-400">
-              Staff Type
-            </label>
-            <input
-              type="text"
-              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-              value="handler"
-              disabled
-            />
-            <input type="hidden" {...register("staffType")} value="handler" />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-xs text-gray-500 dark:text-gray-400">
-              Staff
-            </label>
-            <input
-              type="text"
-              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-              value={user?.id || ""}
-              disabled
-            />
-            <input
-              type="hidden"
-              {...register("staffId")}
-              value={user?.id || ""}
-            />
-          </div>
-        </>
-      )}
-
-      {/* Hidden fields for non-admin and non-handler users */}
-      {user?.publicMetadata.role !== "admin" &&
-        user?.publicMetadata.role !== "handler" && (
-          <>
-            <input
-              type="hidden"
-              {...register("staffId")}
-              value={user?.id || ""}
-            />
-            <input
-              type="hidden"
-              {...register("staffType")}
-              value={(user?.publicMetadata.role as string) || ""}
-            />
           </>
         )}
 
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-      {successMessage && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-            <p className="text-green-500 text-lg font-semibold">
-              {successMessage}
-            </p>
-          </div>
-        </div>
-      )}
-
-      <div className="flex justify-end gap-4 mt-4">
-        <button
-          type="button"
-          className="px-6 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-          onClick={() => {
-            window.dispatchEvent(new CustomEvent("closeModal"));
-          }}
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white py-2 px-6 rounded-md border-none w-max transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          {isSubmitting ? (
-            <>
-              <svg
-                className="animate-spin h-4 w-4 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
+        {/* Only show staff fields for admin users */}
+        {user?.publicMetadata.role === "admin" && (
+          <>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs text-gray-500 dark:text-gray-400">
+                Staff Type
+              </label>
+              <select
+                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                {...register("staffType")}
+                defaultValue={mappedData.staffType}
               >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              {type === "create" ? "Creating..." : "Updating..."}
+                <option value="">Select Staff Type</option>
+                <option value="handler">Handler</option>
+                <option value="breeder">Breeder</option>
+              </select>
+              {errors.staffType?.message && (
+                <p className="text-xs text-red-400 dark:text-red-400">
+                  {errors.staffType.message.toString()}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs text-gray-500 dark:text-gray-400">
+                Staff
+              </label>
+              <select
+                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                {...register("staffId")}
+                defaultValue={mappedData.staffId}
+                disabled={!selectedStaffType}
+              >
+                <option value="">
+                  {selectedStaffType
+                    ? `Select ${selectedStaffType}`
+                    : "Select staff type first"}
+                </option>
+                {filteredStaff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.id} - {s.first_name} {s.last_name}
+                  </option>
+                ))}
+              </select>
+              {errors.staffId?.message && (
+                <p className="text-xs text-red-400 dark:text-red-400">
+                  {errors.staffId.message.toString()}
+                </p>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Show staff fields for handler users with pre-filled values */}
+        {user?.publicMetadata.role === "handler" && (
+          <>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs text-gray-500 dark:text-gray-400">
+                Staff Type
+              </label>
+              <input
+                type="text"
+                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                value="handler"
+                disabled
+              />
+              <input type="hidden" {...register("staffType")} value="handler" />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs text-gray-500 dark:text-gray-400">
+                Staff
+              </label>
+              <input
+                type="text"
+                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                value={user?.id || ""}
+                disabled
+              />
+              <input
+                type="hidden"
+                {...register("staffId")}
+                value={user?.id || ""}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Hidden fields for non-admin and non-handler users */}
+        {user?.publicMetadata.role !== "admin" &&
+          user?.publicMetadata.role !== "handler" && (
+            <>
+              <input
+                type="hidden"
+                {...register("staffId")}
+                value={user?.id || ""}
+              />
+              <input
+                type="hidden"
+                {...register("staffType")}
+                value={(user?.publicMetadata.role as string) || ""}
+              />
             </>
-          ) : type === "create" ? (
-            "Create Schedule"
-          ) : (
-            "Update Schedule"
           )}
-        </button>
-      </div>
-    </form>
+
+        {error && <p className="text-red-500 text-sm">{error}</p>}
+
+        <div className="flex justify-end gap-4 mt-4">
+          <button
+            type="button"
+            className="px-6 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("closeModal"));
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white py-2 px-6 rounded-md border-none w-max transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isSubmitting ? (
+              <>
+                <svg
+                  className="animate-spin h-4 w-4 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                {type === "create" ? "Creating..." : "Updating..."}
+              </>
+            ) : type === "create" ? (
+              "Create Schedule"
+            ) : (
+              "Update Schedule"
+            )}
+          </button>
+        </div>
+      </form>
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={handleNotificationClose}
+        />
+      )}
+    </>
   );
 };
 

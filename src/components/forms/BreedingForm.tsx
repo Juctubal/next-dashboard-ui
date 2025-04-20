@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Notification from "../ui/Notification";
 
 interface Gamefowl {
   id: number;
@@ -47,7 +48,10 @@ const BreedingForm = ({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   // Log the data to see what's being passed
   useEffect(() => {
@@ -77,10 +81,15 @@ const BreedingForm = ({
     fetchGamefowls();
   }, []);
 
+  const handleNotificationClose = () => {
+    setNotification(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
+    setNotification(null);
 
     try {
       // Simulate a small delay to show loading state
@@ -108,13 +117,14 @@ const BreedingForm = ({
       }
 
       // Show success message
-      setSuccessMessage(
-        type === "create"
-          ? "Breeding record successfully created!"
-          : "Breeding record successfully updated!"
-      );
+      setNotification({
+        message: `Breeding record ${
+          type === "create" ? "created" : "updated"
+        } successfully`,
+        type: "success",
+      });
 
-      // Show success message for 1.5 seconds before closing the modal and refreshing
+      // Close the modal after a delay
       setTimeout(() => {
         // Close the modal
         window.dispatchEvent(new CustomEvent("closeModal"));
@@ -123,6 +133,10 @@ const BreedingForm = ({
       }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
+      setNotification({
+        message: `Failed to ${type} breeding record`,
+        type: "error",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -152,11 +166,6 @@ const BreedingForm = ({
       {error && (
         <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded relative">
           {error}
-        </div>
-      )}
-      {successMessage && (
-        <div className="bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded relative">
-          {successMessage}
         </div>
       )}
       <div className="space-y-2">
@@ -314,6 +323,13 @@ const BreedingForm = ({
           )}
         </button>
       </div>
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={handleNotificationClose}
+        />
+      )}
     </form>
   );
 };

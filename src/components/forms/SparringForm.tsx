@@ -3,6 +3,7 @@
 import { Gamefowl } from "@prisma/client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Notification from "../ui/Notification";
 
 // Elo rating calculation constants
 const K_FACTOR = 32; // Standard K-factor for chess ratings
@@ -33,6 +34,10 @@ const SparringForm = ({
   const [notes, setNotes] = useState(data?.notes || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   // Calculate Elo rating changes
   const calculateEloChanges = (winner: Gamefowl, loser: Gamefowl) => {
@@ -55,10 +60,17 @@ const SparringForm = ({
     };
   };
 
+  const handleNotificationClose = () => {
+    setNotification(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!gamefowl1Id || !gamefowl2Id || !winnerId) {
-      alert("Please fill in all required fields");
+      setNotification({
+        message: "Please fill in all required fields",
+        type: "error",
+      });
       return;
     }
 
@@ -98,7 +110,10 @@ const SparringForm = ({
       }
 
       // Show success message
-      setShowSuccessMessage(true);
+      setNotification({
+        message: "Battle added successfully! Elo ratings have been updated.",
+        type: "success",
+      });
 
       // Refresh the page data
       router.refresh();
@@ -111,7 +126,10 @@ const SparringForm = ({
       }, 1500);
     } catch (error) {
       console.error("Error creating sparring record:", error);
-      alert("Failed to create sparring record");
+      setNotification({
+        message: "Failed to create sparring record",
+        type: "error",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -148,90 +166,99 @@ const SparringForm = ({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Gamefowl 1
-        </label>
-        <select
-          value={gamefowl1Id}
-          onChange={(e) => setGamefowl1Id(e.target.value)}
-          className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-          required
-        >
-          <option value="">Select Gamefowl 1</option>
-          {gamefowls.map((gamefowl) => (
-            <option key={gamefowl.id} value={gamefowl.id}>
-              {gamefowl.id} - {gamefowl.name} (Elo: {gamefowl.eloRating})
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Gamefowl 2
-        </label>
-        <select
-          value={gamefowl2Id}
-          onChange={(e) => setGamefowl2Id(e.target.value)}
-          className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-          required
-        >
-          <option value="">Select Gamefowl 2</option>
-          {gamefowls
-            .filter((g) => g.id !== parseInt(gamefowl1Id))
-            .map((gamefowl) => (
+    <>
+      <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Gamefowl 1
+          </label>
+          <select
+            value={gamefowl1Id}
+            onChange={(e) => setGamefowl1Id(e.target.value)}
+            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+            required
+          >
+            <option value="">Select Gamefowl 1</option>
+            {gamefowls.map((gamefowl) => (
               <option key={gamefowl.id} value={gamefowl.id}>
                 {gamefowl.id} - {gamefowl.name} (Elo: {gamefowl.eloRating})
               </option>
             ))}
-        </select>
-      </div>
+          </select>
+        </div>
 
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Winner
-        </label>
-        <select
-          value={winnerId}
-          onChange={(e) => setWinnerId(e.target.value)}
-          className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-          required
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Gamefowl 2
+          </label>
+          <select
+            value={gamefowl2Id}
+            onChange={(e) => setGamefowl2Id(e.target.value)}
+            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+            required
+          >
+            <option value="">Select Gamefowl 2</option>
+            {gamefowls
+              .filter((g) => g.id !== parseInt(gamefowl1Id))
+              .map((gamefowl) => (
+                <option key={gamefowl.id} value={gamefowl.id}>
+                  {gamefowl.id} - {gamefowl.name} (Elo: {gamefowl.eloRating})
+                </option>
+              ))}
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Winner
+          </label>
+          <select
+            value={winnerId}
+            onChange={(e) => setWinnerId(e.target.value)}
+            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+            required
+          >
+            <option value="">Select Winner</option>
+            {[gamefowl1Id, gamefowl2Id].filter(Boolean).map((id) => {
+              const gamefowl = gamefowls.find((g) => g.id === parseInt(id));
+              return (
+                <option key={id} value={id}>
+                  {gamefowl?.name}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Notes
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+            rows={4}
+            placeholder="Enter notes about the sparring match..."
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full bg-ggYellow text-black dark:text-gray-800 py-2 px-4 rounded-md hover:bg-ggYellow/90 dark:hover:bg-ggYellow/80 disabled:opacity-50"
         >
-          <option value="">Select Winner</option>
-          {[gamefowl1Id, gamefowl2Id].filter(Boolean).map((id) => {
-            const gamefowl = gamefowls.find((g) => g.id === parseInt(id));
-            return (
-              <option key={id} value={id}>
-                {gamefowl?.name}
-              </option>
-            );
-          })}
-        </select>
-      </div>
-
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Notes
-        </label>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-          rows={4}
-          placeholder="Enter notes about the sparring match..."
+          {isSubmitting ? "Creating..." : "Create Sparring Record"}
+        </button>
+      </form>
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={handleNotificationClose}
         />
-      </div>
-
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full bg-ggYellow text-black dark:text-gray-800 py-2 px-4 rounded-md hover:bg-ggYellow/90 dark:hover:bg-ggYellow/80 disabled:opacity-50"
-      >
-        {isSubmitting ? "Creating..." : "Create Sparring Record"}
-      </button>
-    </form>
+      )}
+    </>
   );
 };
 

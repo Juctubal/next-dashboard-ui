@@ -12,6 +12,7 @@ export async function POST(request: Request) {
         name,
         notes,
         dewormDate: new Date(date),
+        isArchived: false,
       },
     });
 

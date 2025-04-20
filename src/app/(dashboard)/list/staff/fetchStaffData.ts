@@ -29,7 +29,7 @@ export async function fetchStaffData(searchParams: {
     where: {
       ...(searchFilter as any),
       ...(status ? { status: status as UserStatus } : {}),
-      ...(staffRole === "HANDLER" ? { role: UserRole.HANDLER } : {}),
+      ...(staffRole === "handler" ? { role: UserRole.handler } : {}),
     },
   });
 
@@ -38,7 +38,7 @@ export async function fetchStaffData(searchParams: {
     where: {
       ...(searchFilter as any),
       ...(status ? { status: status as UserStatus } : {}),
-      ...(staffRole === "BREEDER" ? { role: UserRole.BREEDER } : {}),
+      ...(staffRole === "breeder" ? { role: UserRole.breeder } : {}),
     },
   });
 

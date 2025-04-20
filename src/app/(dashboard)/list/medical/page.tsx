@@ -12,7 +12,7 @@ export default async function MedicalListPage({
   const {
     page = "1",
     search = "",
-    type = "all",
+    type = "vaccine",
     showArchived = "false",
   } = searchParams;
 

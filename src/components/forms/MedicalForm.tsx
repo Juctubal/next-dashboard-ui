@@ -38,7 +38,7 @@ const MedicalForm = ({
   useEffect(() => {
     const fetchGamefowls = async () => {
       try {
-        const response = await fetch("/api/gamefowls");
+        const response = await fetch("/api/gamefowl/list");
         if (!response.ok) {
           throw new Error("Failed to fetch gamefowls");
         }

@@ -174,6 +174,7 @@ const ConditioningForm = ({
     const fetchExistingSchedules = async () => {
       if (type === "update" && data?.id) {
         try {
+          console.log("Fetching schedules for conditioning ID:", data.id);
           const response = await fetch(
             `/api/conditioning/${data.id}/schedules`
           );
@@ -181,6 +182,7 @@ const ConditioningForm = ({
             throw new Error("Failed to fetch existing schedules");
           }
           const schedules = await response.json();
+          console.log("Received schedules:", schedules);
 
           // Group schedules by activity ID
           const schedulesByActivity = schedules.reduce(
@@ -191,21 +193,27 @@ const ConditioningForm = ({
               if (!acc[schedule.activityId]) {
                 acc[schedule.activityId] = [];
               }
-              acc[schedule.activityId].push(
-                new Date(schedule.date).toISOString().split("T")[0]
-              );
+              acc[schedule.activityId].push(schedule.date.split("T")[0]);
               return acc;
             },
             {}
           );
+          console.log("Grouped schedules by activity:", schedulesByActivity);
 
           // Update program activities with existing dates
-          setProgramActivities((prevActivities) =>
-            prevActivities.map((activity) => ({
-              ...activity,
-              activityDates: schedulesByActivity[activity.id] || [],
-            }))
-          );
+          setProgramActivities((prevActivities) => {
+            console.log("Previous activities:", prevActivities);
+            const updatedActivities = prevActivities.map((activity) => {
+              const dates = schedulesByActivity[activity.id] || [];
+              console.log(`Activity ${activity.id} dates:`, dates);
+              return {
+                ...activity,
+                activityDates: dates,
+              };
+            });
+            console.log("Updated program activities:", updatedActivities);
+            return updatedActivities;
+          });
         } catch (error) {
           console.error("Error fetching existing schedules:", error);
           setError("Failed to load existing activity schedules");

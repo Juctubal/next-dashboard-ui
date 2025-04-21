@@ -238,6 +238,7 @@ async function main() {
               "ONGOING",
               "COMPLETED",
             ]),
+            notes: faker.lorem.sentence(),
             gamefowls: {
               create: {
                 gamefowlId: randomGamefowl.id,

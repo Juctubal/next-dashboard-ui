@@ -67,15 +67,27 @@ const MedicalForm = ({
     register,
     handleSubmit,
     formState: { errors },
+    setValue,
   } = useForm<MedicalFormData>({
     resolver: zodResolver(medicalSchema),
     defaultValues: {
       gamefowlId: data?.gamefowlId?.toString() || "",
       name: data?.name || "",
       notes: data?.notes || "",
-      date: data?.date ? new Date(data.date).toISOString().split("T")[0] : "",
+      date: data?.vaccinationDate
+        ? new Date(data.vaccinationDate).toISOString().split("T")[0]
+        : data?.dewormDate
+        ? new Date(data.dewormDate).toISOString().split("T")[0]
+        : "",
     },
   });
+
+  // Set the gamefowl ID after the gamefowls are loaded
+  useEffect(() => {
+    if (data?.gamefowlId && gamefowls.length > 0) {
+      setValue("gamefowlId", data.gamefowlId.toString());
+    }
+  }, [data?.gamefowlId, gamefowls, setValue]);
 
   const handleNotificationClose = () => {
     setNotification(null);
@@ -86,7 +98,6 @@ const MedicalForm = ({
       setIsSubmitting(true);
       const endpoint = `/api/${recordType}s`;
       const method = type === "create" ? "POST" : "PUT";
-      const url = type === "create" ? endpoint : `${endpoint}/${data.id}`;
 
       // Prepare the data based on record type
       const requestData = {
@@ -95,7 +106,7 @@ const MedicalForm = ({
         date: formData.date,
       };
 
-      const response = await fetch(url, {
+      const response = await fetch(endpoint, {
         method,
         headers: {
           "Content-Type": "application/json",

@@ -388,8 +388,7 @@ abbr:where([title]) {
 
 .react-calendar__tile--now:hover {
   background-color: transparent !important;
-  outline: 2px solid white !important; /* White outline on hover */
-  outline-offset: -2px !important;
+  outline: none !important;
 }
 
 /* Ensure the selected date is clearly visible with a blue outline */
@@ -422,15 +421,20 @@ abbr:where([title]) {
 }
 
 .dark .react-calendar__tile--now {
-  background-color: #374151 !important;
+  background-color: transparent !important;
   color: #f3f4f6 !important;
+  font-weight: bold;
 }
 
-.dark .react-calendar__navigation button:enabled:hover,
-.dark .react-calendar__navigation button:enabled:focus {
-  background-color: #374151 !important;
-  outline: 2px solid white !important; /* White outline on hover */
-  outline-offset: -2px !important;
+/* Override any other potential highlighting for current day */
+.react-calendar__tile--now.react-calendar__tile--active {
+  background-color: transparent !important;
+  border: 2px solid #3b82f6 !important;
+}
+
+.dark .react-calendar__tile--now.react-calendar__tile--active {
+  background-color: transparent !important;
+  border: 2px solid #3b82f6 !important;
 }
 
 .dark .react-calendar__month-view__weekdays__weekday {

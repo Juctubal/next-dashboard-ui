@@ -1,22 +1,42 @@
-import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = parseInt(params.id);
-    if (isNaN(id)) {
+    const conditioningId = parseInt(params.id);
+    if (isNaN(conditioningId)) {
       return NextResponse.json(
         { error: "Invalid conditioning ID" },
         { status: 400 }
       );
     }
 
+    // Get the conditioning record to verify it exists
+    const conditioning = await prisma.conditioning.findUnique({
+      where: { id: conditioningId },
+      include: {
+        conProg: {
+          include: {
+            activities: true,
+          },
+        },
+      },
+    });
+
+    if (!conditioning) {
+      return NextResponse.json(
+        { error: "Conditioning record not found" },
+        { status: 404 }
+      );
+    }
+
+    // Get all activity schedules for this conditioning record
     const schedules = await prisma.conditioningActivitySchedule.findMany({
       where: {
-        conditioningId: id,
+        conditioningId: conditioningId,
       },
       include: {
         activity: true,
@@ -26,7 +46,18 @@ export async function GET(
       },
     });
 
-    return NextResponse.json(schedules);
+    // Map the schedules to the expected format
+    const formattedSchedules = schedules.map((schedule) => ({
+      id: schedule.id,
+      activityId: schedule.activityId,
+      activityName: schedule.activity.name,
+      date: schedule.date,
+      timeOfDay: schedule.timeOfDay,
+      status: schedule.status,
+      notes: schedule.notes,
+    }));
+
+    return NextResponse.json(formattedSchedules);
   } catch (error) {
     console.error("Error fetching activity schedules:", error);
     return NextResponse.json(
@@ -41,8 +72,8 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = parseInt(params.id);
-    if (isNaN(id)) {
+    const conditioningId = parseInt(params.id);
+    if (isNaN(conditioningId)) {
       return NextResponse.json(
         { error: "Invalid conditioning ID" },
         { status: 400 }
@@ -50,8 +81,9 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { activityId, date } = body;
+    const { activityId, date, timeOfDay, notes } = body;
 
+    // Validate required fields
     if (!activityId || !date) {
       return NextResponse.json(
         { error: "Activity ID and date are required" },
@@ -59,18 +91,29 @@ export async function POST(
       );
     }
 
+    // Create the activity schedule
     const schedule = await prisma.conditioningActivitySchedule.create({
       data: {
-        conditioningId: id,
-        activityId: parseInt(activityId),
+        conditioningId,
+        activityId,
         date: new Date(date),
+        timeOfDay: timeOfDay || "MORNING",
+        notes: notes || null,
       },
       include: {
         activity: true,
       },
     });
 
-    return NextResponse.json(schedule);
+    return NextResponse.json({
+      id: schedule.id,
+      activityId: schedule.activityId,
+      activityName: schedule.activity.name,
+      date: schedule.date,
+      timeOfDay: schedule.timeOfDay,
+      status: schedule.status,
+      notes: schedule.notes,
+    });
   } catch (error) {
     console.error("Error creating activity schedule:", error);
     return NextResponse.json(
@@ -85,8 +128,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = parseInt(params.id);
-    if (isNaN(id)) {
+    const conditioningId = parseInt(params.id);
+    if (isNaN(conditioningId)) {
       return NextResponse.json(
         { error: "Invalid conditioning ID" },
         { status: 400 }
@@ -94,25 +137,23 @@ export async function DELETE(
     }
 
     const { searchParams } = new URL(request.url);
-    const activityId = searchParams.get("activityId");
-    const date = searchParams.get("date");
+    const scheduleId = searchParams.get("scheduleId");
 
-    if (!activityId || !date) {
+    if (!scheduleId) {
       return NextResponse.json(
-        { error: "Activity ID and date are required" },
+        { error: "Schedule ID is required" },
         { status: 400 }
       );
     }
 
-    await prisma.conditioningActivitySchedule.deleteMany({
+    // Delete the activity schedule
+    await prisma.conditioningActivitySchedule.delete({
       where: {
-        conditioningId: id,
-        activityId: parseInt(activityId),
-        date: new Date(date),
+        id: parseInt(scheduleId),
       },
     });
 
-    return NextResponse.json({ message: "Schedule deleted successfully" });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting activity schedule:", error);
     return NextResponse.json(

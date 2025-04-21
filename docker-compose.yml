@@ -5,7 +5,7 @@ services:
     container_name: next-dashboard-db
     environment:
       POSTGRES_USER: nieves
-      POSTGRES_PASSWORD: nieves4103
+      POSTGRES_PASSWORD: moonlight4321
       POSTGRES_DB: gg
     ports:
       - "5433:5432"

@@ -117,13 +117,13 @@ model ConditioningProgram {
 }
 
 model ConditioningActivity {
-  id          Int                 @id @default(autoincrement())
+  id          Int                            @id @default(autoincrement())
   name        String
   description String
   programId   Int
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  program     ConditioningProgram @relation(fields: [programId], references: [id])
+  createdAt   DateTime                       @default(now())
+  updatedAt   DateTime                       @updatedAt
+  program     ConditioningProgram            @relation(fields: [programId], references: [id])
   schedules   ConditioningActivitySchedule[]
 }
 
@@ -132,25 +132,32 @@ model ConditioningActivitySchedule {
   conditioningId Int
   activityId     Int
   date           DateTime
-  conditioning   Conditioning        @relation(fields: [conditioningId], references: [id])
+  createdAt      DateTime             @default(now())
+  notes          String?
+  status         String               @default("PLANNED")
+  timeOfDay      String               @default("MORNING")
+  updatedAt      DateTime             @updatedAt
   activity       ConditioningActivity @relation(fields: [activityId], references: [id])
+  conditioning   Conditioning         @relation(fields: [conditioningId], references: [id])
 
-  @@unique([conditioningId, activityId, date])
+  @@index([conditioningId])
+  @@index([activityId])
 }
 
 model Conditioning {
-  id        Int                    @id @default(autoincrement())
-  eventId   Int
-  conProgId Int
-  handlerId String
-  startDate DateTime
-  endDate   DateTime
-  status    ConditioningStatus
-  conProg   ConditioningProgram    @relation(fields: [conProgId], references: [id])
-  event     Event                  @relation(fields: [eventId], references: [id])
-  handler   Handler                @relation(fields: [handlerId], references: [id])
-  gamefowls ConditioningGamefowl[]
-  schedules ConditioningActivitySchedule[]
+  id                Int                            @id @default(autoincrement())
+  eventId           Int
+  conProgId         Int
+  handlerId         String
+  startDate         DateTime
+  endDate           DateTime
+  status            ConditioningStatus
+  notes             String?
+  conProg           ConditioningProgram            @relation(fields: [conProgId], references: [id])
+  event             Event                          @relation(fields: [eventId], references: [id])
+  handler           Handler                        @relation(fields: [handlerId], references: [id])
+  activitySchedules ConditioningActivitySchedule[]
+  gamefowls         ConditioningGamefowl[]
 }
 
 model ConditioningGamefowl {
@@ -177,10 +184,10 @@ model Incubation {
   incEnd     DateTime
   status     IncubationStatus
   eggCount   Int
-  batch      Batch[]
   breedingId Int?
-  breeding   Breeding?        @relation(fields: [breedingId], references: [id])
   isArchived Boolean          @default(false)
+  batch      Batch[]
+  breeding   Breeding?        @relation(fields: [breedingId], references: [id])
 }
 
 model Schedule {

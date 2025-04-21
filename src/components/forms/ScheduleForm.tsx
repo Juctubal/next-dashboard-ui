@@ -260,10 +260,13 @@ const ScheduleForm = ({
         formDataToSend.append("id", data.id.toString());
       }
 
-      const response = await fetch("/api/schedules", {
-        method: type === "create" ? "POST" : "PUT",
-        body: formDataToSend,
-      });
+      const response = await fetch(
+        type === "create" ? "/api/schedules" : `/api/schedules/${data.id}`,
+        {
+          method: type === "create" ? "POST" : "PUT",
+          body: formDataToSend,
+        }
+      );
 
       const responseData = await response.json();
 
@@ -402,22 +405,41 @@ const ScheduleForm = ({
 
         {/* Conditional fields based on task type */}
         {selectedTaskType === "ONETIME" && (
-          <div className="flex flex-col gap-2">
-            <label className="text-xs text-gray-500 dark:text-gray-400">
-              Task Date
-            </label>
-            <input
-              type="date"
-              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-              {...register("taskDate")}
-              defaultValue={mappedData.taskDate}
-            />
-            {errors.taskDate?.message && (
-              <p className="text-xs text-red-400 dark:text-red-400">
-                {errors.taskDate.message.toString()}
-              </p>
-            )}
-          </div>
+          <>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs text-gray-500 dark:text-gray-400">
+                Task Date
+              </label>
+              <input
+                type="date"
+                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                {...register("taskDate")}
+                defaultValue={mappedData.taskDate}
+              />
+              {errors.taskDate?.message && (
+                <p className="text-xs text-red-400 dark:text-red-400">
+                  {errors.taskDate.message.toString()}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs text-gray-500 dark:text-gray-400">
+                Time of Day
+              </label>
+              <input
+                type="time"
+                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                {...register("time_of_day")}
+                defaultValue={mappedData.time_of_day}
+              />
+              {errors.time_of_day?.message && (
+                <p className="text-xs text-red-400 dark:text-red-400">
+                  {errors.time_of_day.message.toString()}
+                </p>
+              )}
+            </div>
+          </>
         )}
 
         {selectedTaskType === "RECURRING" && (

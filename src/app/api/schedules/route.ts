@@ -135,6 +135,7 @@ export async function POST(req: Request) {
     const descript = formData.get("taskDesc") as string;
     const staffId = formData.get("staffId") as string;
     let staffType = formData.get("staffType") as UserRole;
+    const status = (formData.get("status") as EventStatus) || "PLANNED";
 
     console.log("Processed form data:", {
       taskName,
@@ -143,6 +144,7 @@ export async function POST(req: Request) {
       descript,
       staffId,
       staffType,
+      status,
     });
 
     // Validate taskType
@@ -199,7 +201,7 @@ export async function POST(req: Request) {
         taskType,
         taskCategory,
         descript,
-        status: "PLANNED",
+        status: status as EventStatus,
         staffId: staffId || null,
         staffType: staffType || null,
       },

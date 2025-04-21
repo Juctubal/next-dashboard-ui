@@ -67,7 +67,7 @@ export async function POST(request: Request) {
         )
       );
 
-      // Create schedules for each activity with their specific dates
+      // Create activity schedules
       if (activitySchedules && activitySchedules.length > 0) {
         console.log("Processing activity schedules:", activitySchedules);
 
@@ -85,34 +85,15 @@ export async function POST(request: Request) {
             // Create a schedule entry for each date
             for (const date of schedule.dates) {
               try {
-                // Create the main schedule record
-                const scheduleRecord = await tx.schedule.create({
+                await tx.conditioningActivitySchedule.create({
                   data: {
-                    taskName: `${activity.name} - ${conditioningRecord.gamefowls
-                      .map((g) => g.gamefowl.name)
-                      .join(", ")}`,
-                    taskType: "ONETIME",
-                    taskCategory: "OTHER",
-                    descript: `${activity.description} - Part of ${conditioningRecord.conProg.programName} for ${conditioningRecord.event.eventName}`,
-                    staffId: handlerId,
-                    staffType: "handler",
-                    status: "PLANNED",
+                    conditioningId: conditioningRecord.id,
+                    activityId: schedule.activityId,
+                    date: new Date(date),
+                    timeOfDay: "MORNING", // Default time
+                    status: "PLANNED", // Default status
                   },
                 });
-
-                console.log("Created schedule record:", scheduleRecord);
-
-                // Create the one-time schedule
-                const oneTimeSchedule = await tx.oneTimeSched.create({
-                  data: {
-                    schedId: scheduleRecord.id,
-                    taskName: scheduleRecord.taskName,
-                    taskDate: new Date(date),
-                    time_of_day: "09:00", // Default time, can be adjusted as needed
-                  },
-                });
-
-                console.log("Created one-time schedule:", oneTimeSchedule);
               } catch (scheduleError) {
                 console.error(
                   `Error creating schedule for activity ${activity.name} on date ${date}:`,
@@ -147,6 +128,11 @@ export async function POST(request: Request) {
             },
           },
           handler: true,
+          activitySchedules: {
+            include: {
+              activity: true,
+            },
+          },
         },
       });
 
@@ -255,36 +241,14 @@ export async function PUT(request: Request) {
         )
       );
 
-      // Delete existing schedules for this conditioning record
-      // First, find all schedules related to this conditioning record
-      const existingSchedules = await tx.schedule.findMany({
+      // Delete existing activity schedules
+      await tx.conditioningActivitySchedule.deleteMany({
         where: {
-          taskName: {
-            contains: conditioningRecord.conProg.programName,
-          },
-          staffId: handlerId,
+          conditioningId: parseInt(id),
         },
       });
 
-      // Delete the one-time schedules first
-      for (const schedule of existingSchedules) {
-        await tx.oneTimeSched.deleteMany({
-          where: {
-            schedId: schedule.id,
-          },
-        });
-      }
-
-      // Then delete the schedules
-      await tx.schedule.deleteMany({
-        where: {
-          id: {
-            in: existingSchedules.map((s) => s.id),
-          },
-        },
-      });
-
-      // Create new schedules for each activity with their specific dates
+      // Create new activity schedules
       if (activitySchedules && activitySchedules.length > 0) {
         console.log(
           "Processing activity schedules for update:",
@@ -305,34 +269,15 @@ export async function PUT(request: Request) {
             // Create a schedule entry for each date
             for (const date of schedule.dates) {
               try {
-                // Create the main schedule record
-                const scheduleRecord = await tx.schedule.create({
+                await tx.conditioningActivitySchedule.create({
                   data: {
-                    taskName: `${activity.name} - ${conditioningRecord.gamefowls
-                      .map((g) => g.gamefowl.name)
-                      .join(", ")}`,
-                    taskType: "ONETIME",
-                    taskCategory: "OTHER",
-                    descript: `${activity.description} - Part of ${conditioningRecord.conProg.programName} for ${conditioningRecord.event.eventName}`,
-                    staffId: handlerId,
-                    staffType: "handler",
-                    status: "PLANNED",
+                    conditioningId: parseInt(id),
+                    activityId: schedule.activityId,
+                    date: new Date(date),
+                    timeOfDay: "MORNING", // Default time
+                    status: "PLANNED", // Default status
                   },
                 });
-
-                console.log("Created schedule record:", scheduleRecord);
-
-                // Create the one-time schedule
-                const oneTimeSchedule = await tx.oneTimeSched.create({
-                  data: {
-                    schedId: scheduleRecord.id,
-                    taskName: scheduleRecord.taskName,
-                    taskDate: new Date(date),
-                    time_of_day: "09:00", // Default time, can be adjusted as needed
-                  },
-                });
-
-                console.log("Created one-time schedule:", oneTimeSchedule);
               } catch (scheduleError) {
                 console.error(
                   `Error creating schedule for activity ${activity.name} on date ${date}:`,
@@ -367,6 +312,11 @@ export async function PUT(request: Request) {
             },
           },
           handler: true,
+          activitySchedules: {
+            include: {
+              activity: true,
+            },
+          },
         },
       });
 

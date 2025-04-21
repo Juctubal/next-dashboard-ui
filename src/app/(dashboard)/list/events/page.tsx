@@ -35,14 +35,17 @@ const eventColumns = [
   {
     header: "Event Type",
     accessor: "eventType",
+    className: "hidden lg:table-cell",
   },
   {
     header: "Age Category",
     accessor: "ageCategory",
+    className: "hidden lg:table-cell",
   },
   {
     header: "Event Date",
     accessor: "eventDate",
+    className: "hidden lg:table-cell",
   },
   {
     header: "Status",
@@ -51,6 +54,7 @@ const eventColumns = [
   {
     header: "Gamefowls",
     accessor: "gamefowl",
+    className: "hidden lg:table-cell",
   },
   {
     header: "Actions",
@@ -92,6 +96,7 @@ const conditioningColumns = [
   {
     header: "Handler Name",
     accessor: "handlerName",
+    className: "hidden lg:table-cell",
   },
   {
     header: "Start Date",

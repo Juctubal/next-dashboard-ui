@@ -179,11 +179,13 @@ const SparringForm = ({
             required
           >
             <option value="">Select Gamefowl 1</option>
-            {gamefowls.map((gamefowl) => (
-              <option key={gamefowl.id} value={gamefowl.id}>
-                {gamefowl.id} - {gamefowl.name} (Elo: {gamefowl.eloRating})
-              </option>
-            ))}
+            {gamefowls
+              .filter((gamefowl) => gamefowl.age !== "CHICK")
+              .map((gamefowl) => (
+                <option key={gamefowl.id} value={gamefowl.id}>
+                  {gamefowl.id} - {gamefowl.name} (Elo: {gamefowl.eloRating})
+                </option>
+              ))}
           </select>
         </div>
 
@@ -199,7 +201,9 @@ const SparringForm = ({
           >
             <option value="">Select Gamefowl 2</option>
             {gamefowls
-              .filter((g) => g.id !== parseInt(gamefowl1Id))
+              .filter(
+                (g) => g.id !== parseInt(gamefowl1Id) && g.age !== "CHICK"
+              )
               .map((gamefowl) => (
                 <option key={gamefowl.id} value={gamefowl.id}>
                   {gamefowl.id} - {gamefowl.name} (Elo: {gamefowl.eloRating})

@@ -26,6 +26,7 @@ const columns = [
   {
     header: "Sire",
     accessor: "sireId",
+    className: "hidden lg:table-cell",
   },
   {
     header: "Dam",

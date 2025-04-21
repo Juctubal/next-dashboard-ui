@@ -169,6 +169,53 @@ const ConditioningForm = ({
     }
   }, [data, type]);
 
+  // Fetch existing activity schedules when in update mode
+  useEffect(() => {
+    const fetchExistingSchedules = async () => {
+      if (type === "update" && data?.id) {
+        try {
+          const response = await fetch(
+            `/api/conditioning/${data.id}/schedules`
+          );
+          if (!response.ok) {
+            throw new Error("Failed to fetch existing schedules");
+          }
+          const schedules = await response.json();
+
+          // Group schedules by activity ID
+          const schedulesByActivity = schedules.reduce(
+            (
+              acc: { [key: number]: string[] },
+              schedule: { activityId: number; date: string }
+            ) => {
+              if (!acc[schedule.activityId]) {
+                acc[schedule.activityId] = [];
+              }
+              acc[schedule.activityId].push(
+                new Date(schedule.date).toISOString().split("T")[0]
+              );
+              return acc;
+            },
+            {}
+          );
+
+          // Update program activities with existing dates
+          setProgramActivities((prevActivities) =>
+            prevActivities.map((activity) => ({
+              ...activity,
+              activityDates: schedulesByActivity[activity.id] || [],
+            }))
+          );
+        } catch (error) {
+          console.error("Error fetching existing schedules:", error);
+          setError("Failed to load existing activity schedules");
+        }
+      }
+    };
+
+    fetchExistingSchedules();
+  }, [type, data?.id, programActivities.length]);
+
   const handleNotificationClose = () => {
     setNotification(null);
   };
@@ -206,30 +253,56 @@ const ConditioningForm = ({
       return;
     }
 
+    // Validate that all activities have at least one date scheduled
+    const activitiesWithoutDates = programActivities.filter(
+      (activity) => activity.activityDates.length === 0
+    );
+    if (activitiesWithoutDates.length > 0) {
+      setError("Please schedule at least one date for each activity");
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Prepare activity schedules for submission
+    const activitySchedules = programActivities.map((activity) => ({
+      activityId: activity.id,
+      dates: activity.activityDates,
+    }));
+
+    console.log("Submitting activity schedules:", activitySchedules);
+
     try {
+      const requestBody = {
+        id: type === "update" ? data?.id : undefined,
+        gamefowlIds: selectedGamefowls,
+        eventId: parseInt(formData.eventId),
+        conProgId: parseInt(formData.conProgId),
+        handlerId: formData.handlerId,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        status: formData.status,
+        activitySchedules: activitySchedules,
+      };
+
+      console.log("Submitting conditioning record with data:", requestBody);
+
       const response = await fetch("/api/conditioning", {
-        method: "POST",
+        method: type === "create" ? "POST" : "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          gamefowlIds: selectedGamefowls,
-          eventId: parseInt(formData.eventId),
-          conProgId: parseInt(formData.conProgId),
-          handlerId: formData.handlerId,
-          startDate: formData.startDate,
-          endDate: formData.endDate,
-          status: formData.status,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create conditioning record");
+        throw new Error(`Failed to ${type} conditioning record`);
       }
 
       // Show success message
       setNotification({
-        message: "Conditioning record successfully created",
+        message: `Conditioning record successfully ${
+          type === "create" ? "created" : "updated"
+        }`,
         type: "success",
       });
 
@@ -239,9 +312,9 @@ const ConditioningForm = ({
         onClose(); // Close the form modal
       }, 1500);
     } catch (error) {
-      console.error("Error creating conditioning record:", error);
+      console.error(`Error ${type}ing conditioning record:`, error);
       setNotification({
-        message: "Failed to create conditioning record. Please try again.",
+        message: `Failed to ${type} conditioning record. Please try again.`,
         type: "error",
       });
     } finally {

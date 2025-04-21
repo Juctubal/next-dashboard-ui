@@ -26,14 +26,17 @@ const columns = [
   {
     header: "Start Date",
     accessor: "incStart",
+    className: "hidden lg:table-cell",
   },
   {
     header: "End Date",
     accessor: "incEnd",
+    className: "hidden lg:table-cell",
   },
   {
     header: "Egg Count",
     accessor: "eggCount",
+    className: "hidden lg:table-cell",
   },
   {
     header: "Status",

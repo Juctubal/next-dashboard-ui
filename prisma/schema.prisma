@@ -258,6 +258,7 @@ model RecurrentSchedules {
   time_of_day       String
   endDate           DateTime
   startDate         DateTime
+  customDate        String?
   weekDays          String?
   schedule          Schedule          @relation(fields: [schedId], references: [id])
 }

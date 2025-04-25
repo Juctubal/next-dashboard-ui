@@ -26,7 +26,9 @@ const schema = z
     startDate: z.string().optional(),
     endDate: z.string().optional(),
     reccurencePattern: z.string().optional(),
-    time_of_day: z.string().optional(),
+    time_of_day: z
+      .array(z.string())
+      .min(1, "At least one time of day is required"),
     // Weekly specific fields
     weekDays: z.array(z.string()).optional(),
     // Monthly specific fields
@@ -36,7 +38,7 @@ const schema = z
     (data) => {
       // If taskType is ONETIME, taskDate and time_of_day are required
       if (data.taskType === "ONETIME") {
-        return !!data.taskDate && !!data.time_of_day;
+        return !!data.taskDate && !!data.time_of_day.length;
       }
       // If taskType is RECURRING, startDate, endDate, reccurencePattern, and time_of_day are required
       if (data.taskType === "RECURRING") {
@@ -44,7 +46,7 @@ const schema = z
           !!data.startDate &&
           !!data.endDate &&
           !!data.reccurencePattern &&
-          !!data.time_of_day
+          !!data.time_of_day.length
         );
       }
       return true;
@@ -82,20 +84,25 @@ const ScheduleForm = ({
   const [staff, setStaff] = useState<Staff[]>([]);
   const [filteredStaff, setFilteredStaff] = useState<Staff[]>([]);
   const [selectedWeekDays, setSelectedWeekDays] = useState<string[]>([]);
+  const [timeSlots, setTimeSlots] = useState<string[]>([]);
 
   // Map database fields to form fields
   const mappedData = data
     ? {
         ...data,
-        taskDesc: data.descript || data.taskDesc, // Map descript to taskDesc
-        status: data.status || "PLANNED", // Map status field
+        taskDesc: data.descript || data.taskDesc,
+        status: data.status || "PLANNED",
         taskDate: data.oneTime?.[0]?.taskDate
           ? new Date(data.oneTime[0].taskDate).toISOString().split("T")[0]
           : data.taskDate,
         time_of_day:
-          data.oneTime?.[0]?.time_of_day ||
-          data.recurrent?.[0]?.time_of_day ||
-          data.time_of_day,
+          data.oneTime?.length > 0
+            ? data.oneTime.map((slot: any) => slot.time_of_day)
+            : data.recurrent?.length > 0
+            ? data.recurrent.map((slot: any) => slot.time_of_day)
+            : data.time_of_day
+            ? [data.time_of_day]
+            : [],
         startDate: data.recurrent?.[0]?.startDate
           ? new Date(data.recurrent[0].startDate).toISOString().split("T")[0]
           : data.startDate,
@@ -121,6 +128,53 @@ const ScheduleForm = ({
     resolver: zodResolver(schema),
     defaultValues: mappedData,
   });
+
+  // Set initial values for time slots
+  useEffect(() => {
+    if (data) {
+      let timeSlotsToSet: string[] = [];
+
+      // Check for time slots in oneTime schedules
+      if (data.oneTime && data.oneTime.length > 0) {
+        timeSlotsToSet = data.oneTime.map((slot: any) => slot.time_of_day);
+      }
+      // Check for time slots in recurrent schedules
+      else if (data.recurrent && data.recurrent.length > 0) {
+        timeSlotsToSet = data.recurrent.map((slot: any) => slot.time_of_day);
+      }
+      // Fallback to direct time_of_day if available
+      else if (data.time_of_day) {
+        timeSlotsToSet = Array.isArray(data.time_of_day)
+          ? data.time_of_day
+          : [data.time_of_day];
+      }
+
+      // Only set time slots if we found any
+      if (timeSlotsToSet.length > 0) {
+        setTimeSlots(timeSlotsToSet);
+      }
+    }
+  }, [data]);
+
+  // Add a new time slot
+  const addTimeSlot = () => {
+    setTimeSlots([...timeSlots, ""]);
+  };
+
+  // Remove a time slot
+  const removeTimeSlot = (index: number) => {
+    const newTimeSlots = timeSlots.filter((_, i) => i !== index);
+    setTimeSlots(newTimeSlots);
+    setValue("time_of_day", newTimeSlots);
+  };
+
+  // Update time slot
+  const updateTimeSlot = (index: number, value: string) => {
+    const newTimeSlots = [...timeSlots];
+    newTimeSlots[index] = value;
+    setTimeSlots(newTimeSlots);
+    setValue("time_of_day", newTimeSlots);
+  };
 
   // Initialize selectedWeekDays from data if available
   useEffect(() => {
@@ -162,6 +216,37 @@ const ScheduleForm = ({
   const selectedStaffType = watch("staffType");
   const selectedTaskType = watch("taskType");
   const selectedRecurrencePattern = watch("reccurencePattern");
+  const startDate = watch("startDate");
+  const endDate = watch("endDate");
+
+  // Function to check if a day falls within the date range
+  const isDayInRange = (day: string) => {
+    if (!startDate || !endDate) return true;
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const dayIndex = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ].indexOf(day);
+
+    // Create a date object for the first occurrence of this day in the range
+    const firstDay = new Date(start);
+    const daysUntilFirst = (dayIndex - start.getDay() + 7) % 7;
+    firstDay.setDate(start.getDate() + daysUntilFirst);
+
+    return firstDay <= end;
+  };
+
+  // Function to get disabled state for a day
+  const isDayDisabled = (day: string) => {
+    return !isDayInRange(day);
+  };
 
   // Fetch staff data
   useEffect(() => {
@@ -427,12 +512,57 @@ const ScheduleForm = ({
               <label className="text-xs text-gray-500 dark:text-gray-400">
                 Time of Day
               </label>
-              <input
-                type="time"
-                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                {...register("time_of_day")}
-                defaultValue={mappedData.time_of_day}
-              />
+              <div className="space-y-2">
+                {timeSlots.map((time, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      value={time}
+                      onChange={(e) => updateTimeSlot(index, e.target.value)}
+                    />
+                    {timeSlots.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeTimeSlot(index)}
+                        className="p-2 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addTimeSlot}
+                  className="mt-2 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-1"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  Add Another Time
+                </button>
+              </div>
               {errors.time_of_day?.message && (
                 <p className="text-xs text-red-400 dark:text-red-400">
                   {errors.time_of_day.message.toString()}
@@ -444,6 +574,27 @@ const ScheduleForm = ({
 
         {selectedTaskType === "RECURRING" && (
           <>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs text-gray-500 dark:text-gray-400">
+                Recurrence Pattern
+              </label>
+              <select
+                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                {...register("reccurencePattern")}
+                defaultValue={mappedData.reccurencePattern}
+              >
+                <option value="">Select Recurrence Pattern</option>
+                <option value="DAILY">Daily</option>
+                <option value="WEEKLY">Weekly</option>
+                <option value="OTHER">Other</option>
+              </select>
+              {errors.reccurencePattern?.message && (
+                <p className="text-xs text-red-400 dark:text-red-400">
+                  {errors.reccurencePattern.message.toString()}
+                </p>
+              )}
+            </div>
+
             <div className="flex flex-col gap-2">
               <label className="text-xs text-gray-500 dark:text-gray-400">
                 Start Date
@@ -478,39 +629,62 @@ const ScheduleForm = ({
               )}
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-xs text-gray-500 dark:text-gray-400">
-                Recurrence Pattern
-              </label>
-              <select
-                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                {...register("reccurencePattern")}
-                defaultValue={mappedData.reccurencePattern}
-              >
-                <option value="">Select Recurrence Pattern</option>
-                <option value="DAILY">Daily</option>
-                <option value="WEEKLY">Weekly</option>
-                <option value="MONTHLY">Monthly</option>
-                <option value="OTHER">Other</option>
-              </select>
-              {errors.reccurencePattern?.message && (
-                <p className="text-xs text-red-400 dark:text-red-400">
-                  {errors.reccurencePattern.message.toString()}
-                </p>
-              )}
-            </div>
-
             {/* Time picker for all recurrence patterns */}
             <div className="flex flex-col gap-2">
               <label className="text-xs text-gray-500 dark:text-gray-400">
                 Time of Day
               </label>
-              <input
-                type="time"
-                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                {...register("time_of_day")}
-                defaultValue={mappedData.time_of_day}
-              />
+              <div className="space-y-2">
+                {timeSlots.map((time, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      value={time}
+                      onChange={(e) => updateTimeSlot(index, e.target.value)}
+                    />
+                    {timeSlots.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeTimeSlot(index)}
+                        className="p-2 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addTimeSlot}
+                  className="mt-2 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-1"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  Add Another Time
+                </button>
+              </div>
               {errors.time_of_day?.message && (
                 <p className="text-xs text-red-400 dark:text-red-400">
                   {errors.time_of_day.message.toString()}
@@ -540,11 +714,20 @@ const ScheduleForm = ({
                         id={day}
                         checked={selectedWeekDays.includes(day)}
                         onChange={() => handleWeekDayChange(day)}
-                        className="mr-2"
+                        disabled={isDayDisabled(day)}
+                        className={`mr-2 ${
+                          isDayDisabled(day)
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }`}
                       />
                       <label
                         htmlFor={day}
-                        className="text-xs text-gray-500 dark:text-gray-400"
+                        className={`text-xs ${
+                          isDayDisabled(day)
+                            ? "text-gray-400 dark:text-gray-500"
+                            : "text-gray-500 dark:text-gray-400"
+                        }`}
                       >
                         {day}
                       </label>
@@ -556,32 +739,6 @@ const ScheduleForm = ({
                   {...register("weekDays")}
                   value={JSON.stringify(selectedWeekDays)}
                 />
-              </div>
-            )}
-
-            {/* Monthly specific fields */}
-            {selectedRecurrencePattern === "MONTHLY" && (
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-500 dark:text-gray-400">
-                  Day of the Month
-                </label>
-                <select
-                  className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  {...register("monthDay")}
-                  defaultValue={mappedData.monthDay}
-                >
-                  <option value="">Select Day of Month</option>
-                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                    <option key={day} value={day}>
-                      {day}
-                    </option>
-                  ))}
-                </select>
-                {errors.monthDay?.message && (
-                  <p className="text-xs text-red-400 dark:text-red-400">
-                    {errors.monthDay.message.toString()}
-                  </p>
-                )}
               </div>
             )}
           </>

@@ -299,10 +299,24 @@ async function main() {
               "DAILY",
               "WEEKLY",
               "MONTHLY",
+              "OTHER",
+            ]),
+            time_of_day: faker.helpers.arrayElement([
+              "MORNING",
+              "AFTERNOON",
+              "EVENING",
             ]),
             startDate: faker.date.future(),
             endDate: faker.date.future(),
-            time_of_day: faker.date.future().toISOString(),
+            weekDays: faker.helpers.arrayElement([
+              "MONDAY",
+              "TUESDAY",
+              "WEDNESDAY",
+              "THURSDAY",
+              "FRIDAY",
+              "SATURDAY",
+              "SUNDAY",
+            ]),
           },
         });
       }

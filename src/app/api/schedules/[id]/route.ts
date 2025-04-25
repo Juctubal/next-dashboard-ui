@@ -24,7 +24,6 @@ export async function PUT(
 
     // One-time schedule fields
     const taskDate = formData.get("taskDate") as string;
-    const time_of_day = formData.get("time_of_day") as string;
 
     // Recurring schedule fields
     const startDate = formData.get("startDate") as string;
@@ -111,25 +110,40 @@ export async function PUT(
     });
 
     // Create one-time schedule if applicable
-    if (taskType === "ONETIME" && taskDate && time_of_day) {
-      await prisma.oneTimeSched.create({
-        data: {
-          schedId: schedule.id,
-          taskName: taskName,
-          taskDate: new Date(taskDate),
-          time_of_day: time_of_day,
-        },
-      });
+    if (taskType === "ONETIME" && taskDate) {
+      const timeSlots = formData.getAll("time_of_day") as string[];
+
+      if (timeSlots.length === 0) {
+        return NextResponse.json(
+          { error: "At least one time slot is required" },
+          { status: 400 }
+        );
+      }
+
+      // Create a one-time schedule for each time slot
+      for (const time_of_day of timeSlots) {
+        await prisma.oneTimeSched.create({
+          data: {
+            schedId: schedule.id,
+            taskName: taskName,
+            taskDate: new Date(taskDate),
+            time_of_day,
+          },
+        });
+      }
     }
 
     // Create recurring schedule if applicable
-    if (
-      taskType === "RECURRING" &&
-      startDate &&
-      endDate &&
-      reccurencePattern &&
-      time_of_day
-    ) {
+    if (taskType === "RECURRING" && startDate && endDate && reccurencePattern) {
+      const timeSlots = formData.getAll("time_of_day") as string[];
+
+      if (timeSlots.length === 0) {
+        return NextResponse.json(
+          { error: "At least one time slot is required" },
+          { status: 400 }
+        );
+      }
+
       // Validate recurrence pattern
       if (
         !Object.values(RecurrencePattern).includes(
@@ -146,29 +160,18 @@ export async function PUT(
         );
       }
 
-      // Create the recurring schedule
-      await prisma.recurrentSchedules.create({
-        data: {
-          schedId: schedule.id,
-          reccurencePattern: reccurencePattern as RecurrencePattern,
-          startDate: new Date(startDate),
-          endDate: new Date(endDate),
-          time_of_day: time_of_day,
-          weekDays: weekDays || null,
-        },
-      });
-
-      // If weekly, create entries for each selected day
-      if (reccurencePattern === "WEEKLY" && weekDays) {
-        const selectedDays = JSON.parse(weekDays);
-        // Additional processing for weekly schedules could be added here
-        // For example, creating individual entries for each selected day
-      }
-
-      // If monthly, store the day of the month
-      if (reccurencePattern === "MONTHLY" && monthDay) {
-        // Additional processing for monthly schedules could be added here
-        // For example, storing the day of the month in a separate field
+      // Create a recurring schedule for each time slot
+      for (const time_of_day of timeSlots) {
+        await prisma.recurrentSchedules.create({
+          data: {
+            schedId: schedule.id,
+            reccurencePattern: reccurencePattern as RecurrencePattern,
+            startDate: new Date(startDate),
+            endDate: new Date(endDate),
+            time_of_day,
+            weekDays: weekDays || null,
+          },
+        });
       }
     }
 

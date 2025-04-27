@@ -39,6 +39,9 @@ const IncubationForm = ({
     setIsSubmitting(true);
 
     try {
+      // Add a delay to match event creation loading time
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
       const url =
         type === "create" ? "/api/incubation" : `/api/incubation/${data?.id}`;
       const method = type === "create" ? "POST" : "PUT";

@@ -258,8 +258,9 @@ model RecurrentSchedules {
   time_of_day       String
   endDate           DateTime
   startDate         DateTime
-  customDate        String?
   weekDays          String?
+  customInterval    Int?
+  customDate        String?
   schedule          Schedule          @relation(fields: [schedId], references: [id])
 }
 
@@ -341,7 +342,6 @@ enum EventStatus {
 enum RecurrencePattern {
   DAILY
   WEEKLY
-  MONTHLY
   OTHER
 }
 

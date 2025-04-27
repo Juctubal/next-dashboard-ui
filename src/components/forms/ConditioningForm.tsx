@@ -280,6 +280,9 @@ const ConditioningForm = ({
     console.log("Submitting activity schedules:", activitySchedules);
 
     try {
+      // Add a delay to match event creation loading time
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
       const requestBody = {
         id: type === "update" ? data?.id : undefined,
         gamefowlIds: selectedGamefowls,
@@ -465,7 +468,7 @@ const ConditioningForm = ({
           <label className="font-medium text-gray-700 dark:text-gray-300">
             Gamefowls ({selectedGamefowls.length} selected)
           </label>
-          <div className="border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 max-h-60 overflow-y-auto">
+          <div className="border border-gray-300 dark:border-gray-600 rounded-md p-4 bg-white dark:bg-gray-700 max-h-60 overflow-y-auto">
             {formData.eventId ? (
               options.gamefowls
                 .filter((gamefowl: GamefowlWithEvents) =>
@@ -477,30 +480,32 @@ const ConditioningForm = ({
                 .map((gamefowl: GamefowlWithEvents) => (
                   <div
                     key={gamefowl.id}
-                    className={`p-2 rounded-md cursor-pointer ${
+                    className={`p-3 mb-2 rounded-md cursor-pointer transition-colors ${
                       selectedGamefowls.includes(gamefowl.id)
                         ? "bg-ggPurple text-white"
                         : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
                     }`}
                     onClick={() => handleGamefowlSelection(gamefowl.id)}
                   >
-                    <div className="flex justify-between">
-                      <span>{gamefowl.name}</span>
-                      <span>ID: {gamefowl.id}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">{gamefowl.name}</span>
+                      <span className="text-sm opacity-80">
+                        ID: {gamefowl.id}
+                      </span>
                     </div>
-                    <div className="text-xs opacity-80">
+                    <div className="text-sm mt-1 opacity-80">
                       Bloodline: {gamefowl.bloodline}
                     </div>
                   </div>
                 ))
             ) : (
-              <p className="text-amber-500 text-sm p-2">
+              <p className="text-amber-500 text-sm p-3">
                 Please select an event first
               </p>
             )}
           </div>
           {!formData.eventId && (
-            <p className="text-amber-500 text-sm mt-1">
+            <p className="text-amber-500 text-sm mt-2">
               Please select an event before choosing gamefowls
             </p>
           )}

@@ -27,9 +27,13 @@ const ConditioningPage = async ({
     include: {
       conditioning: {
         include: {
-          conProg: true,
-          event: true,
-          handler: true,
+          conditioning: {
+            include: {
+              conProg: true,
+              event: true,
+              handler: true,
+            },
+          },
         },
       },
     },
@@ -103,33 +107,37 @@ const ConditioningPage = async ({
                 {gamefowl.conditioning.map((conditioning) => (
                   <tr key={conditioning.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {conditioning.conProg.programName}
+                      {conditioning.conditioning.conProg.programName}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {conditioning.event.eventName}
+                      {conditioning.conditioning.event.eventName}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {conditioning.handler.first_name}{" "}
-                      {conditioning.handler.last_name}
+                      {conditioning.conditioning.handler.first_name}{" "}
+                      {conditioning.conditioning.handler.last_name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(conditioning.startDate).toLocaleDateString()}
+                      {new Date(
+                        conditioning.conditioning.startDate
+                      ).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(conditioning.endDate).toLocaleDateString()}
+                      {new Date(
+                        conditioning.conditioning.endDate
+                      ).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span
                         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                         ${
-                          conditioning.status === "COMPLETED"
+                          conditioning.conditioning.status === "COMPLETED"
                             ? "bg-green-100 text-green-800"
-                            : conditioning.status === "ONGOING"
+                            : conditioning.conditioning.status === "ONGOING"
                             ? "bg-blue-100 text-blue-800"
                             : "bg-yellow-100 text-yellow-800"
                         }`}
                       >
-                        {conditioning.status}
+                        {conditioning.conditioning.status}
                       </span>
                     </td>
                   </tr>

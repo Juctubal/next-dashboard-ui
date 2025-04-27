@@ -33,6 +33,8 @@ const schema = z
     weekDays: z.array(z.string()).optional(),
     // Monthly specific fields
     monthDay: z.string().optional(),
+    // Custom dates for "Other" pattern
+    customDates: z.array(z.string()).optional(),
   })
   .refine(
     (data) => {
@@ -42,6 +44,15 @@ const schema = z
       }
       // If taskType is RECURRING, startDate, endDate, reccurencePattern, and time_of_day are required
       if (data.taskType === "RECURRING") {
+        // For "Other" pattern, we need customDates instead of startDate/endDate
+        if (data.reccurencePattern === "OTHER") {
+          return (
+            !!data.reccurencePattern &&
+            !!data.time_of_day.length &&
+            data.customDates &&
+            data.customDates.length > 0
+          );
+        }
         return (
           !!data.startDate &&
           !!data.endDate &&
@@ -85,6 +96,10 @@ const ScheduleForm = ({
   const [filteredStaff, setFilteredStaff] = useState<Staff[]>([]);
   const [selectedWeekDays, setSelectedWeekDays] = useState<string[]>([]);
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
+  const [customDates, setCustomDates] = useState<string[]>([]);
+  const [duplicateDateError, setDuplicateDateError] = useState<string | null>(
+    null
+  );
 
   // Map database fields to form fields
   const mappedData = data
@@ -112,9 +127,41 @@ const ScheduleForm = ({
         reccurencePattern:
           data.recurrent?.[0]?.reccurencePattern || data.reccurencePattern,
         weekDays: data.recurrent?.[0]?.weekDays
-          ? JSON.parse(data.recurrent[0].weekDays)
+          ? (() => {
+              try {
+                // If it's already an array, return it
+                if (Array.isArray(data.recurrent[0].weekDays)) {
+                  return data.recurrent[0].weekDays;
+                }
+
+                // If it's a string that looks like JSON, parse it
+                if (
+                  typeof data.recurrent[0].weekDays === "string" &&
+                  (data.recurrent[0].weekDays.startsWith("[") ||
+                    data.recurrent[0].weekDays.startsWith("{"))
+                ) {
+                  return JSON.parse(data.recurrent[0].weekDays);
+                }
+
+                // Otherwise, split by comma
+                return data.recurrent[0].weekDays.split(",");
+              } catch (error) {
+                console.error("Error parsing weekDays:", error);
+                return [];
+              }
+            })()
           : data.weekDays,
         monthDay: data.recurrent?.[0]?.monthDay || data.monthDay,
+        customDates: data.recurrent?.[0]?.customDate
+          ? (() => {
+              try {
+                return JSON.parse(data.recurrent[0].customDate);
+              } catch (error) {
+                console.error("Error parsing customDate:", error);
+                return [];
+              }
+            })()
+          : [],
       }
     : {};
 
@@ -213,6 +260,18 @@ const ScheduleForm = ({
     }
   }, [user, setValue]);
 
+  // Initialize custom dates from data if available
+  useEffect(() => {
+    if (mappedData.customDates && Array.isArray(mappedData.customDates)) {
+      setCustomDates(mappedData.customDates);
+    }
+  }, [mappedData.customDates]);
+
+  // Update customDates in form data when they change
+  useEffect(() => {
+    setValue("customDates", customDates);
+  }, [customDates, setValue]);
+
   const selectedStaffType = watch("staffType");
   const selectedTaskType = watch("taskType");
   const selectedRecurrencePattern = watch("reccurencePattern");
@@ -306,6 +365,27 @@ const ScheduleForm = ({
     }
   };
 
+  const handleCustomDateChange = (date: string, action: "add" | "remove") => {
+    if (action === "add") {
+      // Check if the date already exists in the array
+      if (customDates.includes(date)) {
+        setDuplicateDateError(`Date ${date} is already selected`);
+
+        // Clear the error after 3 seconds
+        setTimeout(() => {
+          setDuplicateDateError(null);
+        }, 3000);
+
+        return;
+      }
+
+      setDuplicateDateError(null);
+      setCustomDates([...customDates, date]);
+    } else {
+      setCustomDates(customDates.filter((d) => d !== date));
+    }
+  };
+
   const handleNotificationClose = () => {
     setNotification(null);
   };
@@ -316,6 +396,9 @@ const ScheduleForm = ({
     setNotification(null);
 
     try {
+      // Add a delay to match event creation loading time
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
       // For non-admin users, ensure staffId and staffType are set
       if (user && user.publicMetadata.role !== "admin") {
         formData.staffId = user.id;
@@ -339,6 +422,11 @@ const ScheduleForm = ({
           }
         }
       });
+
+      // Add custom dates for "Other" pattern
+      if (formData.reccurencePattern === "OTHER" && customDates.length > 0) {
+        formDataToSend.append("customDate", JSON.stringify(customDates));
+      }
 
       // Add ID if it exists (for updates)
       if (data?.id) {
@@ -379,6 +467,11 @@ const ScheduleForm = ({
           type: "error",
         });
         console.error("Form submission error:", responseData);
+
+        // For errors, keep the notification visible for at least 3 seconds
+        setTimeout(() => {
+          setNotification(null);
+        }, 3000);
       }
     } catch (err) {
       setNotification({
@@ -386,6 +479,11 @@ const ScheduleForm = ({
         type: "error",
       });
       console.error("Form submission error:", err);
+
+      // For errors, keep the notification visible for at least 3 seconds
+      setTimeout(() => {
+        setNotification(null);
+      }, 3000);
     }
     setIsSubmitting(false);
   });
@@ -595,39 +693,105 @@ const ScheduleForm = ({
               )}
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-xs text-gray-500 dark:text-gray-400">
-                Start Date
-              </label>
-              <input
-                type="date"
-                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                {...register("startDate")}
-                defaultValue={mappedData.startDate}
-              />
-              {errors.startDate?.message && (
-                <p className="text-xs text-red-400 dark:text-red-400">
-                  {errors.startDate.message.toString()}
-                </p>
-              )}
-            </div>
+            {/* Show date range fields only for DAILY and WEEKLY patterns */}
+            {selectedRecurrencePattern !== "OTHER" && (
+              <>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs text-gray-500 dark:text-gray-400">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    {...register("startDate")}
+                    defaultValue={mappedData.startDate}
+                  />
+                  {errors.startDate?.message && (
+                    <p className="text-xs text-red-400 dark:text-red-400">
+                      {errors.startDate.message.toString()}
+                    </p>
+                  )}
+                </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-xs text-gray-500 dark:text-gray-400">
-                End Date
-              </label>
-              <input
-                type="date"
-                className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                {...register("endDate")}
-                defaultValue={mappedData.endDate}
-              />
-              {errors.endDate?.message && (
-                <p className="text-xs text-red-400 dark:text-red-400">
-                  {errors.endDate.message.toString()}
-                </p>
-              )}
-            </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs text-gray-500 dark:text-gray-400">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    {...register("endDate")}
+                    defaultValue={mappedData.endDate}
+                  />
+                  {errors.endDate?.message && (
+                    <p className="text-xs text-red-400 dark:text-red-400">
+                      {errors.endDate.message.toString()}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Custom date selection for "Other" pattern */}
+            {selectedRecurrencePattern === "OTHER" && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-gray-500 dark:text-gray-400">
+                  Select Custom Dates
+                </label>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          handleCustomDateChange(e.target.value, "add");
+                          e.target.value = ""; // Clear the input after adding
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {duplicateDateError && (
+                    <p className="text-xs text-red-400 dark:text-red-400">
+                      {duplicateDateError}
+                    </p>
+                  )}
+
+                  {customDates.length > 0 && (
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-md p-3">
+                      <h4 className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Selected Dates:
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {customDates.map((date, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-md"
+                          >
+                            <span className="text-sm">{date}</span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleCustomDateChange(date, "remove")
+                              }
+                              className="text-red-500 hover:text-red-700 ml-2"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <input
+                  type="hidden"
+                  {...register("customDates")}
+                  value={JSON.stringify(customDates)}
+                />
+              </div>
+            )}
 
             {/* Time picker for all recurrence patterns */}
             <div className="flex flex-col gap-2">

@@ -61,6 +61,9 @@ const AnnouncementForm = ({
     setNotification(null);
 
     try {
+      // Add a delay to match event creation loading time
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
       const response = await fetch("/api/announcement", {
         method: type === "create" ? "POST" : "PUT",
         headers: {

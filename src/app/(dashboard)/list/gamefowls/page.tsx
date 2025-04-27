@@ -50,7 +50,9 @@ const GamefowlListPage = async ({
           case "eventId":
             query.conditioning = {
               some: {
-                eventId: parseInt(value),
+                conditioning: {
+                  eventId: parseInt(value),
+                },
               },
             };
             break;
@@ -77,6 +79,18 @@ const GamefowlListPage = async ({
       where: query,
       include: {
         conditioning: true,
+        sire: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        dam: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
       take: ITEM_PER_PAGE,
       skip: ITEM_PER_PAGE * (p - 1),

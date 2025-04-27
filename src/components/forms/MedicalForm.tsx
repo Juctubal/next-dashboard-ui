@@ -106,6 +106,9 @@ const MedicalForm = ({
         date: formData.date,
       };
 
+      // Add a minimum loading time of 2 seconds for better UX
+      const startTime = Date.now();
+
       const response = await fetch(endpoint, {
         method,
         headers: {
@@ -118,6 +121,17 @@ const MedicalForm = ({
         throw new Error("Failed to save medical record");
       }
 
+      // Calculate how much time has passed
+      const elapsedTime = Date.now() - startTime;
+      const minimumLoadingTime = 1500; // 1.5 seconds minimum
+
+      // If the operation took less than the minimum time, wait for the remainder
+      if (elapsedTime < minimumLoadingTime) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, minimumLoadingTime - elapsedTime)
+        );
+      }
+
       // Show success message
       setNotification({
         message: `${
@@ -126,7 +140,7 @@ const MedicalForm = ({
         type: "success",
       });
 
-      // Close the modal after a delay
+      // Close the modal after a longer delay (2 seconds)
       setTimeout(() => {
         if (onClose) {
           onClose();
@@ -134,7 +148,7 @@ const MedicalForm = ({
           window.dispatchEvent(new CustomEvent("closeModal"));
         }
         router.refresh();
-      }, 1500);
+      }, 2000);
     } catch (error) {
       console.error("Error saving medical record:", error);
       setNotification({
@@ -281,7 +295,7 @@ const MedicalForm = ({
             {isSubmitting ? (
               <>
                 <svg
-                  className="animate-spin h-5 w-5 text-white"
+                  className="animate-spin h-6 w-6 text-white"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -300,7 +314,9 @@ const MedicalForm = ({
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                <span>{type === "create" ? "Creating..." : "Updating..."}</span>
+                <span className="font-medium">
+                  {type === "create" ? "Creating..." : "Updating..."}
+                </span>
               </>
             ) : type === "create" ? (
               `Add ${recordType === "vaccine" ? "Vaccine" : "Deworming"} Record`

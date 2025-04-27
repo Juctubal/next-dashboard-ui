@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { Repeat, Calendar } from "lucide-react";
 
 interface Task {
   id: string;
@@ -9,6 +10,8 @@ interface Task {
   date: Date;
   type: "oneTime" | "recurrent";
   status: "upcoming" | "completed" | "overdue" | string;
+  oneTimeId?: string;
+  recurrentId?: string;
 }
 
 interface StaffTasksProps {
@@ -18,6 +21,8 @@ interface StaffTasksProps {
     start: Date;
     type: string;
     status?: string;
+    oneTimeId?: string;
+    recurrentId?: string;
   }[];
 }
 
@@ -45,6 +50,8 @@ const StaffTasks = ({ events }: StaffTasksProps) => {
         date: event.start,
         type: (event.type as Task["type"]) || "oneTime",
         status,
+        oneTimeId: event.oneTimeId,
+        recurrentId: event.recurrentId,
       };
     })
     .sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -73,11 +80,11 @@ const StaffTasks = ({ events }: StaffTasksProps) => {
   const getTypeIcon = (type: Task["type"]) => {
     switch (type) {
       case "oneTime":
-        return "/oneTime.png";
+        return <Calendar className="w-5 h-5 text-gray-500" />;
       case "recurrent":
-        return "/recurrent.png";
+        return <Repeat className="w-5 h-5 text-gray-500" />;
       default:
-        return "/task.png";
+        return <Calendar className="w-5 h-5 text-gray-500" />;
     }
   };
 
@@ -98,6 +105,30 @@ const StaffTasks = ({ events }: StaffTasksProps) => {
       default:
         return status.charAt(0).toUpperCase() + status.slice(1);
     }
+  };
+
+  // Handle click on any task
+  const handleTaskClick = (task: Task) => {
+    // Create a taskId in the format "type-id"
+    let taskId = "";
+
+    if (task.type === "oneTime" && task.oneTimeId) {
+      taskId = `oneTime-${task.oneTimeId}`;
+    } else if (task.type === "recurrent" && task.recurrentId) {
+      taskId = `recurrent-${task.recurrentId}`;
+    } else {
+      // Fallback to using the task's own ID if no specific ID is available
+      taskId = `${task.type}-${task.id}`;
+    }
+
+    // Dispatch custom event to open the task details modal
+    document.dispatchEvent(
+      new CustomEvent("openStaffTaskDetailsModal", {
+        detail: {
+          taskId,
+        },
+      })
+    );
   };
 
   return (
@@ -149,11 +180,12 @@ const StaffTasks = ({ events }: StaffTasksProps) => {
           filteredTasks.map((task) => (
             <div
               key={task.id}
-              className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+              onClick={() => handleTaskClick(task)}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className="mt-1"></div>
+                  <div className="mt-1">{getTypeIcon(task.type)}</div>
                   <div className="min-w-0">
                     <h3 className="font-medium text-gray-900 dark:text-gray-200 truncate">
                       {task.title}

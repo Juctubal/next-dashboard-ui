@@ -8,6 +8,11 @@ import { calculateGamefowlAge } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import GamefowlTasks from "@/components/GamefowlTasks";
 import { GamefowlSex } from "@prisma/client";
+import GamefowlProfileSection from "@/components/GamefowlProfileSection";
+import GamefowlSparringModalWrapper from "@/components/GamefowlSparringModalWrapper";
+import SparringMatchesCard from "@/components/SparringMatchesCard";
+import SparringMatchModalWrapper from "@/components/SparringMatchModalWrapper";
+import TaskDetailsModalWrapper from "@/components/TaskDetailsModalWrapper";
 
 // Define the props for the page
 interface GamefowlPageProps {
@@ -26,6 +31,31 @@ interface CalendarEvent {
   type: string;
 }
 
+// Define the type for sparring matches
+interface SparringMatch {
+  id: number;
+  sparringDate: Date;
+  gamefowl1: {
+    id: number;
+    name: string;
+    img: string | null;
+  };
+  gamefowl2: {
+    id: number;
+    name: string;
+    img: string | null;
+  };
+  winner: {
+    id: number;
+    name: string;
+  } | null;
+  loser: {
+    id: number;
+    name: string;
+  } | null;
+  eloChange: number;
+}
+
 const SingleGamefowlPage = async ({ params }: GamefowlPageProps) => {
   // Fetch the gamefowl data
   const gamefowl = await prisma.gamefowl.findUnique({
@@ -35,15 +65,77 @@ const SingleGamefowlPage = async ({ params }: GamefowlPageProps) => {
         include: {
           conditioning: {
             include: {
-              conProg: true,
+              conProg: {
+                include: {
+                  activities: true,
+                },
+              },
               event: true,
               handler: true,
             },
           },
         },
       },
-      sparring_1: true,
-      sparring_2: true,
+      sparring_1: {
+        include: {
+          gamefowl1: {
+            select: {
+              id: true,
+              name: true,
+              img: true,
+            },
+          },
+          gamefowl2: {
+            select: {
+              id: true,
+              name: true,
+              img: true,
+            },
+          },
+          winner: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          loser: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
+      sparring_2: {
+        include: {
+          gamefowl1: {
+            select: {
+              id: true,
+              name: true,
+              img: true,
+            },
+          },
+          gamefowl2: {
+            select: {
+              id: true,
+              name: true,
+              img: true,
+            },
+          },
+          winner: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          loser: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
       sparring_winner: true,
       sparring_loser: true,
       vaccine: true,
@@ -69,6 +161,24 @@ const SingleGamefowlPage = async ({ params }: GamefowlPageProps) => {
 
   // Get Elo rating
   const eloRating = gamefowl.eloRating || 1000;
+
+  // Combine all sparring matches with Elo changes
+  const allSparringMatches: SparringMatch[] = [
+    ...gamefowl.sparring_1.map((match) => ({
+      ...match,
+      eloChange:
+        match.winner?.id === gamefowl.id
+          ? match.winner_elo_change
+          : -match.loser_elo_change,
+    })),
+    ...gamefowl.sparring_2.map((match) => ({
+      ...match,
+      eloChange:
+        match.winner?.id === gamefowl.id
+          ? match.winner_elo_change
+          : -match.loser_elo_change,
+    })),
+  ];
 
   // Create calendar events from conditioning data
   const calendarEvents: CalendarEvent[] = gamefowl.conditioning.map(
@@ -105,7 +215,7 @@ const SingleGamefowlPage = async ({ params }: GamefowlPageProps) => {
   // Add medical events
   const medicalEvents: CalendarEvent[] = [
     ...gamefowl.vaccine.map((vaccine) => ({
-      id: `vaccine-${vaccine.id}`,
+      id: `medical-${vaccine.id}`,
       title: `Vaccination: ${vaccine.name || "Unnamed"}`,
       start: vaccine.vaccinationDate,
       end: new Date(
@@ -113,14 +223,16 @@ const SingleGamefowlPage = async ({ params }: GamefowlPageProps) => {
       ), // 30 minutes duration
       allDay: false,
       type: "medical",
+      medicalId: vaccine.id,
     })),
     ...gamefowl.deworming.map((deworming) => ({
-      id: `deworming-${deworming.id}`,
+      id: `medical-${deworming.id}`,
       title: `Deworming: ${deworming.name || "Unnamed"}`,
       start: deworming.dewormDate,
       end: new Date(new Date(deworming.dewormDate).getTime() + 30 * 60 * 1000), // 30 minutes duration
       allDay: false,
       type: "medical",
+      medicalId: deworming.id,
     })),
   ];
 
@@ -129,6 +241,11 @@ const SingleGamefowlPage = async ({ params }: GamefowlPageProps) => {
 
   return (
     <div className="flex-1 flex flex-col gap-6 p-4 w-full">
+      {/* Include the modal wrapper components */}
+      <GamefowlSparringModalWrapper />
+      <SparringMatchModalWrapper />
+      <TaskDetailsModalWrapper />
+
       {/* Breadcrumb Navigation */}
       <div className="flex items-center text-sm text-gray-500 mb-2">
         <Link
@@ -145,17 +262,7 @@ const SingleGamefowlPage = async ({ params }: GamefowlPageProps) => {
       <div className="bg-gradient-to-r from-ggSky to-blue-100 dark:from-ggSky/80 dark:to-blue-900/50 rounded-lg p-6 shadow-sm w-full">
         <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
           {/* Gamefowl Image */}
-          <div className="flex-shrink-0">
-            <div className="relative">
-              <Image
-                src={gamefowl.img || "/noAvatar.png"}
-                alt={gamefowl.name}
-                width={180}
-                height={180}
-                className="w-32 h-32 md:w-40 md:h-40 lg:w-48 lg:h-48 rounded-full object-cover border-4 border-white dark:border-gray-700 shadow-md"
-              />
-            </div>
-          </div>
+          <GamefowlProfileSection gamefowl={gamefowl} />
 
           {/* Gamefowl Info */}
           <div className="flex-1 text-center md:text-left">
@@ -195,30 +302,13 @@ const SingleGamefowlPage = async ({ params }: GamefowlPageProps) => {
       {/* Key Metrics Dashboard */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         {/* Sparring Count Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="bg-blue-100 dark:bg-blue-900/50 p-2 rounded-full">
-              <Image
-                src="/singleAttendance.png"
-                alt=""
-                width={20}
-                height={20}
-                className="w-5 h-5"
-              />
-            </div>
-            <h3 className="text-gray-600 dark:text-gray-400 font-medium">
-              Sparring Matches
-            </h3>
-          </div>
-          <div className="flex items-end gap-2">
-            <span className="text-3xl font-bold text-gray-800 dark:text-gray-200">
-              {gamefowl.sex === GamefowlSex.FEMALE ? "N/A" : sparringCount}
-            </span>
-            <span className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-              {gamefowl.sex === GamefowlSex.FEMALE ? "" : "total matches"}
-            </span>
-          </div>
-        </div>
+        <SparringMatchesCard
+          gamefowlId={gamefowl.id}
+          gamefowlName={gamefowl.name}
+          sparringCount={sparringCount}
+          sparringMatches={allSparringMatches}
+          sex={gamefowl.sex}
+        />
 
         {/* Wins/Losses Card */}
         <div className="bg-white dark:bg-gray-800 rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">

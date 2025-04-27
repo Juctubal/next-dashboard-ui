@@ -25,12 +25,12 @@ const columns = [
     className: "hidden md:table-cell w-1/12",
   },
   {
-    header: "Sire ID",
+    header: "Sire",
     accessor: "sireId",
     className: "hidden md:table-cell w-1/12",
   },
   {
-    header: "Dam ID",
+    header: "Dam",
     accessor: "damId",
     className: "hidden lg:table-cell w-1/12",
   },
@@ -57,7 +57,10 @@ const columns = [
 ];
 
 const renderRow = (
-  item: Gamefowl,
+  item: Gamefowl & {
+    sire?: { id: number; name: string } | null;
+    dam?: { id: number; name: string } | null;
+  },
   isArchived: boolean,
   onArchiveToggle: (id: number, archive: boolean) => void
 ) => (
@@ -84,10 +87,10 @@ const renderRow = (
       {item.id}
     </td>
     <td className="hidden md:table-cell py-3 px-4 dark:text-gray-200">
-      {item.sireId}
+      {item.sire?.name || "N/A"}
     </td>
     <td className="hidden md:table-cell py-3 px-4 dark:text-gray-200">
-      {item.damId}
+      {item.dam?.name || "N/A"}
     </td>
     <td className="hidden md:table-cell py-3 px-4 dark:text-gray-200">
       {item.batchId}

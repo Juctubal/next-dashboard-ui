@@ -1,7 +1,8 @@
 import FormModal from "@/components/FormModal";
 import StaffTasks from "@/components/StaffTasks";
-import Image from "next/image";
+import StaffProfileSection from "@/components/StaffProfileSection";
 import Link from "next/link";
+import Image from "next/image";
 import { fetchStaffById } from "../fetchStaffData";
 import { prisma } from "@/lib/prisma";
 import {
@@ -13,6 +14,10 @@ import {
   UserRole,
   EventStatus,
 } from "@prisma/client";
+import ProfilePictureModal from "@/components/ProfilePictureModal";
+import { useState } from "react";
+import { currentUser } from "@clerk/nextjs/server";
+import StaffTaskDetailsModalWrapper from "@/components/StaffTaskDetailsModalWrapper";
 
 interface SingleStaffPageProps {
   params: {
@@ -29,6 +34,8 @@ interface CalendarEvent {
   allDay?: boolean;
   type: string;
   status?: string;
+  oneTimeId?: string;
+  recurrentId?: string;
 }
 
 // Define the type for schedule with included relations
@@ -41,6 +48,9 @@ type ScheduleWithRelations = Schedule & {
 const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
   const { id } = params;
   const staff = await fetchStaffById(id);
+  const currentUserData = await currentUser();
+  const currentUserId = currentUserData?.id;
+  const currentUserRole = currentUserData?.publicMetadata?.role as string;
 
   if (!staff) {
     return <div className="p-4">Staff member not found</div>;
@@ -104,6 +114,7 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
         allDay: false,
         type: "oneTime",
         status: schedule.status.toString(),
+        oneTimeId: oneTime.id.toString(),
       });
     });
 
@@ -118,6 +129,7 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
         allDay: false,
         type: "recurrent",
         status: schedule.status.toString(),
+        recurrentId: recurrent.id.toString(),
       });
     });
   });
@@ -126,25 +138,23 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
 
   return (
     <div className="flex-1 p-4 flex flex-col gap-4 xl:flex-row">
+      {/* Include the modal wrapper component */}
+      <StaffTaskDetailsModalWrapper />
+
       {/* LEFT */}
       <div className="w-full xl:w-2/3">
         {/* TOP */}
         <div className="flex flex-col lg:flex-row gap-4">
           {/* USER INFO CARD */}
           <div className="bg-ggSky dark:bg-gray-800 py-6 px-4 rounded-md flex-1 flex gap-4">
-            <div className="w-1/3">
-              <Image
-                src={staff.img || "/noAvatar.png"}
-                alt={`${staff.first_name} ${staff.last_name}`}
-                width={144}
-                height={144}
-                className="w-36 h-36 rounded-full object-cover border-4 border-white dark:border-gray-700"
-              />
-            </div>
+            <StaffProfileSection staff={staff} />
             <div className="w-2/3 flex flex-col justify-between gap-4">
               <div className="flex items-center gap-4">
                 <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-200">{`${staff.first_name} ${staff.last_name}`}</h1>
-                <FormModal table="staff" type="update" id={staff.id} />
+                {(currentUserRole === "admin" ||
+                  currentUserId === staff.id) && (
+                  <FormModal table="staff" type="update" id={staff.id} />
+                )}
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {staff.role} - {staff.status}

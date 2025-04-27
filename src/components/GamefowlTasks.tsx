@@ -9,6 +9,9 @@ interface Task {
   date: Date;
   type: "conditioning" | "sparring" | "medical";
   status: "upcoming" | "completed" | "overdue";
+  sparringId?: number;
+  conditioningId?: number;
+  medicalId?: number;
 }
 
 interface GamefowlTasksProps {
@@ -17,6 +20,9 @@ interface GamefowlTasksProps {
     title: string;
     start: Date;
     type: string;
+    sparringId?: number;
+    conditioningId?: number;
+    medicalId?: number;
   }[];
 }
 
@@ -38,12 +44,40 @@ const GamefowlTasks = ({ events }: GamefowlTasksProps) => {
         status = "overdue";
       }
 
+      // Extract IDs from the event id if available
+      let sparringId: number | undefined;
+      let conditioningId: number | undefined;
+      let medicalId: number | undefined;
+
+      if (event.type === "sparring" && event.id.startsWith("sparring-")) {
+        const parts = event.id.split("-");
+        if (parts.length >= 3) {
+          sparringId = parseInt(parts[2]);
+        }
+      } else if (
+        event.type === "conditioning" &&
+        event.id.startsWith("conditioning-")
+      ) {
+        const parts = event.id.split("-");
+        if (parts.length >= 3) {
+          conditioningId = parseInt(parts[2]);
+        }
+      } else if (event.type === "medical" && event.id.startsWith("medical-")) {
+        const parts = event.id.split("-");
+        if (parts.length >= 3) {
+          medicalId = parseInt(parts[2]);
+        }
+      }
+
       return {
         id: Math.random().toString(36).substr(2, 9),
         title: event.title,
         date: event.start,
         type: (event.type as Task["type"]) || "conditioning",
         status,
+        sparringId: event.sparringId || sparringId,
+        conditioningId: event.conditioningId || conditioningId,
+        medicalId: event.medicalId || medicalId,
       };
     })
     .sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -68,14 +102,40 @@ const GamefowlTasks = ({ events }: GamefowlTasksProps) => {
   const getTypeIcon = (type: Task["type"]) => {
     switch (type) {
       case "conditioning":
-        return "/conditioning.png";
+        return "/calendar.png";
       case "sparring":
-        return "/sparring.png";
+        return "/spar.png";
       case "medical":
-        return "/medical.png";
+        return "/class.png";
       default:
         return "/task.png";
     }
+  };
+
+  // Handle click on any task
+  const handleTaskClick = (task: Task) => {
+    // Create a taskId in the format "type-id"
+    let taskId = "";
+
+    if (task.type === "sparring" && task.sparringId) {
+      taskId = `sparring-${task.sparringId}`;
+    } else if (task.type === "conditioning" && task.conditioningId) {
+      taskId = `conditioning-${task.conditioningId}`;
+    } else if (task.type === "medical" && task.medicalId) {
+      taskId = `medical-${task.medicalId}`;
+    } else {
+      // Fallback to using the task's own ID if no specific ID is available
+      taskId = `${task.type}-${task.id}`;
+    }
+
+    // Dispatch custom event to open the task details modal
+    document.dispatchEvent(
+      new CustomEvent("openTaskDetailsModal", {
+        detail: {
+          taskId,
+        },
+      })
+    );
   };
 
   return (
@@ -137,11 +197,20 @@ const GamefowlTasks = ({ events }: GamefowlTasksProps) => {
           filteredTasks.map((task) => (
             <div
               key={task.id}
-              className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+              className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+              onClick={() => handleTaskClick(task)}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className="mt-1"></div>
+                  <div className="mt-1">
+                    <Image
+                      src={getTypeIcon(task.type)}
+                      alt={task.type}
+                      width={20}
+                      height={20}
+                      className="w-5 h-5"
+                    />
+                  </div>
                   <div className="min-w-0">
                     <h3 className="font-medium text-gray-900 dark:text-gray-200 truncate">
                       {task.title}

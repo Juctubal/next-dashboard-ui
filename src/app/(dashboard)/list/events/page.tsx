@@ -136,7 +136,19 @@ const renderEventRow = (
     {/* <td className="hidden md:table-cell dark:text-gray-200">
       {item.description}
     </td> */}
-    <td className="hidden md:table-cell dark:text-gray-200">{item.status}</td>
+    <td className="hidden md:table-cell dark:text-gray-200">
+      <span
+        className={`px-2 py-1 rounded-full text-xs ${
+          item.status === "PLANNED"
+            ? "bg-blue-100 text-blue-800"
+            : item.status === "ONGOING"
+            ? "bg-yellow-100 text-yellow-800"
+            : "bg-green-100 text-green-800"
+        }`}
+      >
+        {item.status.charAt(0) + item.status.slice(1).toLowerCase()}
+      </span>
+    </td>
     <td className="hidden md:table-cell dark:text-gray-200">
       {item.gamefowl && item.gamefowl.length > 0 ? (
         <div className="flex flex-wrap gap-1">

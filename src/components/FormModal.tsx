@@ -44,67 +44,6 @@ const IncubationForm = dynamic(() => import("./forms/IncubationForm"), {
   loading: () => <h1>Loading...</h1>,
 });
 
-const forms: {
-  [key: string]: (
-    type: "create" | "update",
-    data?: any,
-    onClose?: () => void
-  ) => JSX.Element;
-} = {
-  teacher: (type, data) => <TeacherForm type={type} data={data} />,
-  student: (type, data) => <StudentForm type={type} data={data} />,
-  staff: (type, data) => <StaffForm type={type} data={data} />,
-  gamefowl: (type, data) => <GamefowlForm type={type} data={data} />,
-  conditioningProgram: (type, data, onClose) => (
-    <ConditioningProgramForm
-      type={type}
-      data={data}
-      onClose={onClose || (() => {})}
-    />
-  ),
-  conditioning: (type, data, onClose) => (
-    <ConditioningForm type={type} data={data} onClose={onClose || (() => {})} />
-  ),
-  sparring: (type, data, onClose) => (
-    <SparringForm
-      type={type}
-      data={data}
-      gamefowls={data?.gamefowls || []}
-      onClose={onClose || (() => {})}
-    />
-  ),
-  breeding: (type, data) => {
-    console.log("FormModal breeding data:", data);
-    return <BreedingForm type={type} data={data} />;
-  },
-  vaccine: (type, data, onClose) => (
-    <MedicalForm
-      type={type}
-      data={data}
-      recordType="vaccine"
-      onClose={onClose}
-    />
-  ),
-  deworming: (type, data, onClose) => (
-    <MedicalForm
-      type={type}
-      data={data}
-      recordType="deworming"
-      onClose={onClose}
-    />
-  ),
-  event: (type, data) => <EventForm type={type} data={data} />,
-  schedule: (type, data) => <ScheduleForm type={type} data={data} />,
-  incubation: (type, data, onClose) => (
-    <IncubationForm
-      type={type}
-      data={data}
-      onClose={onClose || (() => {})}
-      breedingId={data?.breedingId}
-    />
-  ),
-};
-
 const FormModal = ({
   table,
   type,
@@ -149,6 +88,7 @@ const FormModal = ({
       : "bg-ggPurple";
 
   const [open, setOpen] = useState(false);
+  const [staffData, setStaffData] = useState<any>(data);
 
   const handleClose = () => {
     setOpen(false);
@@ -166,6 +106,27 @@ const FormModal = ({
       window.removeEventListener("closeModal", handleCloseModal);
     };
   }, []);
+
+  // Fetch staff data when modal is opened for update operation
+  useEffect(() => {
+    const fetchStaffData = async () => {
+      if (open && type === "update" && table === "staff" && id) {
+        try {
+          const response = await fetch(`/api/staff/${id}`);
+          if (response.ok) {
+            const data = await response.json();
+            setStaffData(data);
+          } else {
+            console.error("Failed to fetch staff data");
+          }
+        } catch (error) {
+          console.error("Error fetching staff data:", error);
+        }
+      }
+    };
+
+    fetchStaffData();
+  }, [open, type, table, id]);
 
   const Form = () => {
     if (type === "delete") {
@@ -230,8 +191,82 @@ const FormModal = ({
       );
     }
 
-    // Return the appropriate form component
-    return forms[table](type, data, handleClose);
+    // Return the appropriate form component with the fetched data
+    switch (table) {
+      case "staff":
+        return (
+          <StaffForm
+            type={type}
+            data={{ ...staffData, id: staffData?.id || id }}
+          />
+        );
+      case "teacher":
+        return <TeacherForm type={type} data={staffData} />;
+      case "student":
+        return <StudentForm type={type} data={staffData} />;
+      case "gamefowl":
+        return <GamefowlForm type={type} data={staffData} />;
+      case "conditioningProgram":
+        return (
+          <ConditioningProgramForm
+            type={type}
+            data={staffData}
+            onClose={handleClose}
+          />
+        );
+      case "conditioning":
+        return (
+          <ConditioningForm
+            type={type}
+            data={staffData}
+            onClose={handleClose}
+          />
+        );
+      case "sparring":
+        return (
+          <SparringForm
+            type={type}
+            data={staffData}
+            gamefowls={staffData?.gamefowls || []}
+            onClose={handleClose}
+          />
+        );
+      case "breeding":
+        return <BreedingForm type={type} data={staffData} />;
+      case "vaccine":
+        return (
+          <MedicalForm
+            type={type}
+            data={staffData}
+            recordType="vaccine"
+            onClose={handleClose}
+          />
+        );
+      case "deworming":
+        return (
+          <MedicalForm
+            type={type}
+            data={staffData}
+            recordType="deworming"
+            onClose={handleClose}
+          />
+        );
+      case "event":
+        return <EventForm type={type} data={staffData} />;
+      case "schedule":
+        return <ScheduleForm type={type} data={staffData} />;
+      case "incubation":
+        return (
+          <IncubationForm
+            type={type}
+            data={staffData}
+            onClose={handleClose}
+            breedingId={staffData?.breedingId}
+          />
+        );
+      default:
+        return <div>Form not found</div>;
+    }
   };
 
   return (

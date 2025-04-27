@@ -51,6 +51,9 @@ const GamefowlForm = ({
     setNotification(null);
 
     try {
+      // Add a delay to match event creation loading time
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
       const response = await fetch("/api/gamefowl", {
         method: type === "create" ? "POST" : "PUT",
         headers: {

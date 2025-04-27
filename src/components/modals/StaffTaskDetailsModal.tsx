@@ -69,7 +69,7 @@ export default function StaffTaskDetailsModal({
           title: data.title || "Task Details",
           date: new Date(data.taskDate || data.startDate),
           type: type as "oneTime" | "recurrent",
-          status: data.status || "PLANNED",
+          status: data.status || "ASSIGNED",
           taskName: data.taskName,
           taskDesc: data.taskDesc,
           taskDate: data.taskDate ? new Date(data.taskDate) : undefined,
@@ -299,9 +299,9 @@ export default function StaffTaskDetailsModal({
               <span
                 className={`${
                   task.status === "FINISHED"
-                    ? "text-green-600 dark:text-green-400"
-                    : task.status === "ONGOING"
-                    ? "text-yellow-600 dark:text-yellow-400"
+                    ? "bg-green-100 text-green-800"
+                    : task.status === "ASSIGNED"
+                    ? "bg-yellow-100 text-yellow-800"
                     : "text-blue-600 dark:text-blue-400"
                 }`}
               >

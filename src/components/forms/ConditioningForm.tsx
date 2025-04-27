@@ -59,7 +59,7 @@ const ConditioningForm = ({
     endDate: data?.endDate
       ? new Date(data.endDate).toISOString().split("T")[0]
       : "",
-    status: data?.status || "PLANNED",
+    status: data?.status || ConditioningStatus.ASSIGNED,
   });
 
   const [selectedGamefowls, setSelectedGamefowls] = useState<number[]>([]);
@@ -713,9 +713,8 @@ const ConditioningForm = ({
             className="border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
             required
           >
-            <option value="PLANNED">Planned</option>
-            <option value="ONGOING">Ongoing</option>
-            <option value="COMPLETED">Completed</option>
+            <option value={ConditioningStatus.ASSIGNED}>Assigned</option>
+            <option value={ConditioningStatus.COMPLETED}>Completed</option>
           </select>
         </div>
         <button

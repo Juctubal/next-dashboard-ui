@@ -41,330 +41,104 @@ async function main() {
 
     console.log("Current data retrieved. Creating seed data...");
 
-    // Now let's recreate the exact same data
-
-    // Create Admins
-    for (const admin of currentData.admins) {
-      await prisma.admin.upsert({
-        where: { username: admin.username },
-        update: {},
-        create: {
-          id: admin.id,
-          username: admin.username,
-        },
-      });
-    }
-
-    // Create Handlers
-    for (const handler of currentData.handlers) {
-      await prisma.handler.upsert({
-        where: { username: handler.username },
-        update: {},
-        create: {
-          id: handler.id,
-          username: handler.username,
-          password: handler.password,
-          first_name: handler.first_name,
-          middle_name: handler.middle_name,
-          last_name: handler.last_name,
-          email: handler.email,
-          img: handler.img,
-          phone: handler.phone,
-          role: handler.role,
-          status: handler.status,
-          createdAt: handler.createdAt,
-          isArchived: handler.isArchived,
-        },
-      });
-    }
-
-    // Create Breeders
-    for (const breeder of currentData.breeders) {
-      await prisma.breeder.upsert({
-        where: { username: breeder.username },
-        update: {},
-        create: {
-          id: breeder.id,
-          username: breeder.username,
-          password: breeder.password,
-          first_name: breeder.first_name,
-          middle_name: breeder.middle_name,
-          last_name: breeder.last_name,
-          email: breeder.email,
-          img: breeder.img,
-          phone: breeder.phone,
-          role: breeder.role,
-          status: breeder.status,
-          createdAt: breeder.createdAt,
-          isArchived: breeder.isArchived,
-        },
-      });
-    }
-
-    // Create Gamefowls
-    for (const gamefowl of currentData.gamefowls) {
-      await prisma.gamefowl.create({
+    // Create initial data if none exists
+    if (currentData.handlers.length === 0) {
+      console.log("Creating initial handler...");
+      const handler = await prisma.handler.create({
         data: {
-          id: gamefowl.id,
-          name: gamefowl.name,
-          bloodline: gamefowl.bloodline,
-          sex: gamefowl.sex,
-          date_hatched: gamefowl.date_hatched,
-          date_sold: gamefowl.date_sold,
-          sireId: gamefowl.sireId,
-          damId: gamefowl.damId,
-          batchId: gamefowl.batchId,
-          createdAt: gamefowl.createdAt,
-          img: gamefowl.img,
-          age: gamefowl.age,
-          isArchived: gamefowl.isArchived,
-          eloRating: gamefowl.eloRating,
+          username: "admin",
+          password: "admin123", // In production, this should be hashed
+          first_name: "Admin",
+          last_name: "User",
+          email: "admin@example.com",
+          role: UserRole.admin,
+          status: "ACTIVE",
         },
       });
+      currentData.handlers = [handler];
     }
 
-    // Create Vaccines
-    for (const vaccine of currentData.vaccines) {
-      await prisma.vaccine.create({
+    if (currentData.conditioningPrograms.length === 0) {
+      console.log("Creating initial conditioning program...");
+      const program = await prisma.conditioningProgram.create({
         data: {
-          id: vaccine.id,
-          gamefowlId: vaccine.gamefowlId,
-          vaccinationDate: vaccine.vaccinationDate,
-          notes: vaccine.notes,
-          name: vaccine.name,
-          isArchived: vaccine.isArchived,
+          programName: "Standard Conditioning",
+          description: "Standard conditioning program for gamefowls",
         },
       });
+      currentData.conditioningPrograms = [program];
     }
 
-    // Create Dewormings
-    for (const deworming of currentData.dewormings) {
-      await prisma.deworming.create({
-        data: {
-          id: deworming.id,
-          gamefowlId: deworming.gamefowlId,
-          dewormDate: deworming.dewormDate,
-          notes: deworming.notes,
-          name: deworming.name,
-          isArchived: deworming.isArchived,
-        },
-      });
+    // Create events
+    if (currentData.events.length === 0) {
+      console.log("Creating initial events...");
+      const events = await Promise.all([
+        prisma.event.create({
+          data: {
+            eventName: "Three Cock Derby",
+            eventType: EventType.THREE_COCK_DERBY,
+            ageCategory: AgeCategory.COCK,
+            eventDate: new Date("2024-05-15"),
+            description: "Annual three cock derby event",
+            status: EventStatus.ASSIGNED,
+            handlerId: currentData.handlers[0].id,
+          },
+        }),
+        prisma.event.create({
+          data: {
+            eventName: "Solo Event",
+            eventType: EventType.SOLO,
+            ageCategory: AgeCategory.STAG,
+            eventDate: new Date("2024-06-20"),
+            description: "Solo event for stags",
+            status: EventStatus.ASSIGNED,
+            handlerId: currentData.handlers[0].id,
+          },
+        }),
+      ]);
+      currentData.events = events;
     }
 
-    // Create Breedings
-    for (const breeding of currentData.breedings) {
-      await prisma.breeding.create({
-        data: {
-          id: breeding.id,
-          sireId: breeding.sireId,
-          damId: breeding.damId,
-          notes: breeding.notes,
-          status: breeding.status,
-          endDate: breeding.endDate,
-          startDate: breeding.startDate,
-          isArchived: breeding.isArchived,
-        },
-      });
-    }
-
-    // Create Sparrings
-    for (const sparring of currentData.sparrings) {
-      await prisma.sparring.create({
-        data: {
-          id: sparring.id,
-          gamefowl_1_Id: sparring.gamefowl_1_Id,
-          gamefowl_2_Id: sparring.gamefowl_2_Id,
-          winnerId: sparring.winnerId,
-          loserId: sparring.loserId,
-          winner_elo_change: sparring.winner_elo_change,
-          loser_elo_change: sparring.loser_elo_change,
-          sparringDate: sparring.sparringDate,
-          notes: sparring.notes,
-        },
-      });
-    }
-
-    // Create Incubations
-    for (const incubation of currentData.incubations) {
-      await prisma.incubation.create({
-        data: {
-          id: incubation.id,
-          incStart: incubation.incStart,
-          incEnd: incubation.incEnd,
-          status: incubation.status,
-          eggCount: incubation.eggCount,
-          breedingId: incubation.breedingId,
-          isArchived: incubation.isArchived,
-        },
-      });
-    }
-
-    // Create Batches
-    for (const batch of currentData.batches) {
-      await prisma.batch.create({
-        data: {
-          id: batch.id,
-          hatchRate: batch.hatchRate,
-          dateHatched: batch.dateHatched,
-          incubate_id: batch.incubate_id,
-        },
-      });
-    }
-
-    // Create ConditioningPrograms
-    for (const program of currentData.conditioningPrograms) {
-      await prisma.conditioningProgram.create({
-        data: {
-          id: program.id,
-          programName: program.programName,
-          description: program.description,
-          createdAt: program.createdAt,
-          updatedAt: program.updatedAt,
-        },
-      });
-    }
-
-    // Create ConditioningActivities
-    for (const activity of currentData.conditioningActivities) {
-      await prisma.conditioningActivity.create({
-        data: {
-          id: activity.id,
-          name: activity.name,
-          description: activity.description,
-          programId: activity.programId,
-          createdAt: activity.createdAt,
-          updatedAt: activity.updatedAt,
-        },
-      });
-    }
-
-    // Create Events
-    for (const event of currentData.events) {
-      await prisma.event.create({
-        data: {
-          id: event.id,
-          eventName: event.eventName,
-          eventType: event.eventType,
-          ageCategory: event.ageCategory,
-          eventDate: event.eventDate,
-          description: event.description,
-          status: event.status,
-          handlerId: event.handlerId,
-        },
-      });
-    }
-
-    // Create Conditionings
-    for (const conditioning of currentData.conditionings) {
-      await prisma.conditioning.create({
-        data: {
-          id: conditioning.id,
-          eventId: conditioning.eventId,
-          conProgId: conditioning.conProgId,
-          handlerId: conditioning.handlerId,
-          startDate: conditioning.startDate,
-          endDate: conditioning.endDate,
-          status: conditioning.status,
-          notes: conditioning.notes,
-        },
-      });
-    }
-
-    // Create ConditioningGamefowls
-    for (const cg of currentData.conditioningGamefowls) {
-      await prisma.conditioningGamefowl.create({
-        data: {
-          id: cg.id,
-          conditioningId: cg.conditioningId,
-          gamefowlId: cg.gamefowlId,
-        },
-      });
-    }
-
-    // Create Schedules
-    for (const schedule of currentData.schedules) {
-      await prisma.schedule.create({
-        data: {
-          id: schedule.id,
-          taskName: schedule.taskName,
-          taskType: schedule.taskType,
-          taskCategory: schedule.taskCategory,
-          descript: schedule.descript,
-          staffId: schedule.staffId,
-          staffType: schedule.staffType,
-          status: schedule.status,
-        },
-      });
-    }
-
-    // Create OneTimeScheds
-    for (const ots of currentData.oneTimeScheds) {
-      await prisma.oneTimeSched.create({
-        data: {
-          id: ots.id,
-          schedId: ots.schedId,
-          taskName: ots.taskName,
-          taskDate: ots.taskDate,
-          time_of_day: ots.time_of_day,
-        },
-      });
-    }
-
-    // Create RecurrentSchedules
-    for (const rs of currentData.recurrentSchedules) {
-      await prisma.recurrentSchedules.create({
-        data: {
-          id: rs.id,
-          schedId: rs.schedId,
-          reccurencePattern: rs.reccurencePattern,
-          time_of_day: rs.time_of_day,
-          startDate: rs.startDate,
-          endDate: rs.endDate,
-          weekDays: rs.weekDays,
-        },
-      });
-    }
-
-    // Create ConditioningActivitySchedules
-    for (const cas of currentData.conditioningActivitySchedules) {
-      await prisma.conditioningActivitySchedule.create({
-        data: {
-          id: cas.id,
-          conditioningId: cas.conditioningId,
-          activityId: cas.activityId,
-          date: cas.date,
-          createdAt: cas.createdAt,
-          notes: cas.notes,
-          status: cas.status,
-          timeOfDay: cas.timeOfDay,
-          updatedAt: cas.updatedAt,
-        },
-      });
-    }
-
-    // Create EventGamefowls
-    for (const eg of currentData.eventGamefowls) {
-      await prisma.eventGamefowl.create({
-        data: {
-          id: eg.id,
-          eventId: eg.eventId,
-          gamefowlId: eg.gamefowlId,
-        },
-      });
+    // Create conditioning records
+    if (currentData.conditionings.length === 0) {
+      console.log("Creating initial conditioning records...");
+      const conditioningRecords = await Promise.all([
+        prisma.conditioning.create({
+          data: {
+            eventId: currentData.events[0].id,
+            conProgId: currentData.conditioningPrograms[0].id,
+            handlerId: currentData.handlers[0].id,
+            startDate: new Date("2024-04-15"),
+            endDate: new Date("2024-05-14"),
+            status: ConditioningStatus.ASSIGNED,
+            notes: "Pre-derby conditioning",
+          },
+        }),
+        prisma.conditioning.create({
+          data: {
+            eventId: currentData.events[1].id,
+            conProgId: currentData.conditioningPrograms[0].id,
+            handlerId: currentData.handlers[0].id,
+            startDate: new Date("2024-05-20"),
+            endDate: new Date("2024-06-19"),
+            status: ConditioningStatus.ASSIGNED,
+            notes: "Pre-solo event conditioning",
+          },
+        }),
+      ]);
+      currentData.conditionings = conditioningRecords;
     }
 
     console.log("Seeding complete!");
   } catch (error) {
     console.error("Error during seeding:", error);
     throw error;
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

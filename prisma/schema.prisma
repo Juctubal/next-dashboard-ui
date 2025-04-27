@@ -198,7 +198,7 @@ model Schedule {
   descript     String
   staffId      String?
   staffType    UserRole?
-  status       EventStatus          @default(PLANNED)
+  status       EventStatus          @default(ASSIGNED)
   oneTime      OneTimeSched[]       @relation("OneTime")
   recurrent    RecurrentSchedules[]
 }
@@ -252,16 +252,17 @@ model Event {
 }
 
 model RecurrentSchedules {
-  id                Int               @id @default(autoincrement())
-  schedId           Int
-  reccurencePattern RecurrencePattern
-  time_of_day       String
-  endDate           DateTime
-  startDate         DateTime
-  weekDays          String?
-  customInterval    Int?
-  customDate        String?
-  schedule          Schedule          @relation(fields: [schedId], references: [id])
+  id                      Int                       @id @default(autoincrement())
+  schedId                 Int
+  reccurencePattern       RecurrencePattern
+  time_of_day             String
+  endDate                 DateTime
+  startDate               DateTime
+  weekDays                String?
+  customInterval          Int?
+  customDate              String?
+  schedule                Schedule                  @relation(fields: [schedId], references: [id])
+  RecurringTaskCompletion RecurringTaskCompletion[]
 }
 
 model EventGamefowl {
@@ -273,6 +274,22 @@ model EventGamefowl {
   gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
 
   @@unique([eventId, gamefowlId])
+}
+
+model RecurringTaskCompletion {
+  id          Int      @id @default(autoincrement())
+  recurrentId Int // ID of the recurring task
+  date        DateTime // The specific date this completion is for
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relation to the RecurrentSchedules model
+  recurrentSchedule RecurrentSchedules @relation(fields: [recurrentId], references: [id], onDelete: Cascade)
+
+  @@unique([recurrentId, date])
+  @@index([recurrentId])
+  @@index([date])
 }
 
 /// *
@@ -307,8 +324,7 @@ enum BreedingStatus {
 }
 
 enum ConditioningStatus {
-  PLANNED
-  ONGOING
+  ASSIGNED
   COMPLETED
 }
 
@@ -334,8 +350,7 @@ enum AgeCategory {
 }
 
 enum EventStatus {
-  PLANNED
-  ONGOING
+  ASSIGNED
   FINISHED
 }
 

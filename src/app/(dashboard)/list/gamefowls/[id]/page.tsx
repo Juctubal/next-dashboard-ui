@@ -13,6 +13,8 @@ import GamefowlSparringModalWrapper from "@/components/GamefowlSparringModalWrap
 import SparringMatchesCard from "@/components/SparringMatchesCard";
 import SparringMatchModalWrapper from "@/components/SparringMatchModalWrapper";
 import TaskDetailsModalWrapper from "@/components/TaskDetailsModalWrapper";
+import FormModal from "@/components/FormModal";
+import { currentUser } from "@clerk/nextjs/server";
 
 // Define the props for the page
 interface GamefowlPageProps {
@@ -148,6 +150,10 @@ const SingleGamefowlPage = async ({ params }: GamefowlPageProps) => {
     notFound();
   }
 
+  // Get current user role
+  const user = await currentUser();
+  const userRole = user?.publicMetadata?.role as string;
+
   // Calculate age category
   const ageCategory =
     gamefowl.age || calculateGamefowlAge(gamefowl.date_hatched, gamefowl.sex);
@@ -266,9 +272,19 @@ const SingleGamefowlPage = async ({ params }: GamefowlPageProps) => {
 
           {/* Gamefowl Info */}
           <div className="flex-1 text-center md:text-left">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-200">
-              {gamefowl.name}
-            </h1>
+            <div className="flex items-center gap-4 justify-center md:justify-start">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-200">
+                {gamefowl.name}
+              </h1>
+              {userRole === "admin" && (
+                <FormModal
+                  table="gamefowl"
+                  type="update"
+                  id={gamefowl.id}
+                  data={gamefowl}
+                />
+              )}
+            </div>
             <p className="text-lg text-gray-600 dark:text-gray-400 mt-1">
               {gamefowl.bloodline}
             </p>

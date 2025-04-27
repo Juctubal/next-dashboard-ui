@@ -68,6 +68,24 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
     },
   })) as ScheduleWithRelations[];
 
+  // Fetch all recurring task completions for this staff member
+  const recurringTaskCompletions =
+    await prisma.recurringTaskCompletion.findMany({
+      where: {
+        recurrentSchedule: {
+          schedule: {
+            staffId: id,
+            staffType: staff.role,
+          },
+        },
+      },
+      include: {
+        recurrentSchedule: true,
+      },
+    });
+
+  console.log("Recurring task completions:", recurringTaskCompletions);
+
   // Count the number of schedules
   const scheduleCount = staffSchedules.length;
 
@@ -106,11 +124,21 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
     console.log("Processing schedule:", schedule);
     schedule.oneTime.forEach((oneTime) => {
       console.log("Processing one-time schedule:", oneTime);
+
+      // Parse the time_of_day string to set the correct hours and minutes
+      const [hours, minutes] = oneTime.time_of_day.split(":").map(Number);
+      const startDate = new Date(oneTime.taskDate);
+      startDate.setHours(hours, minutes, 0, 0);
+
+      // Set end time to 1 hour after start time
+      const endDate = new Date(startDate);
+      endDate.setHours(endDate.getHours() + 1);
+
       calendarEvents.push({
         id: `oneTime-${oneTime.id}`,
         title: `${schedule.taskName}: ${oneTime.taskName}`,
-        start: new Date(oneTime.taskDate),
-        end: new Date(new Date(oneTime.taskDate).getTime() + 60 * 60 * 1000), // 1 hour duration
+        start: startDate,
+        end: endDate,
         allDay: false,
         type: "oneTime",
         status: schedule.status.toString(),
@@ -121,16 +149,94 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
     // Add recurrent schedules
     schedule.recurrent.forEach((recurrent) => {
       console.log("Processing recurrent schedule:", recurrent);
-      calendarEvents.push({
-        id: `recurrent-${recurrent.id}`,
-        title: `${schedule.taskName} (${recurrent.reccurencePattern})`,
-        start: new Date(recurrent.startDate),
-        end: new Date(new Date(recurrent.startDate).getTime() + 60 * 60 * 1000), // 1 hour duration
-        allDay: false,
-        type: "recurrent",
-        status: schedule.status.toString(),
-        recurrentId: recurrent.id.toString(),
-      });
+
+      // Parse the time_of_day string to set the correct hours and minutes
+      const [hours, minutes] = recurrent.time_of_day.split(":").map(Number);
+
+      // For DAILY pattern, generate events for each day in the range
+      if (recurrent.reccurencePattern === "DAILY") {
+        const startDate = new Date(recurrent.startDate);
+        const endDate = new Date(recurrent.endDate);
+        const currentDate = new Date(startDate);
+
+        // Generate events for each day in the range
+        while (currentDate <= endDate) {
+          // Create a new date object for this day with the correct time
+          const eventDate = new Date(currentDate);
+          eventDate.setHours(hours, minutes, 0, 0);
+
+          // Set end time to 1 hour after start time
+          const eventEndDate = new Date(eventDate);
+          eventEndDate.setHours(eventEndDate.getHours() + 1);
+
+          // Check if this specific date has a completion record
+          const completionDate = new Date(currentDate);
+          completionDate.setHours(0, 0, 0, 0);
+
+          const completionRecord = recurringTaskCompletions.find(
+            (completion) =>
+              completion.recurrentId === recurrent.id &&
+              completion.date.getTime() === completionDate.getTime()
+          );
+
+          // Determine the status based on completion record
+          let eventStatus = schedule.status.toString();
+          if (completionRecord) {
+            eventStatus = completionRecord.completed ? "FINISHED" : "ASSIGNED";
+          }
+
+          calendarEvents.push({
+            id: `recurrent-${recurrent.id}-${
+              currentDate.toISOString().split("T")[0]
+            }`,
+            title: `${schedule.taskName} (${recurrent.reccurencePattern})`,
+            start: eventDate,
+            end: eventEndDate,
+            allDay: false,
+            type: "recurrent",
+            status: eventStatus,
+            recurrentId: recurrent.id.toString(),
+          });
+
+          // Move to next day
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      } else {
+        // For other patterns (WEEKLY, OTHER), keep the current behavior
+        const startDate = new Date(recurrent.startDate);
+        startDate.setHours(hours, minutes, 0, 0);
+
+        // Set end time to 1 hour after start time
+        const endDate = new Date(startDate);
+        endDate.setHours(endDate.getHours() + 1);
+
+        // Check if this specific date has a completion record
+        const completionDate = new Date(startDate);
+        completionDate.setHours(0, 0, 0, 0);
+
+        const completionRecord = recurringTaskCompletions.find(
+          (completion) =>
+            completion.recurrentId === recurrent.id &&
+            completion.date.getTime() === completionDate.getTime()
+        );
+
+        // Determine the status based on completion record
+        let eventStatus = schedule.status.toString();
+        if (completionRecord) {
+          eventStatus = completionRecord.completed ? "FINISHED" : "ASSIGNED";
+        }
+
+        calendarEvents.push({
+          id: `recurrent-${recurrent.id}`,
+          title: `${schedule.taskName} (${recurrent.reccurencePattern})`,
+          start: startDate,
+          end: endDate,
+          allDay: false,
+          type: "recurrent",
+          status: eventStatus,
+          recurrentId: recurrent.id.toString(),
+        });
+      }
     });
   });
 
@@ -232,8 +338,9 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
         </div>
       </div>
       {/* RIGHT */}
-      <div className="w-full xl:w-1/3 flex-col gap-4">
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-md w-full md:w-[48%] xl:w-[45%] 2xl:w-[48%] flex gap-4">
+      <div className="w-full xl:w-1/3 flex flex-col gap-4">
+        {/* Shortcuts */}
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-md w-full flex gap-4">
           <Image
             src="/shortcut.svg"
             alt=""

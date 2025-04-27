@@ -17,7 +17,7 @@ const schema = z
     taskType: z.string().min(1, "Task type is required"),
     taskCategory: z.string().min(1, "Task category is required"),
     taskDesc: z.string().min(1, "Task description is required"),
-    status: z.enum(["PLANNED", "ONGOING", "FINISHED"]).default("PLANNED"),
+    status: z.enum(["ASSIGNED", "FINISHED"]).default("ASSIGNED"),
     staffId: z.string().optional(),
     staffType: z.enum(["handler", "breeder"]).optional(),
     // One-time schedule fields
@@ -106,7 +106,7 @@ const ScheduleForm = ({
     ? {
         ...data,
         taskDesc: data.descript || data.taskDesc,
-        status: data.status || "PLANNED",
+        status: data.status || "ASSIGNED",
         taskDate: data.oneTime?.[0]?.taskDate
           ? new Date(data.oneTime[0].taskDate).toISOString().split("T")[0]
           : data.taskDate,
@@ -533,8 +533,7 @@ const ScheduleForm = ({
             {...register("status")}
             defaultValue={mappedData.status}
           >
-            <option value="PLANNED">Planned</option>
-            <option value="ONGOING">Ongoing</option>
+            <option value="ASSIGNED">Assigned</option>
             <option value="FINISHED">Finished</option>
           </select>
           {errors.status?.message && (

@@ -259,8 +259,8 @@ model RecurrentSchedules {
   endDate                 DateTime
   startDate               DateTime
   weekDays                String?
-  customInterval          Int?
   customDate              String?
+  customInterval          Int?
   schedule                Schedule                  @relation(fields: [schedId], references: [id])
   RecurringTaskCompletion RecurringTaskCompletion[]
 }
@@ -277,14 +277,12 @@ model EventGamefowl {
 }
 
 model RecurringTaskCompletion {
-  id          Int      @id @default(autoincrement())
-  recurrentId Int // ID of the recurring task
-  date        DateTime // The specific date this completion is for
-  completed   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relation to the RecurrentSchedules model
+  id                Int                @id @default(autoincrement())
+  recurrentId       Int
+  date              DateTime
+  completed         Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
   recurrentSchedule RecurrentSchedules @relation(fields: [recurrentId], references: [id], onDelete: Cascade)
 
   @@unique([recurrentId, date])
@@ -357,7 +355,9 @@ enum EventStatus {
 enum RecurrencePattern {
   DAILY
   WEEKLY
-  OTHER
+  MONTHLY
+  YEARLY
+  CUSTOM
 }
 
 enum gamefowlAge {

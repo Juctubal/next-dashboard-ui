@@ -24,15 +24,24 @@ interface TaskDetails {
   endDate?: Date;
   notes?: string;
   time_of_day?: string;
+  completionRecord?: {
+    id: number;
+    date: Date;
+    completed: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  };
 }
 
 interface StaffTaskDetailsModalProps {
   taskId: string;
+  taskDate?: string;
   onClose: () => void;
 }
 
 export default function StaffTaskDetailsModal({
   taskId,
+  taskDate,
   onClose,
 }: StaffTaskDetailsModalProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -53,6 +62,46 @@ export default function StaffTaskDetailsModal({
           response = await fetch(`/api/oneTimeSched/${id}`);
         } else if (type === "recurrent") {
           response = await fetch(`/api/recurrentSched/${id}`);
+
+          // For recurring tasks, fetch the specific completion record if taskDate is provided
+          if (taskDate) {
+            const completionResponse = await fetch(
+              `/api/recurring-task-completion/${id}?date=${taskDate}`
+            );
+            if (completionResponse.ok) {
+              const completionData = await completionResponse.json();
+              const data = await response.json();
+
+              // Format the data for display
+              const formattedTask: TaskDetails = {
+                id: taskId,
+                title: data.title || "Task Details",
+                date: new Date(data.taskDate || data.startDate),
+                type: type as "oneTime" | "recurrent",
+                status: data.status || "ASSIGNED",
+                taskName: data.taskName,
+                taskDesc: data.taskDesc,
+                taskDate: data.taskDate ? new Date(data.taskDate) : undefined,
+                reccurencePattern: data.reccurencePattern,
+                startDate: data.startDate
+                  ? new Date(data.startDate)
+                  : undefined,
+                endDate: data.endDate ? new Date(data.endDate) : undefined,
+                notes: data.notes,
+                time_of_day: data.time_of_day,
+                completionRecord: {
+                  id: completionData.id,
+                  date: new Date(completionData.date),
+                  completed: completionData.completed,
+                  createdAt: new Date(completionData.createdAt),
+                  updatedAt: new Date(completionData.updatedAt),
+                },
+              };
+
+              setTask(formattedTask);
+              return;
+            }
+          }
         } else {
           throw new Error("Invalid task type");
         }
@@ -90,7 +139,7 @@ export default function StaffTaskDetailsModal({
     };
 
     fetchTaskDetails();
-  }, [taskId]);
+  }, [taskId, taskDate]);
 
   if (isLoading) {
     return (
@@ -262,6 +311,45 @@ export default function StaffTaskDetailsModal({
                   <p className="font-medium text-gray-800 dark:text-gray-200">
                     {task.time_of_day}
                   </p>
+                </div>
+              )}
+
+              {/* Completion Record Section */}
+              {task.completionRecord && (
+                <div className="mt-6">
+                  <h4 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-3">
+                    Completion Status
+                  </h4>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-600/50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                          {format(
+                            new Date(task.completionRecord.date),
+                            "MMMM d, yyyy"
+                          )}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Last updated:{" "}
+                          {format(
+                            new Date(task.completionRecord.updatedAt),
+                            "MMM d, yyyy h:mm a"
+                          )}
+                        </p>
+                      </div>
+                      <div
+                        className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          task.completionRecord.completed
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200"
+                            : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-200"
+                        }`}
+                      >
+                        {task.completionRecord.completed
+                          ? "Completed"
+                          : "Pending"}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

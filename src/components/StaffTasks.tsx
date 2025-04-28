@@ -216,12 +216,16 @@ export default function StaffTasks({ events }: StaffTasksProps) {
       taskId = `${task.isRecurring ? "recurrent" : "oneTime"}-${task.id}`;
     }
 
+    // Format the date as YYYY-MM-DD for the API
+    const taskDate = new Date(task.date);
+    const formattedDate = taskDate.toISOString().split("T")[0];
+
     // Dispatch custom event to open the task details modal
     document.dispatchEvent(
       new CustomEvent("openStaffTaskDetailsModal", {
         detail: {
           taskId,
-          taskDate: task.date,
+          taskDate: formattedDate,
         },
       })
     );
@@ -271,43 +275,34 @@ export default function StaffTasks({ events }: StaffTasksProps) {
       }
 
       // For recurring tasks, we need to include the specific date in the API call
-      // This ensures that only the specific occurrence is updated, not the entire series
       const taskDate = new Date(task.date);
-
-      // Format the date as YYYY-MM-DD for the API
       const formattedDate = taskDate.toISOString().split("T")[0];
 
-      // Create the request body with the format the API expects
       let requestBody;
 
       if (task.isRecurring && task.recurrentId) {
-        // Always treat expanded tasks as individual tasks
-        // Only use the "all" format when explicitly updating the entire group
-        if (isGroupedTask && !expandedGroups[task.recurrentId]) {
-          // For grouped tasks (only when the group is not expanded), use the special "all" format
+        if (isGroupedTask) {
+          // For grouped tasks, update the schedule status
           requestBody = {
             taskId: `recurrent-${task.recurrentId}-all`,
             status: newStatus,
             date: formattedDate,
           };
         } else {
-          // For individual tasks or tasks in expanded groups, include the specific date
+          // For individual tasks, update the completion record
           requestBody = {
             taskId: `recurrent-${task.recurrentId}-${formattedDate}`,
-            status: newStatus,
+            completed: newStatus === "FINISHED",
             date: formattedDate,
           };
         }
       } else {
-        // For one-time tasks
         requestBody = {
           taskId: taskId.includes("-") ? taskId : `oneTime-${taskId}`,
           status: newStatus,
           date: formattedDate,
         };
       }
-
-      console.log("Sending request to update task status:", requestBody);
 
       const response = await fetch("/api/tasks/update-status", {
         method: "PUT",
@@ -322,37 +317,29 @@ export default function StaffTasks({ events }: StaffTasksProps) {
       }
 
       // Update local state
-      if (
-        isGroupedTask &&
-        task.recurrentId &&
-        !expandedGroups[task.recurrentId]
-      ) {
-        // Update all tasks with the same recurrentId (only when group is not expanded)
-        setTasks((prevTasks) =>
-          prevTasks.map((t) =>
+      setTasks((prevTasks) => {
+        if (isGroupedTask && task.recurrentId) {
+          // For grouped tasks, update the schedule status
+          return prevTasks.map((t) =>
             t.recurrentId === task.recurrentId ? { ...t, status: newStatus } : t
-          )
-        );
-
-        // Also update any expanded tasks that might be visible
-        const expandedTasksForGroup = getExpandedTasksForGroup(task);
-        if (expandedTasksForGroup.length > 0) {
-          expandedTasksForGroup.forEach((expandedTask) => {
-            setTasks((prevTasks) =>
-              prevTasks.map((t) =>
-                t.id === expandedTask.id ? { ...t, status: newStatus } : t
-              )
-            );
+          );
+        } else {
+          // For individual tasks in expanded view, update the completion status
+          return prevTasks.map((t) => {
+            if (t.isRecurring && task.recurrentId) {
+              const taskDate = new Date(t.date);
+              const targetDate = new Date(task.date);
+              // Only update the specific instance's completion status
+              return t.id === taskId &&
+                taskDate.getTime() === targetDate.getTime()
+                ? { ...t, completed: newStatus === "FINISHED" }
+                : t;
+            }
+            // For one-time tasks, update the status
+            return t.id === taskId ? { ...t, status: newStatus } : t;
           });
         }
-      } else {
-        // Update only the specific task
-        setTasks((prevTasks) =>
-          prevTasks.map((t) =>
-            t.id === taskId ? { ...t, status: newStatus } : t
-          )
-        );
-      }
+      });
     } catch (error) {
       console.error("Error updating task status:", error);
       toast.error("Failed to update task status");
@@ -494,22 +481,19 @@ export default function StaffTasks({ events }: StaffTasksProps) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Only pass isGroupedTask=true if this is a grouped task AND it's not expanded
-                        // This ensures we only update the entire group when clicking on a collapsed group
-                        const shouldUpdateGroup = !!(
-                          isGroupedTask && !isExpanded
-                        );
+                        // Always treat the main task button as a grouped task if it has a recurrentId
+                        const isGroupedTask = !!task.recurrentId;
                         console.log("Updating task status:", {
                           taskId: task.id,
                           currentStatus: task.status,
-                          isGroupedTask: shouldUpdateGroup,
+                          isGroupedTask: isGroupedTask,
                           isExpanded,
                         });
                         handleStatusUpdate(
                           task.id,
                           task.status,
                           false,
-                          shouldUpdateGroup
+                          isGroupedTask
                         );
                       }}
                       className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
@@ -573,12 +557,43 @@ export default function StaffTasks({ events }: StaffTasksProps) {
                                   isGroupedTask: false,
                                   isExpanded: true,
                                 });
+
+                                // Make sure we're passing the correct task ID
                                 handleStatusUpdate(
                                   expandedTask.id,
                                   expandedTask.status,
                                   isFirstTask,
                                   false
                                 );
+
+                                // Also update the parent task's status if all expanded tasks have the same status
+                                const allExpandedTasks =
+                                  getExpandedTasksForGroup(task);
+                                const allTasksHaveSameStatus =
+                                  allExpandedTasks.every(
+                                    (t) =>
+                                      t.status ===
+                                      (expandedTask.status === "FINISHED"
+                                        ? "ASSIGNED"
+                                        : "FINISHED")
+                                  );
+
+                                if (allTasksHaveSameStatus) {
+                                  // Update the parent task's status
+                                  setTasks((prevTasks) =>
+                                    prevTasks.map((t) =>
+                                      t.id === task.id
+                                        ? {
+                                            ...t,
+                                            status:
+                                              expandedTask.status === "FINISHED"
+                                                ? "ASSIGNED"
+                                                : "FINISHED",
+                                          }
+                                        : t
+                                    )
+                                  );
+                                }
                               }}
                               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                                 expandedTask.status === "FINISHED"

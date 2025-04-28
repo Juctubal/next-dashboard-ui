@@ -46,6 +46,10 @@ export async function PUT(request: NextRequest) {
     const isAllFormat = parts.length === 3 && parts[2] === "all";
     console.log("Is 'all' format:", isAllFormat);
 
+    // Check if this is an individual recurring task with a date
+    const isIndividualRecurringTask = parts.length === 3 && parts[2] !== "all";
+    console.log("Is individual recurring task:", isIndividualRecurringTask);
+
     if (prefix === "recurrent") {
       // This is a recurring task
       console.log("Processing recurring task:", id);
@@ -70,7 +74,8 @@ export async function PUT(request: NextRequest) {
         // For recurring tasks, we need to update the specific instance
         // Create or update a completion record for this specific date
         const taskDate = new Date(date);
-        taskDate.setHours(0, 0, 0, 0);
+        // Set the time to noon to avoid timezone issues
+        taskDate.setHours(12, 0, 0, 0);
 
         console.log("Looking for completion record for date:", taskDate);
 
@@ -145,6 +150,13 @@ export async function PUT(request: NextRequest) {
               throw createError;
             }
           }
+
+          // Also update the parent schedule status
+          await prisma.schedule.update({
+            where: { id: recurringTask.schedId },
+            data: { status: eventStatus },
+          });
+          console.log("Updated parent schedule status");
         }
       } catch (error) {
         console.error("Error processing recurring task:", error);

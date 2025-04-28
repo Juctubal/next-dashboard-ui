@@ -436,7 +436,7 @@ export async function POST(req: Request) {
 
           // Create a recurring schedule for each time slot
           for (const time_of_day of timeSlots) {
-            await prisma.recurrentSchedules.create({
+            const recurrentSchedule = await prisma.recurrentSchedules.create({
               data: {
                 schedId: schedule.id,
                 reccurencePattern: reccurencePattern as RecurrencePattern,
@@ -446,6 +446,45 @@ export async function POST(req: Request) {
                 customDate: customDate, // Store the custom dates
               },
             });
+
+            // For DAILY pattern, automatically create completion records for each day
+            if (reccurencePattern === "DAILY") {
+              console.log("Creating completion records for daily task");
+
+              // Generate dates between startDate and endDate
+              const start = new Date(customDates[0]);
+              const end = new Date(customDates[customDates.length - 1]);
+              const currentDate = new Date(start);
+
+              // Create completion records for each day
+              while (currentDate <= end) {
+                // Set the time to noon to avoid timezone issues
+                const completionDate = new Date(currentDate);
+                completionDate.setHours(12, 0, 0, 0);
+
+                try {
+                  await prisma.recurringTaskCompletion.create({
+                    data: {
+                      recurrentId: recurrentSchedule.id,
+                      date: completionDate,
+                      completed: false, // Default to not completed
+                    },
+                  });
+                  console.log(
+                    `Created completion record for date: ${completionDate.toISOString()}`
+                  );
+                } catch (error) {
+                  console.error(
+                    `Error creating completion record for date ${completionDate.toISOString()}:`,
+                    error
+                  );
+                  // Continue with other dates even if one fails
+                }
+
+                // Move to next day
+                currentDate.setDate(currentDate.getDate() + 1);
+              }
+            }
           }
         } catch (error) {
           console.error("Error parsing custom dates:", error);
@@ -473,7 +512,7 @@ export async function POST(req: Request) {
 
         // Create a recurring schedule for each time slot
         for (const time_of_day of timeSlots) {
-          await prisma.recurrentSchedules.create({
+          const recurrentSchedule = await prisma.recurrentSchedules.create({
             data: {
               schedId: schedule.id,
               reccurencePattern: reccurencePattern as RecurrencePattern,
@@ -483,6 +522,45 @@ export async function POST(req: Request) {
               weekDays: weekDaysString,
             },
           });
+
+          // For DAILY pattern, automatically create completion records for each day
+          if (reccurencePattern === "DAILY") {
+            console.log("Creating completion records for daily task");
+
+            // Generate dates between startDate and endDate
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const currentDate = new Date(start);
+
+            // Create completion records for each day
+            while (currentDate <= end) {
+              // Set the time to noon to avoid timezone issues
+              const completionDate = new Date(currentDate);
+              completionDate.setHours(12, 0, 0, 0);
+
+              try {
+                await prisma.recurringTaskCompletion.create({
+                  data: {
+                    recurrentId: recurrentSchedule.id,
+                    date: completionDate,
+                    completed: false, // Default to not completed
+                  },
+                });
+                console.log(
+                  `Created completion record for date: ${completionDate.toISOString()}`
+                );
+              } catch (error) {
+                console.error(
+                  `Error creating completion record for date ${completionDate.toISOString()}:`,
+                  error
+                );
+                // Continue with other dates even if one fails
+              }
+
+              // Move to next day
+              currentDate.setDate(currentDate.getDate() + 1);
+            }
+          }
         }
       }
     }

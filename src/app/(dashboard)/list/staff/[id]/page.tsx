@@ -13,6 +13,7 @@ import {
   TaskCategory,
   UserRole,
   EventStatus,
+  RecurringTaskCompletion,
 } from "@prisma/client";
 import ProfilePictureModal from "@/components/ProfilePictureModal";
 import { useState } from "react";
@@ -36,6 +37,15 @@ interface CalendarEvent {
   status?: string;
   oneTimeId?: string;
   recurrentId?: string;
+  completionId?: string;
+  scheduleStartDate?: Date;
+  scheduleEndDate?: Date;
+  taskType?: string;
+  taskCategory?: string;
+  description?: string;
+  completed?: boolean;
+  taskDate?: Date;
+  completionStatus?: boolean;
 }
 
 // Define the type for schedule with included relations
@@ -72,19 +82,27 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
   const recurringTaskCompletions =
     await prisma.recurringTaskCompletion.findMany({
       where: {
-        recurrentSchedule: {
-          schedule: {
-            staffId: id,
-            staffType: staff.role,
-          },
+        recurrentId: {
+          in: staffSchedules.flatMap((schedule) =>
+            schedule.recurrent.map((recurrent) => recurrent.id)
+          ),
         },
       },
       include: {
-        recurrentSchedule: true,
+        recurrentSchedule: {
+          include: {
+            schedule: true,
+          },
+        },
       },
     });
 
-  console.log("Recurring task completions:", recurringTaskCompletions);
+  console.log("=== DEBUG: Recurring Task Completions ===");
+  console.log("Number of completion records:", recurringTaskCompletions.length);
+  console.log(
+    "Completion records:",
+    JSON.stringify(recurringTaskCompletions, null, 2)
+  );
 
   // Count the number of schedules
   const scheduleCount = staffSchedules.length;
@@ -121,21 +139,16 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
 
   // Add one-time schedules
   staffSchedules.forEach((schedule) => {
-    console.log("Processing schedule:", schedule);
     schedule.oneTime.forEach((oneTime) => {
-      console.log("Processing one-time schedule:", oneTime);
-
-      // Parse the time_of_day string to set the correct hours and minutes
       const [hours, minutes] = oneTime.time_of_day.split(":").map(Number);
       const startDate = new Date(oneTime.taskDate);
       startDate.setHours(hours, minutes, 0, 0);
 
-      // Set end time to 1 hour after start time
       const endDate = new Date(startDate);
       endDate.setHours(endDate.getHours() + 1);
 
       calendarEvents.push({
-        id: `oneTime-${oneTime.id}`,
+        id: `oneTime-${schedule.id}-${oneTime.id}`,
         title: `${schedule.taskName}: ${oneTime.taskName}`,
         start: startDate,
         end: endDate,
@@ -143,14 +156,19 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
         type: "oneTime",
         status: schedule.status.toString(),
         oneTimeId: oneTime.id.toString(),
+        taskType: schedule.taskType,
+        taskCategory: schedule.taskCategory,
+        description: schedule.descript,
       });
     });
 
     // Add recurrent schedules
     schedule.recurrent.forEach((recurrent) => {
-      console.log("Processing recurrent schedule:", recurrent);
+      console.log(
+        `\n=== DEBUG: Processing Recurrent Schedule ${recurrent.id} ===`
+      );
+      console.log("Recurrent schedule:", JSON.stringify(recurrent, null, 2));
 
-      // Parse the time_of_day string to set the correct hours and minutes
       const [hours, minutes] = recurrent.time_of_day.split(":").map(Number);
 
       // For DAILY pattern, generate events for each day in the range
@@ -159,31 +177,52 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
         const endDate = new Date(recurrent.endDate);
         const currentDate = new Date(startDate);
 
+        console.log(
+          `\n=== DEBUG: Generating Daily Events for ${recurrent.id} ===`
+        );
+        console.log("Start date:", startDate.toISOString());
+        console.log("End date:", endDate.toISOString());
+
         // Generate events for each day in the range
         while (currentDate <= endDate) {
-          // Create a new date object for this day with the correct time
           const eventDate = new Date(currentDate);
           eventDate.setHours(hours, minutes, 0, 0);
 
-          // Set end time to 1 hour after start time
           const eventEndDate = new Date(eventDate);
           eventEndDate.setHours(eventEndDate.getHours() + 1);
 
-          // Check if this specific date has a completion record
+          // Create completion date in local timezone
           const completionDate = new Date(currentDate);
           completionDate.setHours(0, 0, 0, 0);
 
-          const completionRecord = recurringTaskCompletions.find(
-            (completion) =>
-              completion.recurrentId === recurrent.id &&
-              completion.date.getTime() === completionDate.getTime()
+          console.log(
+            `\n=== DEBUG: Processing Date ${currentDate.toISOString()} ===`
           );
+          console.log("Looking for completion record with:", {
+            recurrentId: recurrent.id,
+            completionDate: completionDate.toISOString(),
+          });
 
-          // Determine the status based on completion record
-          let eventStatus = schedule.status.toString();
-          if (completionRecord) {
-            eventStatus = completionRecord.completed ? "FINISHED" : "ASSIGNED";
-          }
+          const completionRecord = recurringTaskCompletions.find(
+            (completion) => {
+              const completionDateUTC = new Date(completion.date);
+              completionDateUTC.setHours(0, 0, 0, 0);
+              const match =
+                completion.recurrentId === recurrent.id &&
+                completionDateUTC.getTime() === completionDate.getTime();
+
+              if (match) {
+                console.log("Found matching completion record:", {
+                  completionId: completion.id,
+                  recurrentId: completion.recurrentId,
+                  completionDate: completion.date.toISOString(),
+                  completed: completion.completed,
+                });
+              }
+
+              return match;
+            }
+          );
 
           calendarEvents.push({
             id: `recurrent-${recurrent.id}-${
@@ -194,53 +233,179 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
             end: eventEndDate,
             allDay: false,
             type: "recurrent",
-            status: eventStatus,
+            status: completionRecord?.completed ? "FINISHED" : "ASSIGNED",
             recurrentId: recurrent.id.toString(),
+            scheduleStartDate: new Date(recurrent.startDate),
+            scheduleEndDate: new Date(recurrent.endDate),
+            taskType: schedule.taskType,
+            taskCategory: schedule.taskCategory,
+            description: schedule.descript,
+            completed: completionRecord?.completed || false,
+            completionId: completionRecord?.id.toString(),
           });
 
-          // Move to next day
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      } else if (recurrent.reccurencePattern === "WEEKLY") {
+        // For WEEKLY pattern, generate events for each selected day in the range
+        const startDate = new Date(recurrent.startDate);
+        const endDate = new Date(recurrent.endDate);
+        const currentDate = new Date(startDate);
+
+        // Parse the weekDays JSON string
+        const weekDays = JSON.parse(recurrent.weekDays || "[]") as string[];
+        const dayNameToNumber: { [key: string]: number } = {
+          Sunday: 0,
+          Monday: 1,
+          Tuesday: 2,
+          Wednesday: 3,
+          Thursday: 4,
+          Friday: 5,
+          Saturday: 6,
+        };
+        const selectedWeekDays = weekDays.map((day) => dayNameToNumber[day]);
+
+        console.log(
+          `\n=== DEBUG: Generating Weekly Events for ${recurrent.id} ===`
+        );
+        console.log("Selected days:", {
+          weekDays,
+          selectedWeekDays,
+        });
+
+        // Generate events for each day in the range
+        while (currentDate <= endDate) {
+          const dayOfWeek = currentDate.getDay();
+          const dayName = Object.keys(dayNameToNumber).find(
+            (key) => dayNameToNumber[key] === dayOfWeek
+          );
+
+          if (selectedWeekDays.includes(dayOfWeek)) {
+            const eventDate = new Date(currentDate);
+            eventDate.setHours(hours, minutes, 0, 0);
+
+            const eventEndDate = new Date(eventDate);
+            eventEndDate.setHours(eventEndDate.getHours() + 1);
+
+            // Create completion date in local timezone
+            const completionDate = new Date(currentDate);
+            completionDate.setHours(0, 0, 0, 0);
+
+            console.log(
+              `\n=== DEBUG: Processing Date ${currentDate.toISOString()} (${dayName}) ===`
+            );
+            console.log("Looking for completion record with:", {
+              recurrentId: recurrent.id,
+              completionDate: completionDate.toISOString(),
+            });
+
+            const completionRecord = recurringTaskCompletions.find(
+              (completion) => {
+                const completionDateUTC = new Date(completion.date);
+                completionDateUTC.setHours(0, 0, 0, 0);
+                const match =
+                  completion.recurrentId === recurrent.id &&
+                  completionDateUTC.getTime() === completionDate.getTime();
+
+                if (match) {
+                  console.log("Found matching completion record:", {
+                    completionId: completion.id,
+                    recurrentId: completion.recurrentId,
+                    completionDate: completion.date.toISOString(),
+                    completed: completion.completed,
+                  });
+                }
+
+                return match;
+              }
+            );
+
+            calendarEvents.push({
+              id: `recurrent-${recurrent.id}-${
+                currentDate.toISOString().split("T")[0]
+              }`,
+              title: `${schedule.taskName} (${recurrent.reccurencePattern})`,
+              start: eventDate,
+              end: eventEndDate,
+              allDay: false,
+              type: "recurrent",
+              status: completionRecord?.completed ? "FINISHED" : "ASSIGNED",
+              recurrentId: recurrent.id.toString(),
+              scheduleStartDate: new Date(recurrent.startDate),
+              scheduleEndDate: new Date(recurrent.endDate),
+              taskType: schedule.taskType,
+              taskCategory: schedule.taskCategory,
+              description: schedule.descript,
+              completed: completionRecord?.completed || false,
+              completionId: completionRecord?.id.toString(),
+            });
+          }
           currentDate.setDate(currentDate.getDate() + 1);
         }
       } else {
-        // For other patterns (WEEKLY, OTHER), keep the current behavior
+        // For other patterns (MONTHLY, OTHER), keep the current behavior
         const startDate = new Date(recurrent.startDate);
         startDate.setHours(hours, minutes, 0, 0);
 
-        // Set end time to 1 hour after start time
         const endDate = new Date(startDate);
         endDate.setHours(endDate.getHours() + 1);
 
-        // Check if this specific date has a completion record
         const completionDate = new Date(startDate);
         completionDate.setHours(0, 0, 0, 0);
 
-        const completionRecord = recurringTaskCompletions.find(
-          (completion) =>
-            completion.recurrentId === recurrent.id &&
-            completion.date.getTime() === completionDate.getTime()
+        console.log(
+          `\n=== DEBUG: Processing Non-Daily Schedule ${recurrent.id} ===`
         );
+        console.log("Looking for completion record with:", {
+          recurrentId: recurrent.id,
+          completionDate: completionDate.toISOString(),
+        });
 
-        // Determine the status based on completion record
-        let eventStatus = schedule.status.toString();
-        if (completionRecord) {
-          eventStatus = completionRecord.completed ? "FINISHED" : "ASSIGNED";
-        }
+        const completionRecord = recurringTaskCompletions.find((completion) => {
+          const completionDateUTC = new Date(completion.date);
+          completionDateUTC.setHours(0, 0, 0, 0);
+          const match =
+            completion.recurrentId === recurrent.id &&
+            completionDateUTC.getTime() === completionDate.getTime();
+
+          if (match) {
+            console.log("Found matching completion record:", {
+              completionId: completion.id,
+              recurrentId: completion.recurrentId,
+              completionDate: completion.date.toISOString(),
+              completed: completion.completed,
+            });
+          }
+
+          return match;
+        });
 
         calendarEvents.push({
-          id: `recurrent-${recurrent.id}`,
+          id: `recurrent-${recurrent.id}-${
+            startDate.toISOString().split("T")[0]
+          }`,
           title: `${schedule.taskName} (${recurrent.reccurencePattern})`,
           start: startDate,
           end: endDate,
           allDay: false,
           type: "recurrent",
-          status: eventStatus,
+          status: completionRecord?.completed ? "FINISHED" : "ASSIGNED",
           recurrentId: recurrent.id.toString(),
+          scheduleStartDate: new Date(recurrent.startDate),
+          scheduleEndDate: new Date(recurrent.endDate),
+          taskType: schedule.taskType,
+          taskCategory: schedule.taskCategory,
+          description: schedule.descript,
+          completed: completionRecord?.completed || false,
+          completionId: completionRecord?.id.toString(),
         });
       }
     });
   });
 
-  console.log("Final calendar events:", calendarEvents);
+  console.log("\n=== DEBUG: Final Calendar Events ===");
+  console.log("Number of events:", calendarEvents.length);
+  console.log("Events:", JSON.stringify(calendarEvents, null, 2));
 
   return (
     <div className="flex-1 p-4 flex flex-col gap-4 xl:flex-row">

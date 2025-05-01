@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "next-themes";
-import { Toaster } from "react-hot-toast";
+import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,17 +23,7 @@ export default function RootLayout({
         <body className={inter.className}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             {children}
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                className: "!z-[9999]",
-                style: {
-                  background: "#333",
-                  color: "#fff",
-                  zIndex: 9999,
-                },
-              }}
-            />
+            <Toaster richColors position="top-center" />
           </ThemeProvider>
         </body>
       </html>

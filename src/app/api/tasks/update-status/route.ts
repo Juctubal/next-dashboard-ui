@@ -4,225 +4,103 @@ import { EventStatus } from "@prisma/client";
 
 export async function PUT(request: NextRequest) {
   try {
-    console.log("Received request to update task status");
-    const body = await request.json();
-    console.log("Request body:", body);
+    const { taskId, isGrouped } = await request.json();
 
-    const { taskId, status, date } = body;
-
-    if (!taskId || !status || !date) {
-      console.error("Missing required fields:", { taskId, status, date });
+    if (!taskId) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Task ID is required" },
         { status: 400 }
       );
     }
 
-    // Map the status to the EventStatus enum
-    const eventStatus =
-      status === "FINISHED" ? EventStatus.FINISHED : EventStatus.ASSIGNED;
-
-    console.log("Mapped status:", { original: status, mapped: eventStatus });
-
-    // Parse the taskId - it could be in formats like:
-    // "recurrent-123" (for grouped tasks)
-    // "recurrent-123-2023-05-01" (for individual recurring tasks with date)
-    // "oneTime-456" (for one-time tasks)
-    const parts = taskId.split("-");
-    console.log("Parsed taskId parts:", parts);
-
-    if (parts.length < 2) {
-      console.error("Invalid task ID format:", taskId);
-      return NextResponse.json(
-        { error: "Invalid task ID format" },
-        { status: 400 }
-      );
-    }
-
-    const prefix = parts[0];
-    const id = parts[1];
-
-    // Check if this is a special "all" format for recurring tasks
-    const isAllFormat = parts.length === 3 && parts[2] === "all";
-    console.log("Is 'all' format:", isAllFormat);
-
-    // Check if this is an individual recurring task with a date
-    const isIndividualRecurringTask = parts.length === 3 && parts[2] !== "all";
-    console.log("Is individual recurring task:", isIndividualRecurringTask);
-
-    if (prefix === "recurrent") {
-      // This is a recurring task
-      console.log("Processing recurring task:", id);
-
-      try {
-        // First, verify the recurring task exists
-        const recurringTask = await prisma.recurrentSchedules.findUnique({
-          where: { id: parseInt(id) },
-          include: { schedule: true },
-        });
-
-        if (!recurringTask) {
-          console.error("Recurring task not found:", id);
-          return NextResponse.json(
-            { error: "Recurring task not found" },
-            { status: 404 }
-          );
-        }
-
-        console.log("Found recurring task:", recurringTask);
-
-        // For recurring tasks, we need to update the specific instance
-        // Create or update a completion record for this specific date
-        const taskDate = new Date(date);
-        // Set the time to noon to avoid timezone issues
-        taskDate.setHours(12, 0, 0, 0);
-
-        console.log("Looking for completion record for date:", taskDate);
-
-        // If this is the "all" format, we need to update all occurrences
-        if (isAllFormat) {
-          console.log("Updating all occurrences of this recurring task");
-
-          // Find all completion records for this recurring task
-          const allCompletions = await prisma.recurringTaskCompletion.findMany({
-            where: {
-              recurrentId: parseInt(id),
+    if (isGrouped) {
+      // For grouped tasks, update the Schedule status and all related completions
+      const schedule = await prisma.schedule.findFirst({
+        where: {
+          recurrent: {
+            some: {
+              id: parseInt(taskId),
             },
-          });
-
-          // Update all completion records
-          for (const completion of allCompletions) {
-            await prisma.recurringTaskCompletion.update({
-              where: { id: completion.id },
-              data: { completed: eventStatus === EventStatus.FINISHED },
-            });
-          }
-
-          console.log(`Updated ${allCompletions.length} completion records`);
-
-          // Also update the parent schedule status
-          await prisma.schedule.update({
-            where: { id: recurringTask.schedId },
-            data: { status: eventStatus },
-          });
-
-          console.log("Updated parent schedule status");
-        } else {
-          // Check if a completion record already exists for this specific date
-          const existingCompletion =
-            await prisma.recurringTaskCompletion.findFirst({
-              where: {
-                recurrentId: parseInt(id),
-                date: taskDate,
-              },
-            });
-
-          if (existingCompletion) {
-            // Update existing completion record
-            console.log(
-              "Updating existing completion record:",
-              existingCompletion.id
-            );
-            try {
-              await prisma.recurringTaskCompletion.update({
-                where: { id: existingCompletion.id },
-                data: { completed: eventStatus === EventStatus.FINISHED },
-              });
-              console.log("Successfully updated completion record");
-            } catch (updateError) {
-              console.error("Error updating completion record:", updateError);
-              throw updateError;
-            }
-          } else {
-            // Create new completion record
-            console.log("Creating new completion record");
-            try {
-              await prisma.recurringTaskCompletion.create({
-                data: {
-                  recurrentId: parseInt(id),
-                  date: taskDate,
-                  completed: eventStatus === EventStatus.FINISHED,
-                },
-              });
-              console.log("Successfully created completion record");
-            } catch (createError) {
-              console.error("Error creating completion record:", createError);
-              throw createError;
-            }
-          }
-
-          // Also update the parent schedule status
-          await prisma.schedule.update({
-            where: { id: recurringTask.schedId },
-            data: { status: eventStatus },
-          });
-          console.log("Updated parent schedule status");
-        }
-      } catch (error) {
-        console.error("Error processing recurring task:", error);
-        return NextResponse.json(
-          {
-            error: "Error processing recurring task",
-            details: error instanceof Error ? error.message : String(error),
           },
-          { status: 500 }
+        },
+        include: {
+          recurrent: true,
+        },
+      });
+
+      if (!schedule) {
+        return NextResponse.json(
+          { error: "Schedule not found" },
+          { status: 404 }
         );
       }
-    } else if (prefix === "oneTime") {
-      // This is a one-time task
-      console.log("Processing one-time task:", id);
 
-      try {
-        // Find the one-time schedule
-        const oneTimeSchedule = await prisma.oneTimeSched.findUnique({
-          where: { id: parseInt(id) },
-          include: { schedule: true },
-        });
+      // Update the schedule status
+      await prisma.schedule.update({
+        where: { id: schedule.id },
+        data: { status: EventStatus.FINISHED },
+      });
 
-        if (!oneTimeSchedule) {
-          console.error("One-time task not found:", id);
-          return NextResponse.json(
-            { error: "One-time task not found" },
-            { status: 404 }
-          );
-        }
+      // Update all related completion records
+      await prisma.recurringTaskCompletion.updateMany({
+        where: {
+          recurrentId: parseInt(taskId),
+        },
+        data: {
+          completed: true,
+        },
+      });
 
-        console.log("Found one-time schedule:", oneTimeSchedule);
-
-        // Update the parent schedule status
-        try {
-          await prisma.schedule.update({
-            where: { id: oneTimeSchedule.schedId },
-            data: { status: eventStatus },
-          });
-          console.log("Successfully updated schedule status");
-        } catch (updateError) {
-          console.error("Error updating schedule:", updateError);
-          throw updateError;
-        }
-      } catch (error) {
-        console.error("Error updating one-time task:", error);
-        return NextResponse.json(
-          {
-            error: "Error updating one-time task",
-            details: error instanceof Error ? error.message : String(error),
-          },
-          { status: 500 }
-        );
-      }
+      return NextResponse.json({ success: true });
     } else {
-      console.error("Unknown task prefix:", prefix);
-      return NextResponse.json({ error: "Unknown task type" }, { status: 400 });
-    }
+      // For individual tasks, update just the completion record
+      const completion = await prisma.recurringTaskCompletion.findUnique({
+        where: { id: parseInt(taskId) },
+        include: {
+          recurrentSchedule: {
+            include: {
+              schedule: true,
+            },
+          },
+        },
+      });
 
-    return NextResponse.json({ success: true });
+      if (!completion) {
+        return NextResponse.json(
+          { error: "Completion record not found" },
+          { status: 404 }
+        );
+      }
+
+      // Update the completion record
+      await prisma.recurringTaskCompletion.update({
+        where: { id: completion.id },
+        data: { completed: true },
+      });
+
+      // Check if all completions for this schedule are done
+      const allCompletions = await prisma.recurringTaskCompletion.findMany({
+        where: {
+          recurrentId: completion.recurrentId,
+        },
+      });
+
+      const allCompleted = allCompletions.every((c) => c.completed);
+
+      // If all completions are done, update the schedule status
+      if (allCompleted) {
+        await prisma.schedule.update({
+          where: { id: completion.recurrentSchedule.schedule.id },
+          data: { status: EventStatus.FINISHED },
+        });
+      }
+
+      return NextResponse.json({ success: true });
+    }
   } catch (error) {
     console.error("Error updating task status:", error);
     return NextResponse.json(
-      {
-        error: "Failed to update task status",
-        details: error instanceof Error ? error.message : String(error),
-      },
+      { error: "Failed to update task status" },
       { status: 500 }
     );
   }

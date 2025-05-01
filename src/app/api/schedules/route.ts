@@ -229,14 +229,20 @@ export async function POST(req: Request) {
     let staffType = formData.get("staffType") as UserRole;
     const status = (formData.get("status") as EventStatus) || "PLANNED";
 
-    console.log("Processed form data:", {
-      taskName,
-      taskType,
-      taskCategory,
-      descript,
-      staffId,
-      staffType,
-      status,
+    // One-time schedule fields
+    const taskDate = formData.get("taskDate") as string;
+
+    // Recurring schedule fields
+    const startDate = formData.get("startDate") as string;
+    const endDate = formData.get("endDate") as string;
+    const reccurencePattern = formData.get("reccurencePattern") as string;
+    const weekDaysArray = formData.getAll("weekDays");
+    const weekDays = JSON.stringify(weekDaysArray);
+    const time_of_day = formData.get("time_of_day") as string;
+
+    console.log("Processing weekDays:", {
+      weekDaysArray,
+      weekDays,
     });
 
     // Validate taskType
@@ -363,209 +369,161 @@ export async function POST(req: Request) {
         taskType,
         taskCategory,
         descript,
-        status: status as EventStatus,
         staffId: staffId || null,
         staffType: staffType || null,
+        status,
       },
     });
 
     console.log("Created schedule:", schedule);
 
     // Handle one-time schedule
-    if (taskType === "ONETIME") {
-      const taskDate = formData.get("taskDate") as string;
-      const timeSlots = formData.getAll("time_of_day") as string[];
-
-      if (!taskDate || timeSlots.length === 0) {
-        console.error("Missing required fields for one-time schedule");
-        return NextResponse.json(
-          { error: "Missing required fields for one-time schedule" },
-          { status: 400 }
-        );
-      }
-
-      // Create a one-time schedule for each time slot
-      for (const time_of_day of timeSlots) {
-        await prisma.oneTimeSched.create({
-          data: {
-            schedId: schedule.id,
-            taskDate: new Date(taskDate),
-            time_of_day,
-            taskName: schedule.taskName,
-          },
-        });
-      }
+    if (taskType === "ONETIME" && taskDate && time_of_day) {
+      await prisma.oneTimeSched.create({
+        data: {
+          schedId: schedule.id,
+          taskName,
+          taskDate: new Date(taskDate),
+          time_of_day,
+        },
+      });
     }
 
     // Handle recurring schedule
-    if (taskType === "RECURRING") {
-      const startDate = formData.get("startDate") as string;
-      const endDate = formData.get("endDate") as string;
-      const reccurencePattern = formData.get(
-        "reccurencePattern"
-      ) as RecurrencePattern;
-      const timeSlots = formData.getAll("time_of_day") as string[];
-      const customDate = formData.get("customDate") as string;
+    if (
+      taskType === "RECURRING" &&
+      startDate &&
+      endDate &&
+      reccurencePattern &&
+      time_of_day
+    ) {
+      // Create the recurrent schedule
+      const recurrentSchedule = await prisma.recurrentSchedules.create({
+        data: {
+          schedId: schedule.id,
+          reccurencePattern: reccurencePattern as RecurrencePattern,
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          time_of_day,
+          weekDays: weekDays || null,
+        },
+      });
 
-      if (!reccurencePattern || timeSlots.length === 0) {
-        console.error("Missing required fields for recurring schedule");
-        return NextResponse.json(
-          { error: "Missing required fields for recurring schedule" },
-          { status: 400 }
-        );
-      }
-
-      // For "Other" pattern, we need customDate
-      if (reccurencePattern === "OTHER") {
-        if (!customDate) {
-          console.error("Missing custom dates for 'Other' pattern");
-          return NextResponse.json(
-            { error: "Custom dates are required for 'Other' pattern" },
-            { status: 400 }
-          );
-        }
-
+      // For weekly schedules, create completion records for each selected day
+      if (reccurencePattern === "WEEKLY" && weekDays) {
         try {
-          const customDates = JSON.parse(customDate);
-          if (!Array.isArray(customDates) || customDates.length === 0) {
-            return NextResponse.json(
-              { error: "At least one custom date is required" },
-              { status: 400 }
-            );
-          }
+          // Map day names to numbers (0 = Sunday, 1 = Monday, etc.)
+          const dayNameToNumber: { [key: string]: number } = {
+            Sunday: 0,
+            Monday: 1,
+            Tuesday: 2,
+            Wednesday: 3,
+            Thursday: 4,
+            Friday: 5,
+            Saturday: 6,
+          };
 
-          // Create a recurring schedule for each time slot
-          for (const time_of_day of timeSlots) {
-            const recurrentSchedule = await prisma.recurrentSchedules.create({
-              data: {
-                schedId: schedule.id,
-                reccurencePattern: reccurencePattern as RecurrencePattern,
-                startDate: new Date(customDates[0]), // Use first date as start date
-                endDate: new Date(customDates[customDates.length - 1]), // Use last date as end date
-                time_of_day,
-                customDate: customDate, // Store the custom dates
-              },
-            });
+          // Use the weekDaysArray directly since it's already an array of day names
+          const selectedDayNames = weekDaysArray;
 
-            // For DAILY pattern, automatically create completion records for each day
-            if (reccurencePattern === "DAILY") {
-              console.log("Creating completion records for daily task");
+          console.log("Processing selected days:", selectedDayNames);
 
-              // Generate dates between startDate and endDate
-              const start = new Date(customDates[0]);
-              const end = new Date(customDates[customDates.length - 1]);
-              const currentDate = new Date(start);
-
-              // Create completion records for each day
-              while (currentDate <= end) {
-                // Set the time to noon to avoid timezone issues
-                const completionDate = new Date(currentDate);
-                completionDate.setHours(12, 0, 0, 0);
-
-                try {
-                  await prisma.recurringTaskCompletion.create({
-                    data: {
-                      recurrentId: recurrentSchedule.id,
-                      date: completionDate,
-                      completed: false, // Default to not completed
-                    },
-                  });
-                  console.log(
-                    `Created completion record for date: ${completionDate.toISOString()}`
-                  );
-                } catch (error) {
-                  console.error(
-                    `Error creating completion record for date ${completionDate.toISOString()}:`,
-                    error
-                  );
-                  // Continue with other dates even if one fails
-                }
-
-                // Move to next day
-                currentDate.setDate(currentDate.getDate() + 1);
-              }
-            }
-          }
-        } catch (error) {
-          console.error("Error parsing custom dates:", error);
-          return NextResponse.json(
-            { error: "Invalid custom dates format" },
-            { status: 400 }
+          const selectedWeekDays = selectedDayNames.map(
+            (day) => dayNameToNumber[day]
           );
-        }
-      } else {
-        // For other patterns (DAILY, WEEKLY), we need startDate and endDate
-        if (!startDate || !endDate) {
-          console.error("Missing required fields for recurring schedule");
-          return NextResponse.json(
-            {
-              error:
-                "Start date and end date are required for recurring schedule",
-            },
-            { status: 400 }
-          );
-        }
 
-        const weekDays = formData.getAll("weekDays");
-        const weekDaysString =
-          weekDays.length > 0 ? JSON.stringify(weekDays) : null;
-
-        // Create a recurring schedule for each time slot
-        for (const time_of_day of timeSlots) {
-          const recurrentSchedule = await prisma.recurrentSchedules.create({
-            data: {
-              schedId: schedule.id,
-              reccurencePattern: reccurencePattern as RecurrencePattern,
-              startDate: new Date(startDate),
-              endDate: new Date(endDate),
-              time_of_day,
-              weekDays: weekDaysString,
-            },
+          console.log("Selected days:", {
+            rawWeekDays: weekDays,
+            parsedWeekDays: selectedDayNames,
+            numbers: selectedWeekDays,
           });
 
-          // For DAILY pattern, automatically create completion records for each day
-          if (reccurencePattern === "DAILY") {
-            console.log("Creating completion records for daily task");
+          // Create dates without time component to avoid timezone issues
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          const currentDate = new Date(start);
 
-            // Generate dates between startDate and endDate
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            const currentDate = new Date(start);
+          console.log("Date range:", {
+            start: start.toISOString(),
+            end: end.toISOString(),
+          });
 
-            // Create completion records for each day
-            while (currentDate <= end) {
-              // Set the time to noon to avoid timezone issues
-              const completionDate = new Date(currentDate);
-              completionDate.setHours(12, 0, 0, 0);
-
-              try {
-                await prisma.recurringTaskCompletion.create({
-                  data: {
-                    recurrentId: recurrentSchedule.id,
-                    date: completionDate,
-                    completed: false, // Default to not completed
-                  },
-                });
-                console.log(
-                  `Created completion record for date: ${completionDate.toISOString()}`
-                );
-              } catch (error) {
-                console.error(
-                  `Error creating completion record for date ${completionDate.toISOString()}:`,
-                  error
-                );
-                // Continue with other dates even if one fails
-              }
-
-              // Move to next day
-              currentDate.setDate(currentDate.getDate() + 1);
+          // Generate completion records for each selected day within the date range
+          const completionRecords = [];
+          while (currentDate <= end) {
+            const dayOfWeek = currentDate.getDay();
+            if (selectedWeekDays.includes(dayOfWeek)) {
+              completionRecords.push({
+                recurrentId: recurrentSchedule.id,
+                date: new Date(currentDate),
+                completed: false,
+              });
             }
+            currentDate.setDate(currentDate.getDate() + 1);
           }
+
+          // Create all completion records in a single transaction
+          await prisma.recurringTaskCompletion.createMany({
+            data: completionRecords,
+            skipDuplicates: true,
+          });
+
+          console.log(
+            `Created ${completionRecords.length} completion records for weekly schedule`
+          );
+        } catch (error) {
+          console.error("Error creating weekly completion records:", error);
+          // Don't throw the error, just log it
+        }
+      } else if (reccurencePattern === "DAILY") {
+        try {
+          // Create dates without time component to avoid timezone issues
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          const currentDate = new Date(start);
+
+          // Generate completion records for each day within the date range
+          const completionRecords = [];
+          while (currentDate <= end) {
+            // Create a new date object for the completion record
+            const completionDate = new Date(currentDate);
+            // Set time to noon in local timezone
+            completionDate.setHours(12, 0, 0, 0);
+            // Convert to UTC to avoid timezone issues
+            const utcDate = new Date(
+              completionDate.getTime() -
+                completionDate.getTimezoneOffset() * 60000
+            );
+
+            completionRecords.push({
+              recurrentId: recurrentSchedule.id,
+              date: utcDate,
+              completed: false,
+            });
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+
+          // Create all completion records in a single transaction
+          await prisma.recurringTaskCompletion.createMany({
+            data: completionRecords,
+            skipDuplicates: true,
+          });
+
+          console.log(
+            `Created ${completionRecords.length} completion records for daily schedule`
+          );
+        } catch (error) {
+          console.error("Error creating daily completion records:", error);
+          // Don't throw the error, just log it
         }
       }
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json(schedule);
   } catch (error) {
     console.error("Error creating schedule:", error);
     return NextResponse.json(

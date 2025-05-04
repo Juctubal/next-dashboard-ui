@@ -45,7 +45,7 @@ const schema = z
       // If taskType is RECURRING, startDate, endDate, reccurencePattern, and time_of_day are required
       if (data.taskType === "RECURRING") {
         // For "Other" pattern, we need customDates instead of startDate/endDate
-        if (data.reccurencePattern === "OTHER") {
+        if (data.reccurencePattern === "CUSTOM") {
           return (
             !!data.reccurencePattern &&
             !!data.time_of_day.length &&
@@ -203,6 +203,19 @@ const ScheduleForm = ({
     }
   }, [data]);
 
+  // Set initial values for custom dates
+  useEffect(() => {
+    if (data?.recurrent?.[0]?.customDate) {
+      try {
+        const parsedDates = JSON.parse(data.recurrent[0].customDate);
+        setCustomDates(parsedDates);
+        setValue("customDates", parsedDates);
+      } catch (error) {
+        console.error("Error parsing customDate:", error);
+      }
+    }
+  }, [data, setValue]);
+
   // Add a new time slot
   const addTimeSlot = () => {
     setTimeSlots([...timeSlots, ""]);
@@ -259,13 +272,6 @@ const ScheduleForm = ({
       );
     }
   }, [user, setValue]);
-
-  // Initialize custom dates from data if available
-  useEffect(() => {
-    if (mappedData.customDates && Array.isArray(mappedData.customDates)) {
-      setCustomDates(mappedData.customDates);
-    }
-  }, [mappedData.customDates]);
 
   // Update customDates in form data when they change
   useEffect(() => {
@@ -379,10 +385,14 @@ const ScheduleForm = ({
         return;
       }
 
+      const newDates = [...customDates, date];
       setDuplicateDateError(null);
-      setCustomDates([...customDates, date]);
+      setCustomDates(newDates);
+      setValue("customDates", newDates);
     } else {
-      setCustomDates(customDates.filter((d) => d !== date));
+      const newDates = customDates.filter((d) => d !== date);
+      setCustomDates(newDates);
+      setValue("customDates", newDates);
     }
   };
 
@@ -424,8 +434,10 @@ const ScheduleForm = ({
       });
 
       // Add custom dates for "Other" pattern
-      if (formData.reccurencePattern === "OTHER" && customDates.length > 0) {
-        formDataToSend.append("customDate", JSON.stringify(customDates));
+      if (formData.reccurencePattern === "CUSTOM" && customDates.length > 0) {
+        // Send all custom dates as a comma-separated string
+        formDataToSend.append("customDates", customDates.join(","));
+        console.log("Sending custom dates:", customDates);
       }
 
       // Add ID if it exists (for updates)
@@ -683,7 +695,7 @@ const ScheduleForm = ({
                 <option value="">Select Recurrence Pattern</option>
                 <option value="DAILY">Daily</option>
                 <option value="WEEKLY">Weekly</option>
-                <option value="OTHER">Other</option>
+                <option value="CUSTOM">Custom</option>
               </select>
               {errors.reccurencePattern?.message && (
                 <p className="text-xs text-red-400 dark:text-red-400">
@@ -693,7 +705,7 @@ const ScheduleForm = ({
             </div>
 
             {/* Show date range fields only for DAILY and WEEKLY patterns */}
-            {selectedRecurrencePattern !== "OTHER" && (
+            {selectedRecurrencePattern !== "CUSTOM" && (
               <>
                 <div className="flex flex-col gap-2">
                   <label className="text-xs text-gray-500 dark:text-gray-400">
@@ -731,8 +743,8 @@ const ScheduleForm = ({
               </>
             )}
 
-            {/* Custom date selection for "Other" pattern */}
-            {selectedRecurrencePattern === "OTHER" && (
+            {/* Custom date selection for "Custom" pattern */}
+            {selectedRecurrencePattern === "CUSTOM" && (
               <div className="flex flex-col gap-2">
                 <label className="text-xs text-gray-500 dark:text-gray-400">
                   Select Custom Dates

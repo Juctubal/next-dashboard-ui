@@ -432,19 +432,19 @@ export default function StaffTasks({ events: initialEvents }: StaffTasksProps) {
               Not Completed
             </Button>
           </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-xs text-gray-500 dark:text-gray-400">
-              Select Date
-            </label>
+          <Button
+            variant="outline"
+            className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border-2 h-10"
+          >
             <input
               type="date"
-              className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              className="bg-transparent border-none focus:outline-none text-sm"
               value={date ? format(date, "yyyy-MM-dd") : ""}
               onChange={(e) =>
                 setDate(e.target.value ? new Date(e.target.value) : undefined)
               }
             />
-          </div>
+          </Button>
         </div>
       </div>
 

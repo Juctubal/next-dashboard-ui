@@ -174,6 +174,7 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
 
       // For DAILY pattern, generate events for each day in the range
       if (recurrent.reccurencePattern === "DAILY") {
+        if (!recurrent.startDate || !recurrent.endDate) return;
         const startDate = new Date(recurrent.startDate);
         const endDate = new Date(recurrent.endDate);
         const currentDate = new Date(startDate);
@@ -249,7 +250,7 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
           currentDate.setDate(currentDate.getDate() + 1);
         }
       } else if (recurrent.reccurencePattern === "WEEKLY") {
-        // For WEEKLY pattern, generate events for each selected day in the range
+        if (!recurrent.startDate || !recurrent.endDate) return;
         const startDate = new Date(recurrent.startDate);
         const endDate = new Date(recurrent.endDate);
         const currentDate = new Date(startDate);
@@ -345,8 +346,85 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
           }
           currentDate.setDate(currentDate.getDate() + 1);
         }
+      } else if (recurrent.reccurencePattern === "CUSTOM") {
+        if (!recurrent.customDate) return;
+
+        try {
+          const customDates = JSON.parse(recurrent.customDate) as string[];
+          if (customDates.length === 0) return;
+
+          // Use first and last custom dates as schedule start and end dates
+          const scheduleStartDate = new Date(customDates[0]);
+          const scheduleEndDate = new Date(customDates[customDates.length - 1]);
+
+          // Generate events for each custom date
+          for (const dateStr of customDates) {
+            const currentDate = new Date(dateStr);
+            const eventDate = new Date(currentDate);
+            eventDate.setHours(hours, minutes, 0, 0);
+
+            const eventEndDate = new Date(eventDate);
+            eventEndDate.setHours(eventEndDate.getHours() + 1);
+
+            // Create completion date in local timezone
+            const completionDate = new Date(currentDate);
+            completionDate.setHours(0, 0, 0, 0);
+
+            console.log(
+              `\n=== DEBUG: Processing Custom Date ${currentDate.toISOString()} ===`
+            );
+            console.log("Looking for completion record with:", {
+              recurrentId: recurrent.id,
+              completionDate: completionDate.toISOString(),
+            });
+
+            const completionRecord = recurringTaskCompletions.find(
+              (completion) => {
+                const completionDateUTC = new Date(completion.date);
+                completionDateUTC.setHours(0, 0, 0, 0);
+                const match =
+                  completion.recurrentId === recurrent.id &&
+                  completionDateUTC.getTime() === completionDate.getTime();
+
+                if (match) {
+                  console.log("Found matching completion record:", {
+                    completionId: completion.id,
+                    recurrentId: completion.recurrentId,
+                    completionDate: completion.date.toISOString(),
+                    completed: completion.completed,
+                  });
+                }
+
+                return match;
+              }
+            );
+
+            calendarEvents.push({
+              id: `recurrent-${recurrent.id}-${format(
+                currentDate,
+                "yyyy-MM-dd"
+              )}`,
+              title: `${schedule.taskName} (${recurrent.reccurencePattern})`,
+              start: eventDate,
+              end: eventEndDate,
+              allDay: false,
+              type: "recurrent",
+              status: completionRecord?.completed ? "FINISHED" : "ASSIGNED",
+              recurrentId: recurrent.id.toString(),
+              scheduleStartDate,
+              scheduleEndDate,
+              taskType: schedule.taskType,
+              taskCategory: schedule.taskCategory,
+              description: schedule.descript,
+              completed: completionRecord?.completed || false,
+              completionId: completionRecord?.id.toString(),
+            });
+          }
+        } catch (error) {
+          console.error("Error parsing custom dates:", error);
+        }
       } else {
-        // For other patterns (MONTHLY, OTHER), keep the current behavior
+        if (!recurrent.startDate || !recurrent.endDate) return;
         const startDate = new Date(recurrent.startDate);
         startDate.setHours(hours, minutes, 0, 0);
 

@@ -146,7 +146,7 @@ model ConditioningActivitySchedule {
 
 model Conditioning {
   id                Int                            @id @default(autoincrement())
-  eventId           Int
+  eventId           Int?
   conProgId         Int
   handlerId         String
   startDate         DateTime
@@ -154,7 +154,7 @@ model Conditioning {
   status            ConditioningStatus
   notes             String?
   conProg           ConditioningProgram            @relation(fields: [conProgId], references: [id])
-  event             Event                          @relation(fields: [eventId], references: [id])
+  event             Event?                         @relation(fields: [eventId], references: [id])
   handler           Handler                        @relation(fields: [handlerId], references: [id])
   activitySchedules ConditioningActivitySchedule[]
   gamefowls         ConditioningGamefowl[]
@@ -258,22 +258,11 @@ model RecurrentSchedules {
   time_of_day             String
   endDate                 DateTime
   startDate               DateTime
-  customDate              String?
+  customDate              String?                   @db.Text
   customInterval          Int?
   weekDays                String?
   schedule                Schedule                  @relation(fields: [schedId], references: [id])
   RecurringTaskCompletion RecurringTaskCompletion[]
-}
-
-model EventGamefowl {
-  id         Int      @id @default(autoincrement())
-  eventId    Int
-  gamefowlId Int
-  createdAt  DateTime @default(now())
-  event      Event    @relation(fields: [eventId], references: [id])
-  gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
-
-  @@unique([eventId, gamefowlId])
 }
 
 model RecurringTaskCompletion {
@@ -288,6 +277,17 @@ model RecurringTaskCompletion {
   @@unique([recurrentId, date])
   @@index([recurrentId])
   @@index([date])
+}
+
+model EventGamefowl {
+  id         Int      @id @default(autoincrement())
+  eventId    Int
+  gamefowlId Int
+  createdAt  DateTime @default(now())
+  event      Event    @relation(fields: [eventId], references: [id])
+  gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
+
+  @@unique([eventId, gamefowlId])
 }
 
 /// *

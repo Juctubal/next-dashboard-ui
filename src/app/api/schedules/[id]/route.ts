@@ -178,7 +178,30 @@ export async function PUT(
       staffType = normalizedStaffType as UserRole;
     }
 
-    // Check for schedule conflicts before updating the schedule
+    // Create the schedule first
+    const schedule = await prisma.schedule.update({
+      where: { id: parseInt(params.id) },
+      data: {
+        taskName,
+        taskType: taskType as TaskType,
+        taskCategory: taskCategory as TaskCategory,
+        descript: taskDesc,
+        staffId: staffId || null,
+        staffType: staffType ? (staffType as UserRole) : null,
+        status: status as EventStatus,
+      },
+    });
+
+    // Delete existing one-time and recurring schedules
+    await prisma.oneTimeSched.deleteMany({
+      where: { schedId: parseInt(params.id) },
+    });
+
+    await prisma.recurrentSchedules.deleteMany({
+      where: { schedId: parseInt(params.id) },
+    });
+
+    // Check for schedule conflicts before creating the schedule
     if (staffId && staffType) {
       if (taskType === "ONETIME") {
         const timeSlots = formData.getAll("time_of_day") as string[];
@@ -266,11 +289,11 @@ export async function PUT(
           currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        // For "Other" pattern, we need customDate
-        if (reccurencePattern === "OTHER") {
+        // For "Custom" pattern, we need customDate
+        if (reccurencePattern === "CUSTOM") {
           if (!customDate) {
             return NextResponse.json(
-              { error: "Custom dates are required for 'Other' pattern" },
+              { error: "Custom dates are required for 'Custom' pattern" },
               { status: 400 }
             );
           }
@@ -322,29 +345,6 @@ export async function PUT(
       }
     }
 
-    // Update the schedule
-    const schedule = await prisma.schedule.update({
-      where: { id: parseInt(params.id) },
-      data: {
-        taskName,
-        taskType: taskType as TaskType,
-        taskCategory: taskCategory as TaskCategory,
-        descript: taskDesc,
-        staffId: staffId || null,
-        staffType: staffType ? (staffType as UserRole) : null,
-        status: status as EventStatus,
-      },
-    });
-
-    // Delete existing one-time and recurring schedules
-    await prisma.oneTimeSched.deleteMany({
-      where: { schedId: parseInt(params.id) },
-    });
-
-    await prisma.recurrentSchedules.deleteMany({
-      where: { schedId: parseInt(params.id) },
-    });
-
     // Create one-time schedule if applicable
     if (taskType === "ONETIME" && taskDate) {
       const timeSlots = formData.getAll("time_of_day") as string[];
@@ -381,11 +381,11 @@ export async function PUT(
         );
       }
 
-      // For "Other" pattern, we need customDate
-      if (reccurencePattern === "OTHER") {
+      // For "Custom" pattern, we need customDate
+      if (reccurencePattern === "CUSTOM") {
         if (!customDate) {
           return NextResponse.json(
-            { error: "Custom dates are required for 'Other' pattern" },
+            { error: "Custom dates are required for 'Custom' pattern" },
             { status: 400 }
           );
         }

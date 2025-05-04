@@ -139,10 +139,8 @@ const renderEventRow = (
     <td className="hidden md:table-cell dark:text-gray-200">
       <span
         className={`px-2 py-1 rounded-full text-xs ${
-          item.status === "PLANNED"
+          item.status === "ASSIGNED"
             ? "bg-blue-100 text-blue-800"
-            : item.status === "ONGOING"
-            ? "bg-yellow-100 text-yellow-800"
             : "bg-green-100 text-green-800"
         }`}
       >

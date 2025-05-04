@@ -256,7 +256,14 @@ const EventForm = ({
               }}
             >
               <option value="">Select Event Type</option>
-              {Object.values(EventType).map((type) => (
+              {[
+                EventType.FIVE_COCK_DERBY,
+                EventType.FOUR_COCK_DERBY,
+                EventType.THREE_COCK_DERBY,
+                EventType.TWO_COCK_DERBY,
+                EventType.SOLO,
+                EventType.OTHER,
+              ].map((type) => (
                 <option key={type} value={type}>
                   {type.replace(/_/g, " ")}
                 </option>

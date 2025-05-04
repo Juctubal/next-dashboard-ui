@@ -38,6 +38,7 @@ interface FormData {
   startDate: string;
   endDate: string;
   status: ConditioningStatus;
+  isForEvent: boolean;
 }
 
 const ConditioningForm = ({
@@ -60,6 +61,7 @@ const ConditioningForm = ({
       ? new Date(data.endDate).toISOString().split("T")[0]
       : "",
     status: data?.status || ConditioningStatus.ASSIGNED,
+    isForEvent: !!data?.eventId,
   });
 
   const [selectedGamefowls, setSelectedGamefowls] = useState<number[]>([]);
@@ -100,6 +102,7 @@ const ConditioningForm = ({
           throw new Error("Failed to fetch options");
         }
         const data = await response.json();
+        console.log("Fetched gamefowls data:", data.gamefowls);
         setOptions(data);
       } catch (err) {
         setError(
@@ -164,10 +167,10 @@ const ConditioningForm = ({
 
   // Load existing gamefowls when editing
   useEffect(() => {
-    if (type === "update" && data?.gamefowls) {
+    if (data?.gamefowls) {
       setSelectedGamefowls(data.gamefowls.map((g) => g.gamefowlId));
     }
-  }, [data, type]);
+  }, [data]);
 
   // Fetch existing activity schedules when in update mode
   useEffect(() => {
@@ -242,6 +245,24 @@ const ConditioningForm = ({
     e.preventDefault();
     setIsSubmitting(true);
 
+    // Validate form data
+    if (
+      !formData.conProgId ||
+      !formData.handlerId ||
+      !formData.startDate ||
+      !formData.endDate
+    ) {
+      setError("Please fill in all required fields");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (formData.isForEvent && !formData.eventId) {
+      setError("Please select an event");
+      setIsSubmitting(false);
+      return;
+    }
+
     // Validate dates before submission
     if (formData.startDate && formData.endDate) {
       const start = new Date(formData.startDate);
@@ -252,6 +273,8 @@ const ConditioningForm = ({
         setIsSubmitting(false);
         return;
       }
+    } else {
+      setDateError(null);
     }
 
     // Validate gamefowl selection
@@ -286,7 +309,7 @@ const ConditioningForm = ({
       const requestBody = {
         id: type === "update" ? data?.id : undefined,
         gamefowlIds: selectedGamefowls,
-        eventId: parseInt(formData.eventId),
+        eventId: formData.isForEvent ? parseInt(formData.eventId) : null,
         conProgId: parseInt(formData.conProgId),
         handlerId: formData.handlerId,
         startDate: formData.startDate,
@@ -416,68 +439,127 @@ const ConditioningForm = ({
         <h2 className="text-xl font-semibold mb-4 dark:text-white">
           {type === "create" ? "Create" : "Update"} Conditioning Record
         </h2>
-        <div className="flex flex-col gap-2">
+
+        <div className="flex items-center gap-2 mb-4">
+          <input
+            type="checkbox"
+            id="isForEvent"
+            checked={formData.isForEvent}
+            onChange={(e) => {
+              setFormData({
+                ...formData,
+                isForEvent: e.target.checked,
+                eventId: "",
+              });
+              setSelectedGamefowls([]); // Clear selected gamefowls when toggling isForEvent
+            }}
+            className="rounded border-gray-300 dark:border-gray-600 text-ggPurple focus:ring-ggPurple"
+          />
           <label
-            htmlFor="eventId"
-            className="font-medium text-gray-700 dark:text-gray-300"
+            htmlFor="isForEvent"
+            className="text-gray-700 dark:text-gray-300"
           >
-            Event
+            This conditioning record is for an event
           </label>
-          <select
-            id="eventId"
-            value={formData.eventId}
-            onChange={(e) =>
-              setFormData({ ...formData, eventId: e.target.value })
-            }
-            className="border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
-            required
-          >
-            <option value="">Select an event</option>
-            {options.events.map((event) => (
-              <option key={event.id} value={event.id}>
-                {event.eventName}
-              </option>
-            ))}
-          </select>
-          {formData.eventId && (
-            <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                <span className="font-medium">Selected Event:</span>{" "}
-                {
-                  options.events.find(
-                    (event) => event.id.toString() === formData.eventId
-                  )?.eventName
-                }
-              </p>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                <span className="font-medium">Event Date:</span>{" "}
-                {options.events.find(
-                  (event) => event.id.toString() === formData.eventId
-                )?.eventDate &&
-                  new Date(
+        </div>
+
+        {formData.isForEvent && (
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="eventId"
+              className="font-medium text-gray-700 dark:text-gray-300"
+            >
+              Event
+            </label>
+            <select
+              id="eventId"
+              value={formData.eventId}
+              onChange={(e) =>
+                setFormData({ ...formData, eventId: e.target.value })
+              }
+              className="border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
+              required={formData.isForEvent}
+            >
+              <option value="">Select an event</option>
+              {options.events.map((event) => (
+                <option key={event.id} value={event.id}>
+                  {event.eventName}
+                </option>
+              ))}
+            </select>
+            {formData.eventId && (
+              <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="font-medium">Selected Event:</span>{" "}
+                  {
                     options.events.find(
                       (event) => event.id.toString() === formData.eventId
-                    )!.eventDate
-                  ).toLocaleDateString()}
-              </p>
-            </div>
-          )}
-        </div>
+                    )?.eventName
+                  }
+                </p>
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="font-medium">Event Date:</span>{" "}
+                  {options.events.find(
+                    (event) => event.id.toString() === formData.eventId
+                  )?.eventDate &&
+                    new Date(
+                      options.events.find(
+                        (event) => event.id.toString() === formData.eventId
+                      )!.eventDate
+                    ).toLocaleDateString()}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <label className="font-medium text-gray-700 dark:text-gray-300">
             Gamefowls ({selectedGamefowls.length} selected)
           </label>
           <div className="border border-gray-300 dark:border-gray-600 rounded-md p-4 bg-white dark:bg-gray-700 max-h-60 overflow-y-auto">
-            {formData.eventId ? (
-              options.gamefowls
-                .filter((gamefowl: GamefowlWithEvents) =>
-                  gamefowl.eventGamefowls?.some(
-                    (eg: EventGamefowl) =>
-                      eg.eventId.toString() === formData.eventId
+            {formData.isForEvent ? (
+              formData.eventId ? (
+                options.gamefowls
+                  .filter((gamefowl: GamefowlWithEvents) =>
+                    gamefowl.eventGamefowls?.some(
+                      (eg: EventGamefowl) =>
+                        eg.eventId.toString() === formData.eventId
+                    )
                   )
-                )
-                .map((gamefowl: GamefowlWithEvents) => (
+                  .map((gamefowl: GamefowlWithEvents) => {
+                    console.log("Gamefowl data:", gamefowl);
+                    return (
+                      <div
+                        key={gamefowl.id}
+                        className={`p-3 mb-2 rounded-md cursor-pointer transition-colors ${
+                          selectedGamefowls.includes(gamefowl.id)
+                            ? "bg-ggPurple text-white"
+                            : "bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                        }`}
+                        onClick={() => handleGamefowlSelection(gamefowl.id)}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">{gamefowl.name}</span>
+                          <span className="text-sm opacity-80">
+                            ID: {gamefowl.id}
+                          </span>
+                        </div>
+                        <div className="text-sm mt-1 opacity-80">
+                          Bloodline: {gamefowl.bloodline}
+                        </div>
+                      </div>
+                    );
+                  })
+              ) : (
+                <p className="text-amber-500 text-sm p-3">
+                  Please select an event first
+                </p>
+              )
+            ) : (
+              options.gamefowls.map((gamefowl: GamefowlWithEvents) => {
+                console.log("Gamefowl data:", gamefowl);
+                return (
                   <div
                     key={gamefowl.id}
                     className={`p-3 mb-2 rounded-md cursor-pointer transition-colors ${
@@ -497,14 +579,11 @@ const ConditioningForm = ({
                       Bloodline: {gamefowl.bloodline}
                     </div>
                   </div>
-                ))
-            ) : (
-              <p className="text-amber-500 text-sm p-3">
-                Please select an event first
-              </p>
+                );
+              })
             )}
           </div>
-          {!formData.eventId && (
+          {formData.isForEvent && !formData.eventId && (
             <p className="text-amber-500 text-sm mt-2">
               Please select an event before choosing gamefowls
             </p>

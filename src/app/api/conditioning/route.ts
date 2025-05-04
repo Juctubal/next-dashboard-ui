@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { ConditioningStatus, TaskCategory } from "@prisma/client";
+import { ConditioningStatus, TaskCategory, Prisma } from "@prisma/client";
 
 export async function POST(request: Request) {
   try {
@@ -30,15 +30,17 @@ export async function POST(request: Request) {
     // Create the conditioning record and its associated gamefowl records in a transaction
     const conditioning = await prisma.$transaction(async (tx) => {
       // Create the main conditioning record
+      const data = {
+        eventId: eventId ? parseInt(eventId) : undefined,
+        conProgId: parseInt(conProgId),
+        handlerId,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        status: (status || "ASSIGNED") as ConditioningStatus,
+      } as Prisma.ConditioningUncheckedCreateInput;
+
       const conditioningRecord = await tx.conditioning.create({
-        data: {
-          eventId: parseInt(eventId),
-          conProgId: parseInt(conProgId),
-          handlerId,
-          startDate: new Date(startDate),
-          endDate: new Date(endDate),
-          status: (status || "PLANNED") as ConditioningStatus,
-        },
+        data,
         include: {
           conProg: {
             include: {
@@ -73,7 +75,7 @@ export async function POST(request: Request) {
 
         for (const schedule of activitySchedules) {
           const activity = conditioningRecord.conProg.activities.find(
-            (a) => a.id === schedule.activityId
+            (a: { id: number }) => a.id === schedule.activityId
           );
 
           if (activity) {
@@ -196,16 +198,18 @@ export async function PUT(request: Request) {
     // Update the conditioning record and its associated gamefowl records in a transaction
     const conditioning = await prisma.$transaction(async (tx) => {
       // Update the main conditioning record
+      const data: Prisma.ConditioningUncheckedUpdateInput = {
+        eventId: eventId ? parseInt(eventId) : undefined,
+        conProgId: parseInt(conProgId),
+        handlerId,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        status: (status || "ASSIGNED") as ConditioningStatus,
+      };
+
       const conditioningRecord = await tx.conditioning.update({
         where: { id: parseInt(id) },
-        data: {
-          eventId: parseInt(eventId),
-          conProgId: parseInt(conProgId),
-          handlerId,
-          startDate: new Date(startDate),
-          endDate: new Date(endDate),
-          status: (status || "PLANNED") as ConditioningStatus,
-        },
+        data,
         include: {
           conProg: {
             include: {
@@ -257,7 +261,7 @@ export async function PUT(request: Request) {
 
         for (const schedule of activitySchedules) {
           const activity = conditioningRecord.conProg.activities.find(
-            (a) => a.id === schedule.activityId
+            (a: { id: number }) => a.id === schedule.activityId
           );
 
           if (activity) {

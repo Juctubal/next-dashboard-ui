@@ -88,12 +88,57 @@ const renderRow = (item: ScheduleList) => (
       {item.descript}
       {item.recurrent.length > 0 && (
         <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          {item.taskName.includes(" - ")
-            ? "CUSTOM"
-            : item.recurrent[0].reccurencePattern}{" "}
-          schedule from{" "}
-          {new Date(item.recurrent[0].startDate).toLocaleDateString()} to{" "}
-          {new Date(item.recurrent[0].endDate).toLocaleDateString()}
+          {item.recurrent[0].reccurencePattern === "CUSTOM" ? (
+            <>
+              {item.recurrent[0].customDate ? (
+                <>
+                  CUSTOM schedule from{" "}
+                  {(() => {
+                    try {
+                      const customDates = JSON.parse(
+                        item.recurrent[0].customDate
+                      );
+                      return customDates.length > 0
+                        ? new Date(customDates[0]).toLocaleDateString()
+                        : "N/A";
+                    } catch (error) {
+                      console.error("Error parsing customDate:", error);
+                      return "N/A";
+                    }
+                  })()}{" "}
+                  to{" "}
+                  {(() => {
+                    try {
+                      const customDates = JSON.parse(
+                        item.recurrent[0].customDate
+                      );
+                      return customDates.length > 0
+                        ? new Date(
+                            customDates[customDates.length - 1]
+                          ).toLocaleDateString()
+                        : "N/A";
+                    } catch (error) {
+                      console.error("Error parsing customDate:", error);
+                      return "N/A";
+                    }
+                  })()}
+                </>
+              ) : (
+                "CUSTOM schedule (no dates specified)"
+              )}
+            </>
+          ) : (
+            <>
+              {item.recurrent[0].reccurencePattern} schedule from{" "}
+              {item.recurrent[0].startDate
+                ? new Date(item.recurrent[0].startDate).toLocaleDateString()
+                : "N/A"}{" "}
+              to{" "}
+              {item.recurrent[0].endDate
+                ? new Date(item.recurrent[0].endDate).toLocaleDateString()
+                : "N/A"}
+            </>
+          )}
         </div>
       )}
     </td>

@@ -8,135 +8,110 @@ export async function PATCH(
 ) {
   try {
     const { completed, status } = await request.json();
+    console.log("Received request:", { params, completed, status });
 
-    // Extract the task ID parts
-    // Format for individual tasks: recurrent-{recurrentId}-{date}
-    // Format for grouped tasks: recurrent-{recurrentId}
-    const [type, recurrentId, date] = params.id.split("-");
+    // Parse the task ID to get the recurrent ID and date
+    const parts = params.id.split("-");
+    const type = parts[0];
+    const recurrentId = parts[1];
+    // Join the remaining parts to form the date string (YYYY-MM-DD)
+    const dateStr = parts.slice(2).join("-");
+
+    console.log("Parsed task ID:", { type, recurrentId, dateStr });
 
     if (type !== "recurrent") {
       return NextResponse.json({ error: "Invalid task type" }, { status: 400 });
     }
 
-    // First, get the recurrent schedule
+    // Create a date object at noon UTC to avoid timezone issues
+    const [year, month, day] = dateStr.split("-").map(Number);
+    // Create a date string in ISO format with noon UTC
+    const isoDateStr = `${year}-${month.toString().padStart(2, "0")}-${day
+      .toString()
+      .padStart(2, "0")}T12:00:00.000Z`;
+    const completionDate = new Date(isoDateStr);
+
+    console.log("Processing individual task update:", {
+      recurrentId,
+      dateStr,
+      isoDateStr,
+      completionDate: completionDate.toISOString(),
+      completed,
+    });
+
+    // Find the recurrent schedule
     const recurrentSchedule = await prisma.recurrentSchedules.findUnique({
       where: { id: parseInt(recurrentId) },
-      include: {
-        schedule: true,
-      },
     });
 
     if (!recurrentSchedule) {
+      console.log("Recurrent schedule not found");
       return NextResponse.json(
         { error: "Recurrent schedule not found" },
-        { status: 400 }
+        { status: 404 }
       );
     }
 
-    if (date) {
-      // Handle individual task update
-      const completionDate = new Date(date);
-      completionDate.setHours(0, 0, 0, 0);
+    // Find or create the completion record
+    let completionRecord = await prisma.recurringTaskCompletion.findFirst({
+      where: {
+        recurrentId: parseInt(recurrentId),
+        date: completionDate,
+      },
+    });
 
-      // Find or create the completion record
-      let task = await prisma.recurringTaskCompletion.findFirst({
-        where: {
+    if (!completionRecord) {
+      console.log("Creating new completion record");
+      completionRecord = await prisma.recurringTaskCompletion.create({
+        data: {
           recurrentId: parseInt(recurrentId),
           date: completionDate,
-        },
-        include: {
-          recurrentSchedule: {
-            include: {
-              schedule: true,
-            },
-          },
-        },
-      });
-
-      // If no completion record exists, create one
-      if (!task) {
-        task = await prisma.recurringTaskCompletion.create({
-          data: {
-            recurrentId: parseInt(recurrentId),
-            date: completionDate,
-            completed: false,
-          },
-          include: {
-            recurrentSchedule: {
-              include: {
-                schedule: true,
-              },
-            },
-          },
-        });
-      }
-
-      // Update the completion record
-      const updatedCompletion = await prisma.recurringTaskCompletion.update({
-        where: { id: task.id },
-        data: {
-          completed,
-        },
-        include: {
-          recurrentSchedule: {
-            include: {
-              schedule: true,
-            },
-          },
-        },
-      });
-
-      // Update the schedule status based on completion status
-      const updatedSchedule = await prisma.schedule.update({
-        where: { id: recurrentSchedule.schedule.id },
-        data: {
-          status: completed ? EventStatus.FINISHED : EventStatus.ASSIGNED,
-        },
-      });
-
-      // Return the updated task data
-      return NextResponse.json({
-        success: true,
-        task: {
-          ...updatedCompletion,
-          recurrentSchedule: {
-            ...updatedCompletion.recurrentSchedule,
-            schedule: updatedSchedule,
-          },
+          completed: completed,
         },
       });
     } else {
-      // Handle grouped task update
-      // Update all completion records for this recurrentId
-      const updatedCompletions =
-        await prisma.recurringTaskCompletion.updateMany({
-          where: {
-            recurrentId: parseInt(recurrentId),
-          },
-          data: {
-            completed,
-          },
-        });
-
-      // Update the schedule status based on completion status
-      const updatedSchedule = await prisma.schedule.update({
-        where: { id: recurrentSchedule.schedule.id },
-        data: {
-          status: completed ? EventStatus.FINISHED : EventStatus.ASSIGNED,
-        },
-      });
-
-      // Return success response
-      return NextResponse.json({
-        success: true,
-        message: `Updated ${updatedCompletions.count} completion records`,
-        task: {
-          recurrentId: parseInt(recurrentId),
-          completed,
-          schedule: updatedSchedule,
-        },
+      console.log("Updating existing completion record");
+      completionRecord = await prisma.recurringTaskCompletion.update({
+        where: { id: completionRecord.id },
+        data: { completed: completed },
       });
     }
+
+    // Get all completion records for this recurrent schedule
+    const allCompletions = await prisma.recurringTaskCompletion.findMany({
+      where: {
+        recurrentId: parseInt(recurrentId),
+      },
+    });
+
+    // Check if all tasks are completed
+    const allTasksCompleted =
+      allCompletions.length > 0 &&
+      allCompletions.every((record) => record.completed);
+
+    // Update the schedule status based on completion status
+    const schedule = await prisma.schedule.update({
+      where: { id: recurrentSchedule.schedId },
+      data: {
+        status: allTasksCompleted ? EventStatus.FINISHED : EventStatus.ASSIGNED,
+      },
+    });
+
+    console.log("Schedule status update:", {
+      allTasksCompleted,
+      totalTasks: allCompletions.length,
+      completedTasks: allCompletions.filter((r) => r.completed).length,
+      newStatus: schedule.status,
+    });
+
+    // Return the updated task data
+    return NextResponse.json({
+      task: {
+        id: completionRecord.id,
+        completed: completionRecord.completed,
+        status: schedule.status,
+      },
+    });
   } catch (error) {
     console.error("Error updating task status:", error);
     return NextResponse.json(

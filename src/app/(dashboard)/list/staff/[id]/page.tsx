@@ -19,6 +19,7 @@ import ProfilePictureModal from "@/components/ProfilePictureModal";
 import { useState } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import StaffTaskDetailsModalWrapper from "@/components/StaffTaskDetailsModalWrapper";
+import { format } from "date-fns";
 
 interface SingleStaffPageProps {
   params: {
@@ -225,9 +226,10 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
           );
 
           calendarEvents.push({
-            id: `recurrent-${recurrent.id}-${
-              currentDate.toISOString().split("T")[0]
-            }`,
+            id: `recurrent-${recurrent.id}-${format(
+              currentDate,
+              "yyyy-MM-dd"
+            )}`,
             title: `${schedule.taskName} (${recurrent.reccurencePattern})`,
             start: eventDate,
             end: eventEndDate,
@@ -321,9 +323,10 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
             );
 
             calendarEvents.push({
-              id: `recurrent-${recurrent.id}-${
-                currentDate.toISOString().split("T")[0]
-              }`,
+              id: `recurrent-${recurrent.id}-${format(
+                currentDate,
+                "yyyy-MM-dd"
+              )}`,
               title: `${schedule.taskName} (${recurrent.reccurencePattern})`,
               start: eventDate,
               end: eventEndDate,
@@ -381,9 +384,7 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
         });
 
         calendarEvents.push({
-          id: `recurrent-${recurrent.id}-${
-            startDate.toISOString().split("T")[0]
-          }`,
+          id: `recurrent-${recurrent.id}-${format(startDate, "yyyy-MM-dd")}`,
           title: `${schedule.taskName} (${recurrent.reccurencePattern})`,
           start: startDate,
           end: endDate,

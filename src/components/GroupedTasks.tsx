@@ -41,10 +41,20 @@ export default function GroupedTasks({
 }: GroupedTasksProps) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [updatingTaskId, setUpdatingTaskId] = useState<number | null>(null);
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
     setIsModalOpen(true);
+  };
+
+  const handleStatusChange = async (taskId: number, completed: boolean) => {
+    setUpdatingTaskId(taskId);
+    try {
+      await onTaskStatusChange(taskId, completed);
+    } finally {
+      setUpdatingTaskId(null);
+    }
   };
 
   return (
@@ -80,20 +90,44 @@ export default function GroupedTasks({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onTaskStatusChange(task.id, task.status !== "FINISHED");
+                  handleStatusChange(task.id, task.status !== "FINISHED");
                 }}
-                disabled={isUpdating}
-                className={`px-3 py-1 rounded text-sm font-medium ${
+                disabled={updatingTaskId === task.id}
+                className={`px-3 py-1 rounded text-sm font-medium transition-all duration-200 ease-in-out transform hover:scale-105 ${
                   task.status === "FINISHED"
                     ? "bg-yellow-500 hover:bg-yellow-600 text-white"
                     : "bg-green-500 hover:bg-green-600 text-white"
-                } ${isUpdating ? "opacity-50 cursor-not-allowed" : ""}`}
+                } ${
+                  updatingTaskId === task.id
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
               >
-                {isUpdating
-                  ? "Updating..."
-                  : task.status === "FINISHED"
-                  ? "Mark as Not Done"
-                  : "Mark as Done"}
+                {updatingTaskId === task.id ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Updating...
+                  </span>
+                ) : task.status === "FINISHED" ? (
+                  "Mark as Not Done"
+                ) : (
+                  "Mark as Done"
+                )}
               </button>
             </div>
           </div>

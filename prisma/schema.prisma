@@ -103,7 +103,7 @@ model OneTimeSched {
   taskName    String
   taskDate    DateTime
   time_of_day String
-  schedule    Schedule @relation("OneTime", fields: [schedId], references: [id], onDelete: Cascade)
+  schedule    Schedule @relation("OneTime", fields: [schedId], references: [id])
 }
 
 model ConditioningProgram {
@@ -258,10 +258,10 @@ model RecurrentSchedules {
   time_of_day             String
   endDate                 DateTime
   startDate               DateTime
-  weekDays                String?
   customDate              String?
   customInterval          Int?
-  schedule                Schedule                  @relation(fields: [schedId], references: [id], onDelete: Cascade)
+  weekDays                String?
+  schedule                Schedule                  @relation(fields: [schedId], references: [id])
   RecurringTaskCompletion RecurringTaskCompletion[]
 }
 
@@ -355,7 +355,9 @@ enum EventStatus {
 enum RecurrencePattern {
   DAILY
   WEEKLY
-  OTHER
+  MONTHLY
+  YEARLY
+  CUSTOM
 }
 
 enum gamefowlAge {

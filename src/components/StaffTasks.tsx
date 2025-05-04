@@ -157,6 +157,13 @@ export default function StaffTasks({ events: initialEvents }: StaffTasksProps) {
         endpoint = `/api/tasks/${taskId}`;
       }
 
+      console.log("Sending task status update:", {
+        taskId,
+        completed,
+        endpoint,
+        taskType,
+      });
+
       const response = await fetch(endpoint, {
         method: "PATCH",
         headers: {
@@ -168,6 +175,7 @@ export default function StaffTasks({ events: initialEvents }: StaffTasksProps) {
       });
 
       const data = await response.json();
+      console.log("Received response:", data);
 
       if (!response.ok) {
         throw new Error(data.error || "Failed to update task status");
@@ -180,19 +188,17 @@ export default function StaffTasks({ events: initialEvents }: StaffTasksProps) {
       // Update the events state with the new task data
       const updatedEvents = events.map((event) => {
         if (event.id === taskId) {
-          return {
+          const updatedEvent = {
             ...event,
-            completed:
-              taskType === "oneTime"
-                ? data.task.status === "FINISHED"
-                : data.task.completed,
-            status:
-              taskType === "oneTime"
-                ? data.task.status
-                : data.task.recurrentSchedule.schedule.status,
-            completionId:
-              taskType === "oneTime" ? undefined : data.task.id.toString(),
+            completed: data.task.completed,
+            status: data.task.status,
+            completionId: data.task.id.toString(),
           };
+          console.log("Updating event:", {
+            original: event,
+            updated: updatedEvent,
+          });
+          return updatedEvent;
         }
         return event;
       });
@@ -203,16 +209,9 @@ export default function StaffTasks({ events: initialEvents }: StaffTasksProps) {
       if (selectedIndividualTask?.id === taskId) {
         setSelectedIndividualTask({
           ...selectedIndividualTask,
-          completed:
-            taskType === "oneTime"
-              ? data.task.status === "FINISHED"
-              : data.task.completed,
-          status:
-            taskType === "oneTime"
-              ? data.task.status
-              : data.task.recurrentSchedule.schedule.status,
-          completionId:
-            taskType === "oneTime" ? undefined : data.task.id.toString(),
+          completed: data.task.completed,
+          status: data.task.status,
+          completionId: data.task.id.toString(),
         });
       }
 
@@ -534,7 +533,7 @@ export default function StaffTasks({ events: initialEvents }: StaffTasksProps) {
                             );
                           }}
                           disabled={updatingTasks[event.id]}
-                          className={`px-3 py-1 rounded text-sm font-medium ${
+                          className={`px-3 py-1 rounded text-sm font-medium transition-all duration-200 ease-in-out transform hover:scale-105 ${
                             event.status === "FINISHED"
                               ? "bg-yellow-500 hover:bg-yellow-600 text-white"
                               : "bg-green-500 hover:bg-green-600 text-white"
@@ -565,7 +564,7 @@ export default function StaffTasks({ events: initialEvents }: StaffTasksProps) {
               <GroupedTasks
                 tasks={Object.values(recurringTasks)}
                 onTaskStatusChange={handleGroupedTaskStatusChange}
-                isUpdating={false}
+                isUpdating={Object.values(updatingTasks).some(Boolean)}
               />
             </div>
           )}

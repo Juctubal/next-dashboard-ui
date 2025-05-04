@@ -455,9 +455,19 @@ export async function POST(req: Request) {
           while (currentDate <= end) {
             const dayOfWeek = currentDate.getDay();
             if (selectedWeekDays.includes(dayOfWeek)) {
+              // Create a new date object for the completion record
+              const completionDate = new Date(currentDate);
+              // Set time to noon in local timezone
+              completionDate.setHours(12, 0, 0, 0);
+              // Convert to UTC to avoid timezone issues
+              const utcDate = new Date(
+                completionDate.getTime() -
+                  completionDate.getTimezoneOffset() * 60000
+              );
+
               completionRecords.push({
                 recurrentId: recurrentSchedule.id,
-                date: new Date(currentDate),
+                date: utcDate,
                 completed: false,
               });
             }

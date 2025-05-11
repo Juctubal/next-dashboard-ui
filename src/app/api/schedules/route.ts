@@ -242,11 +242,13 @@ export async function POST(req: Request) {
     const weekDaysArray = formData.getAll("weekDays");
     const weekDays = JSON.stringify(weekDaysArray);
     const timeSlots = formData.getAll("time_of_day") as string[];
-    const customDates = formData.get("customDates") as string;
+    const customDate = formData.get("customDate") as string;
+    const repeatIndefinitely = formData.get("repeatIndefinitely") === "true";
 
-    console.log("Processing weekDays:", {
-      weekDaysArray,
-      weekDays,
+    console.log("Processing schedule data:", {
+      reccurencePattern,
+      customDate,
+      timeSlots,
     });
 
     // Validate taskType
@@ -411,17 +413,27 @@ export async function POST(req: Request) {
 
       // For CUSTOM pattern, validate custom dates
       if (reccurencePattern === "CUSTOM") {
-        if (!customDates) {
+        if (!customDate) {
           return NextResponse.json(
             { error: "Custom dates are required for CUSTOM pattern" },
             { status: 400 }
           );
         }
 
-        console.log("Received custom dates:", customDates);
-        const parsedCustomDates = customDates
-          .split(",")
-          .map((date) => date.trim());
+        console.log("Received custom dates:", customDate);
+        let parsedCustomDates;
+        try {
+          parsedCustomDates = JSON.parse(customDate);
+          if (!Array.isArray(parsedCustomDates)) {
+            throw new Error("Custom dates must be an array");
+          }
+        } catch (error) {
+          console.error("Error parsing custom dates:", error);
+          return NextResponse.json(
+            { error: "Invalid custom dates format" },
+            { status: 400 }
+          );
+        }
         console.log("Parsed custom dates:", parsedCustomDates);
 
         if (parsedCustomDates.length === 0) {
@@ -448,9 +460,23 @@ export async function POST(req: Request) {
               startDate: new Date(startDate),
               endDate: new Date(endDate),
               time_of_day: timeSlot,
-              customDate: JSON.stringify(parsedCustomDates),
+              customDate: customDate, // Store the original JSON string
             },
           });
+
+          // Create completion records for each custom date
+          for (const dateStr of parsedCustomDates) {
+            const taskDate = new Date(dateStr);
+            taskDate.setHours(0, 0, 0, 0); // Set to start of day
+
+            await prisma.recurringTaskCompletion.create({
+              data: {
+                recurrentId: recurrentSchedule.id,
+                date: taskDate,
+                completed: false,
+              },
+            });
+          }
 
           console.log(
             "Created recurrent schedule with custom dates:",
@@ -459,27 +485,63 @@ export async function POST(req: Request) {
         }
       } else {
         // For other patterns (DAILY, WEEKLY), validate start and end dates
-        if (!startDate || !endDate) {
+        if (!startDate) {
           return NextResponse.json(
             {
-              error: "Start and end dates are required for non-CUSTOM patterns",
+              error: "Start date is required for non-CUSTOM patterns",
             },
             { status: 400 }
           );
         }
 
-        // Create recurring schedules for each time slot
-        for (const time_of_day of timeSlots) {
-          await prisma.recurrentSchedules.create({
-            data: {
-              schedId: schedule.id,
-              reccurencePattern,
-              startDate: new Date(startDate),
-              endDate: new Date(endDate),
-              time_of_day,
-              weekDays,
-            },
-          });
+        // For DAILY or WEEKLY pattern with repeatIndefinitely, we don't need endDate
+        if (
+          (reccurencePattern === "DAILY" || reccurencePattern === "WEEKLY") &&
+          repeatIndefinitely
+        ) {
+          // Set endDate to a far future date (e.g., 10 years from now)
+          const farFutureDate = new Date();
+          farFutureDate.setFullYear(farFutureDate.getFullYear() + 10);
+
+          // Create recurring schedules for each time slot
+          for (const time_of_day of timeSlots) {
+            await prisma.recurrentSchedules.create({
+              data: {
+                schedId: schedule.id,
+                reccurencePattern,
+                startDate: new Date(startDate),
+                endDate: farFutureDate,
+                time_of_day,
+                weekDays,
+                repeatIndefinitely: true,
+              },
+            });
+          }
+        } else {
+          // For other cases, validate endDate
+          if (!endDate) {
+            return NextResponse.json(
+              {
+                error: "End date is required for non-CUSTOM patterns",
+              },
+              { status: 400 }
+            );
+          }
+
+          // Create recurring schedules for each time slot
+          for (const time_of_day of timeSlots) {
+            await prisma.recurrentSchedules.create({
+              data: {
+                schedId: schedule.id,
+                reccurencePattern,
+                startDate: new Date(startDate),
+                endDate: new Date(endDate),
+                time_of_day,
+                weekDays,
+                repeatIndefinitely: repeatIndefinitely,
+              },
+            });
+          }
         }
       }
     }
@@ -517,8 +579,9 @@ export async function PUT(request: Request) {
     ) as RecurrencePattern;
     const weekDays = formData.get("weekDays") as string;
     const monthDay = formData.get("monthDay") as string;
-    const customDates = formData.get("customDates") as string;
+    const customDate = formData.get("customDate") as string;
     const timeSlots = formData.getAll("time_of_day") as string[];
+    const repeatIndefinitely = formData.get("repeatIndefinitely") === "true";
 
     // Validate and convert taskType
     if (!Object.values(TaskType).includes(taskType as TaskType)) {
@@ -624,17 +687,27 @@ export async function PUT(request: Request) {
 
       // For CUSTOM pattern, validate custom dates
       if (reccurencePattern === "CUSTOM") {
-        if (!customDates) {
+        if (!customDate) {
           return NextResponse.json(
             { error: "Custom dates are required for CUSTOM pattern" },
             { status: 400 }
           );
         }
 
-        console.log("Received custom dates:", customDates);
-        const parsedCustomDates = customDates
-          .split(",")
-          .map((date) => date.trim());
+        console.log("Received custom dates:", customDate);
+        let parsedCustomDates;
+        try {
+          parsedCustomDates = JSON.parse(customDate);
+          if (!Array.isArray(parsedCustomDates)) {
+            throw new Error("Custom dates must be an array");
+          }
+        } catch (error) {
+          console.error("Error parsing custom dates:", error);
+          return NextResponse.json(
+            { error: "Invalid custom dates format" },
+            { status: 400 }
+          );
+        }
         console.log("Parsed custom dates:", parsedCustomDates);
 
         if (parsedCustomDates.length === 0) {
@@ -666,9 +739,23 @@ export async function PUT(request: Request) {
               startDate: new Date(startDate),
               endDate: new Date(endDate),
               time_of_day: timeSlot,
-              customDate: JSON.stringify(parsedCustomDates),
+              customDate: customDate, // Store the original JSON string
             },
           });
+
+          // Create completion records for each custom date
+          for (const dateStr of parsedCustomDates) {
+            const taskDate = new Date(dateStr);
+            taskDate.setHours(0, 0, 0, 0); // Set to start of day
+
+            await prisma.recurringTaskCompletion.create({
+              data: {
+                recurrentId: recurrentSchedule.id,
+                date: taskDate,
+                completed: false,
+              },
+            });
+          }
 
           console.log(
             "Created recurrent schedule with custom dates:",
@@ -677,27 +764,63 @@ export async function PUT(request: Request) {
         }
       } else {
         // For other patterns (DAILY, WEEKLY), validate start and end dates
-        if (!startDate || !endDate) {
+        if (!startDate) {
           return NextResponse.json(
             {
-              error: "Start and end dates are required for non-CUSTOM patterns",
+              error: "Start date is required for non-CUSTOM patterns",
             },
             { status: 400 }
           );
         }
 
-        // Create recurring schedules for each time slot
-        for (const time_of_day of timeSlots) {
-          await prisma.recurrentSchedules.create({
-            data: {
-              schedId: schedule.id,
-              reccurencePattern,
-              startDate: new Date(startDate),
-              endDate: new Date(endDate),
-              time_of_day,
-              weekDays,
-            },
-          });
+        // For DAILY or WEEKLY pattern with repeatIndefinitely, we don't need endDate
+        if (
+          (reccurencePattern === "DAILY" || reccurencePattern === "WEEKLY") &&
+          repeatIndefinitely
+        ) {
+          // Set endDate to a far future date (e.g., 10 years from now)
+          const farFutureDate = new Date();
+          farFutureDate.setFullYear(farFutureDate.getFullYear() + 10);
+
+          // Create recurring schedules for each time slot
+          for (const time_of_day of timeSlots) {
+            await prisma.recurrentSchedules.create({
+              data: {
+                schedId: schedule.id,
+                reccurencePattern,
+                startDate: new Date(startDate),
+                endDate: farFutureDate,
+                time_of_day,
+                weekDays,
+                repeatIndefinitely: true,
+              },
+            });
+          }
+        } else {
+          // For other cases, validate endDate
+          if (!endDate) {
+            return NextResponse.json(
+              {
+                error: "End date is required for non-CUSTOM patterns",
+              },
+              { status: 400 }
+            );
+          }
+
+          // Create recurring schedules for each time slot
+          for (const time_of_day of timeSlots) {
+            await prisma.recurrentSchedules.create({
+              data: {
+                schedId: schedule.id,
+                reccurencePattern,
+                startDate: new Date(startDate),
+                endDate: new Date(endDate),
+                time_of_day,
+                weekDays,
+                repeatIndefinitely: repeatIndefinitely,
+              },
+            });
+          }
         }
       }
     }

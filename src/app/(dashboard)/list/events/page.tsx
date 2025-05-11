@@ -232,7 +232,9 @@ const renderConditioningRow = (
       </div>
     </td>
     <td className="p-4 dark:text-gray-200">{item.conProg.programName}</td>
-    <td className="p-4 dark:text-gray-200">{item.event.eventName}</td>
+    <td className="p-4 dark:text-gray-200">
+      {item.event?.eventName || "No event"}
+    </td>
     <td className="p-4 dark:text-gray-200">
       {item.handler.first_name} {item.handler.last_name}
     </td>
@@ -240,7 +242,9 @@ const renderConditioningRow = (
       {new Intl.DateTimeFormat("en-US").format(item.startDate)}
     </td>
     <td className="hidden md:table-cell p-4 dark:text-gray-200">
-      {new Intl.DateTimeFormat("en-US").format(item.endDate)}
+      {item.endDate
+        ? new Intl.DateTimeFormat("en-US").format(item.endDate)
+        : "Not set"}
     </td>
     <td>
       <div className="flex items-center gap-2">

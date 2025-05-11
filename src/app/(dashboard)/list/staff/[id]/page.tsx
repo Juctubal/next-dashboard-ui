@@ -47,6 +47,7 @@ interface CalendarEvent {
   completed?: boolean;
   taskDate?: Date;
   completionStatus?: boolean;
+  repeatIndefinitely?: boolean;
 }
 
 // Define the type for schedule with included relations
@@ -245,6 +246,7 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
             description: schedule.descript,
             completed: completionRecord?.completed || false,
             completionId: completionRecord?.id.toString(),
+            repeatIndefinitely: recurrent.repeatIndefinitely || false,
           });
 
           currentDate.setDate(currentDate.getDate() + 1);
@@ -342,6 +344,7 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
               description: schedule.descript,
               completed: completionRecord?.completed || false,
               completionId: completionRecord?.id.toString(),
+              repeatIndefinitely: recurrent.repeatIndefinitely || false,
             });
           }
           currentDate.setDate(currentDate.getDate() + 1);
@@ -418,6 +421,7 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
               description: schedule.descript,
               completed: completionRecord?.completed || false,
               completionId: completionRecord?.id.toString(),
+              repeatIndefinitely: recurrent.repeatIndefinitely || false,
             });
           }
         } catch (error) {
@@ -477,6 +481,7 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
           description: schedule.descript,
           completed: completionRecord?.completed || false,
           completionId: completionRecord?.id.toString(),
+          repeatIndefinitely: recurrent.repeatIndefinitely || false,
         });
       }
     });

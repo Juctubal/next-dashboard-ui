@@ -34,7 +34,9 @@ const schema = z
     // Monthly specific fields
     monthDay: z.string().optional(),
     // Custom dates for "Other" pattern
-    customDates: z.array(z.string()).optional(),
+    customDate: z.string().optional(),
+    // Repeat indefinitely for daily and weekly tasks
+    repeatIndefinitely: z.boolean().optional(),
   })
   .refine(
     (data) => {
@@ -44,13 +46,30 @@ const schema = z
       }
       // If taskType is RECURRING, startDate, endDate, reccurencePattern, and time_of_day are required
       if (data.taskType === "RECURRING") {
-        // For "Other" pattern, we need customDates instead of startDate/endDate
+        // For "Other" pattern, we need customDate instead of startDate/endDate
         if (data.reccurencePattern === "CUSTOM") {
+          try {
+            const customDates = JSON.parse(data.customDate || "[]");
+            return (
+              !!data.reccurencePattern &&
+              !!data.time_of_day.length &&
+              Array.isArray(customDates) &&
+              customDates.length > 0
+            );
+          } catch (error) {
+            return false;
+          }
+        }
+        // For DAILY or WEEKLY pattern with repeatIndefinitely, only startDate is required
+        if (
+          (data.reccurencePattern === "DAILY" ||
+            data.reccurencePattern === "WEEKLY") &&
+          data.repeatIndefinitely
+        ) {
           return (
+            !!data.startDate &&
             !!data.reccurencePattern &&
-            !!data.time_of_day.length &&
-            data.customDates &&
-            data.customDates.length > 0
+            !!data.time_of_day.length
           );
         }
         return (
@@ -152,16 +171,16 @@ const ScheduleForm = ({
             })()
           : data.weekDays,
         monthDay: data.recurrent?.[0]?.monthDay || data.monthDay,
-        customDates: data.recurrent?.[0]?.customDate
+        customDate: data.recurrent?.[0]?.customDate
           ? (() => {
               try {
-                return JSON.parse(data.recurrent[0].customDate);
+                return JSON.stringify(data.recurrent[0].customDate);
               } catch (error) {
                 console.error("Error parsing customDate:", error);
-                return [];
+                return "";
               }
             })()
-          : [],
+          : "",
       }
     : {};
 
@@ -209,7 +228,7 @@ const ScheduleForm = ({
       try {
         const parsedDates = JSON.parse(data.recurrent[0].customDate);
         setCustomDates(parsedDates);
-        setValue("customDates", parsedDates);
+        setValue("customDate", JSON.stringify(parsedDates));
       } catch (error) {
         console.error("Error parsing customDate:", error);
       }
@@ -275,7 +294,7 @@ const ScheduleForm = ({
 
   // Update customDates in form data when they change
   useEffect(() => {
-    setValue("customDates", customDates);
+    setValue("customDate", JSON.stringify(customDates));
   }, [customDates, setValue]);
 
   const selectedStaffType = watch("staffType");
@@ -283,6 +302,34 @@ const ScheduleForm = ({
   const selectedRecurrencePattern = watch("reccurencePattern");
   const startDate = watch("startDate");
   const endDate = watch("endDate");
+  const repeatIndefinitely = watch("repeatIndefinitely");
+
+  // Function to get day name from date
+  const getDayName = (date: string) => {
+    const days = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    return days[new Date(date).getDay()];
+  };
+
+  // Update weekdays when start date changes and repeat indefinitely is checked
+  useEffect(() => {
+    if (
+      selectedRecurrencePattern === "WEEKLY" &&
+      repeatIndefinitely &&
+      startDate
+    ) {
+      const dayName = getDayName(startDate);
+      setSelectedWeekDays([dayName]);
+      setValue("weekDays", [dayName]);
+    }
+  }, [startDate, repeatIndefinitely, selectedRecurrencePattern, setValue]);
 
   // Function to check if a day falls within the date range
   const isDayInRange = (day: string) => {
@@ -388,11 +435,11 @@ const ScheduleForm = ({
       const newDates = [...customDates, date];
       setDuplicateDateError(null);
       setCustomDates(newDates);
-      setValue("customDates", newDates);
+      setValue("customDate", JSON.stringify(newDates));
     } else {
       const newDates = customDates.filter((d) => d !== date);
       setCustomDates(newDates);
-      setValue("customDates", newDates);
+      setValue("customDate", JSON.stringify(newDates));
     }
   };
 
@@ -435,8 +482,8 @@ const ScheduleForm = ({
 
       // Add custom dates for "Other" pattern
       if (formData.reccurencePattern === "CUSTOM" && customDates.length > 0) {
-        // Send all custom dates as a comma-separated string
-        formDataToSend.append("customDates", customDates.join(","));
+        // Send custom dates as a JSON string
+        formDataToSend.append("customDate", JSON.stringify(customDates));
         console.log("Sending custom dates:", customDates);
       }
 
@@ -444,6 +491,19 @@ const ScheduleForm = ({
       if (data?.id) {
         formDataToSend.append("id", data.id.toString());
       }
+
+      // Add repeatIndefinitely field
+      formDataToSend.append(
+        "repeatIndefinitely",
+        formData.repeatIndefinitely ? "true" : "false"
+      );
+
+      // Log the form data being sent
+      console.log("Form data being sent:", {
+        reccurencePattern: formData.reccurencePattern,
+        customDates: customDates,
+        customDate: formDataToSend.get("customDate"),
+      });
 
       const response = await fetch(
         type === "create" ? "/api/schedules" : `/api/schedules/${data.id}`,
@@ -587,7 +647,7 @@ const ScheduleForm = ({
             defaultValue={mappedData.taskType}
           >
             <option value="">Select Task Type</option>
-            <option value="RECURRING">Recurring</option>
+            <option value="RECURRING">Repeating</option>
             <option value="ONETIME">One Time</option>
           </select>
           {errors.taskType?.message && (
@@ -724,22 +784,48 @@ const ScheduleForm = ({
                   )}
                 </div>
 
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs text-gray-500 dark:text-gray-400">
-                    End Date
-                  </label>
-                  <input
-                    type="date"
-                    className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    {...register("endDate")}
-                    defaultValue={mappedData.endDate}
-                  />
-                  {errors.endDate?.message && (
-                    <p className="text-xs text-red-400 dark:text-red-400">
-                      {errors.endDate.message.toString()}
-                    </p>
+                {(selectedRecurrencePattern === "DAILY" ||
+                  selectedRecurrencePattern === "WEEKLY") && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <input
+                      type="checkbox"
+                      id="repeatIndefinitely"
+                      className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 rounded"
+                      {...register("repeatIndefinitely")}
+                    />
+                    <label
+                      htmlFor="repeatIndefinitely"
+                      className="text-xs text-gray-500 dark:text-gray-400"
+                    >
+                      Repeat
+                    </label>
+                  </div>
+                )}
+
+                {/* Only show end date if not repeating indefinitely */}
+                {selectedRecurrencePattern !== "CUSTOM" &&
+                  !(
+                    (selectedRecurrencePattern === "DAILY" ||
+                      selectedRecurrencePattern === "WEEKLY") &&
+                    watch("repeatIndefinitely")
+                  ) && (
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs text-gray-500 dark:text-gray-400">
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        className="ring-[1.5px] ring-gray-300 dark:ring-gray-600 p-2 rounded-md text-sm w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                        {...register("endDate")}
+                        defaultValue={mappedData.endDate}
+                      />
+                      {errors.endDate?.message && (
+                        <p className="text-xs text-red-400 dark:text-red-400">
+                          {errors.endDate.message.toString()}
+                        </p>
+                      )}
+                    </div>
                   )}
-                </div>
               </>
             )}
 
@@ -798,7 +884,7 @@ const ScheduleForm = ({
                 </div>
                 <input
                   type="hidden"
-                  {...register("customDates")}
+                  {...register("customDate")}
                   value={JSON.stringify(customDates)}
                 />
               </div>
@@ -873,42 +959,50 @@ const ScheduleForm = ({
                 <label className="text-xs text-gray-500 dark:text-gray-400">
                   Days of the Week
                 </label>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    "Monday",
-                    "Tuesday",
-                    "Wednesday",
-                    "Thursday",
-                    "Friday",
-                    "Saturday",
-                    "Sunday",
-                  ].map((day) => (
-                    <div key={day} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id={day}
-                        checked={selectedWeekDays.includes(day)}
-                        onChange={() => handleWeekDayChange(day)}
-                        disabled={isDayDisabled(day)}
-                        className={`mr-2 ${
-                          isDayDisabled(day)
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                        }`}
-                      />
-                      <label
-                        htmlFor={day}
-                        className={`text-xs ${
-                          isDayDisabled(day)
-                            ? "text-gray-400 dark:text-gray-500"
-                            : "text-gray-500 dark:text-gray-400"
-                        }`}
-                      >
-                        {day}
-                      </label>
-                    </div>
-                  ))}
-                </div>
+                {repeatIndefinitely ? (
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Will repeat every{" "}
+                    {startDate ? getDayName(startDate) : "selected day"} of the
+                    week
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      "Monday",
+                      "Tuesday",
+                      "Wednesday",
+                      "Thursday",
+                      "Friday",
+                      "Saturday",
+                      "Sunday",
+                    ].map((day) => (
+                      <div key={day} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={day}
+                          checked={selectedWeekDays.includes(day)}
+                          onChange={() => handleWeekDayChange(day)}
+                          disabled={isDayDisabled(day)}
+                          className={`mr-2 ${
+                            isDayDisabled(day)
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
+                        />
+                        <label
+                          htmlFor={day}
+                          className={`text-xs ${
+                            isDayDisabled(day)
+                              ? "text-gray-400 dark:text-gray-500"
+                              : "text-gray-500 dark:text-gray-400"
+                          }`}
+                        >
+                          {day}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <input
                   type="hidden"
                   {...register("weekDays")}

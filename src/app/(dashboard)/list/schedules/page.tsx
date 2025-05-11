@@ -80,7 +80,9 @@ const renderRow = (item: ScheduleList) => (
         </span>
       )}
     </td>
-    <td className="hidden md:table-cell dark:text-gray-200">{item.taskType}</td>
+    <td className="hidden md:table-cell dark:text-gray-200">
+      {item.taskType === "RECURRING" ? "Repeating" : item.taskType}
+    </td>
     <td className="hidden md:table-cell dark:text-gray-200">
       {item.taskCategory}
     </td>

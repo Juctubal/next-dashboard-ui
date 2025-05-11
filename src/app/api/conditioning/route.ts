@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { ConditioningStatus, TaskCategory, Prisma } from "@prisma/client";
+import {
+  ConditioningStatus,
+  TaskCategory,
+  Prisma,
+  GamefowlStatus,
+} from "@prisma/client";
 
 export async function POST(request: Request) {
   try {
@@ -64,6 +69,18 @@ export async function POST(request: Request) {
             data: {
               conditioningId: conditioningRecord.id,
               gamefowlId,
+            },
+          })
+        )
+      );
+
+      // Update gamefowl status to CONDITIONING
+      await Promise.all(
+        gamefowlIds.map((gamefowlId: number) =>
+          tx.gamefowl.update({
+            where: { id: gamefowlId },
+            data: {
+              status: GamefowlStatus.CONDITIONING,
             },
           })
         )
@@ -240,6 +257,18 @@ export async function PUT(request: Request) {
             data: {
               conditioningId: parseInt(id),
               gamefowlId,
+            },
+          })
+        )
+      );
+
+      // Update gamefowl status to CONDITIONING
+      await Promise.all(
+        gamefowlIds.map((gamefowlId: number) =>
+          tx.gamefowl.update({
+            where: { id: gamefowlId },
+            data: {
+              status: GamefowlStatus.CONDITIONING,
             },
           })
         )

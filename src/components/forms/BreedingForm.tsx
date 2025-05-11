@@ -8,6 +8,7 @@ interface Gamefowl {
   bloodline: string;
   age: string | null;
   sex: "MALE" | "FEMALE";
+  status: string;
 }
 
 const BreedingForm = ({
@@ -185,7 +186,8 @@ const BreedingForm = ({
           <option value="">Select a sire</option>
           {maleGamefowls.map((gamefowl) => (
             <option key={gamefowl.id} value={gamefowl.id}>
-              {gamefowl.name} ({gamefowl.bloodline}) - {gamefowl.age}
+              {gamefowl.name} ({gamefowl.bloodline}) - {gamefowl.age} -{" "}
+              {gamefowl.status}
             </option>
           ))}
         </select>
@@ -207,7 +209,8 @@ const BreedingForm = ({
           <option value="">Select a dam</option>
           {femaleGamefowls.map((gamefowl) => (
             <option key={gamefowl.id} value={gamefowl.id}>
-              {gamefowl.name} ({gamefowl.bloodline}) - {gamefowl.age}
+              {gamefowl.name} ({gamefowl.bloodline}) - {gamefowl.age} -{" "}
+              {gamefowl.status}
             </option>
           ))}
         </select>

@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -68,6 +69,7 @@ model Gamefowl {
   bloodline       String
   date_hatched    DateTime?
   date_sold       DateTime?
+  status          GamefowlStatus         @default(IDLE)
   /// *
   /// * Parent ID Relations
   sireId          Int?
@@ -150,7 +152,7 @@ model Conditioning {
   conProgId         Int
   handlerId         String
   startDate         DateTime
-  endDate           DateTime
+  endDate           DateTime?
   status            ConditioningStatus
   notes             String?
   conProg           ConditioningProgram            @relation(fields: [conProgId], references: [id])
@@ -252,17 +254,20 @@ model Event {
 }
 
 model RecurrentSchedules {
-  id                      Int                       @id @default(autoincrement())
-  schedId                 Int
-  reccurencePattern       RecurrencePattern
-  time_of_day             String
-  endDate                 DateTime
-  startDate               DateTime
-  customDate              String?                   @db.Text
-  customInterval          Int?
-  weekDays                String?
-  schedule                Schedule                  @relation(fields: [schedId], references: [id])
-  RecurringTaskCompletion RecurringTaskCompletion[]
+  id                 Int                       @id @default(autoincrement())
+  schedId            Int
+  time_of_day        String
+  reccurencePattern  RecurrencePattern
+  endDate            DateTime
+  startDate          DateTime
+  customDate         String?
+  customInterval     Int?
+  weekDays           String?
+  repeatIndefinitely Boolean                   @default(false)
+  schedule           Schedule                  @relation(fields: [schedId], references: [id], onDelete: Cascade)
+  completions        RecurringTaskCompletion[]
+
+  @@index([schedId])
 }
 
 model RecurringTaskCompletion {
@@ -372,4 +377,14 @@ enum gamefowlAge {
 enum GamefowlSex {
   MALE
   FEMALE
+}
+
+enum GamefowlStatus {
+  IDLE
+  COMPETING
+  BREEDING
+  CONDITIONING
+  INJURED
+  DECEASED
+  SOLD
 }

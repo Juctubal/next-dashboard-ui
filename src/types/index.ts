@@ -17,4 +17,5 @@ export interface CalendarEvent {
   completed?: boolean;
   taskDate?: Date;
   completionStatus?: boolean;
+  repeatIndefinitely?: boolean;
 }

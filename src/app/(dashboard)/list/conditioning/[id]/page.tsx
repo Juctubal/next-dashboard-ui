@@ -110,7 +110,7 @@ const ConditioningPage = async ({
                       {conditioning.conditioning.conProg.programName}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {conditioning.conditioning.event.eventName}
+                      {conditioning.conditioning.event?.eventName || "No event"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {conditioning.conditioning.handler.first_name}{" "}
@@ -122,9 +122,11 @@ const ConditioningPage = async ({
                       ).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(
-                        conditioning.conditioning.endDate
-                      ).toLocaleDateString()}
+                      {conditioning.conditioning.endDate
+                        ? new Date(
+                            conditioning.conditioning.endDate
+                          ).toLocaleDateString()
+                        : "Not set"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span
@@ -132,8 +134,6 @@ const ConditioningPage = async ({
                         ${
                           conditioning.conditioning.status === "COMPLETED"
                             ? "bg-green-100 text-green-800"
-                            : conditioning.conditioning.status === "ONGOING"
-                            ? "bg-blue-100 text-blue-800"
                             : "bg-yellow-100 text-yellow-800"
                         }`}
                       >

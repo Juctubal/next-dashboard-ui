@@ -31,6 +31,7 @@ interface TaskDetails {
     createdAt: Date;
     updatedAt: Date;
   };
+  repeatIndefinitely?: boolean;
 }
 
 interface StaffTaskDetailsModalProps {
@@ -96,6 +97,7 @@ export default function StaffTaskDetailsModal({
                   createdAt: new Date(completionData.createdAt),
                   updatedAt: new Date(completionData.updatedAt),
                 },
+                repeatIndefinitely: data.repeatIndefinitely,
               };
 
               setTask(formattedTask);
@@ -127,6 +129,7 @@ export default function StaffTaskDetailsModal({
           endDate: data.endDate ? new Date(data.endDate) : undefined,
           notes: data.notes,
           time_of_day: data.time_of_day,
+          repeatIndefinitely: data.repeatIndefinitely,
         };
 
         setTask(formattedTask);
@@ -291,7 +294,7 @@ export default function StaffTaskDetailsModal({
                   </div>
                 )}
 
-                {task.endDate && (
+                {!task.repeatIndefinitely && task.endDate && (
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       End Date
@@ -315,7 +318,7 @@ export default function StaffTaskDetailsModal({
               )}
 
               {/* Completion Record Section */}
-              {task.completionRecord && (
+              {!task.repeatIndefinitely && task.completionRecord && (
                 <div className="mt-6">
                   <h4 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-3">
                     Completion Status

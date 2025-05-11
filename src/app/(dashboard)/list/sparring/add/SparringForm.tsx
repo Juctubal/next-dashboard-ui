@@ -19,6 +19,12 @@ const SparringForm = ({ gamefowls }: SparringFormProps) => {
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Filter out gamefowls that are breeding, injured, deceased, or sold
+  const availableGamefowls = gamefowls.filter(
+    (gamefowl) =>
+      !["BREEDING", "INJURED", "DECEASED", "SOLD"].includes(gamefowl.status)
+  );
+
   // Calculate Elo rating changes
   const calculateEloChanges = (winner: Gamefowl, loser: Gamefowl) => {
     // Expected score calculation
@@ -105,7 +111,7 @@ const SparringForm = ({ gamefowls }: SparringFormProps) => {
           required
         >
           <option value="">Select Gamefowl 1</option>
-          {gamefowls.map((gamefowl) => (
+          {availableGamefowls.map((gamefowl) => (
             <option key={gamefowl.id} value={gamefowl.id}>
               {gamefowl.id} - {gamefowl.name} (Elo: {gamefowl.eloRating})
             </option>
@@ -124,7 +130,7 @@ const SparringForm = ({ gamefowls }: SparringFormProps) => {
           required
         >
           <option value="">Select Gamefowl 2</option>
-          {gamefowls
+          {availableGamefowls
             .filter((g) => g.id !== parseInt(gamefowl1Id))
             .map((gamefowl) => (
               <option key={gamefowl.id} value={gamefowl.id}>

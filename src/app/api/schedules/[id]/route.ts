@@ -338,6 +338,8 @@ export async function PUT(
                 endDate: new Date(endDate),
                 time_of_day,
                 weekDays: weekDays || null,
+                repeatIndefinitely:
+                  formData.get("repeatIndefinitely") === "true",
               },
             });
           }
@@ -430,6 +432,7 @@ export async function PUT(
               endDate: new Date(endDate),
               time_of_day,
               weekDays: weekDays || null,
+              repeatIndefinitely: formData.get("repeatIndefinitely") === "true",
             },
           });
         }

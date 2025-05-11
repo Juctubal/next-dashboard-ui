@@ -16,13 +16,23 @@ export async function GET(request: NextRequest) {
 
     // Special handling for "ANY" age category
     if (ageCategory === "ANY") {
-      // Get all STAG, BULLSTAG, and COCK gamefowls that are not archived
+      // Get all STAG, BULLSTAG, and COCK gamefowls that are not archived and available
       const gamefowls = await prisma.gamefowl.findMany({
         where: {
           age: {
             in: ["STAG", "BULLSTAG", "COCK"],
           },
           isArchived: false,
+          status: {
+            notIn: [
+              "BREEDING",
+              "INJURED",
+              "DECEASED",
+              "SOLD",
+              "COMPETING",
+              "CONDITIONING",
+            ],
+          },
         },
         orderBy: {
           name: "asc",
@@ -39,11 +49,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get gamefowls that match the age category and are not archived
+    // Get gamefowls that match the age category and are not archived or unavailable
     const gamefowls = await prisma.gamefowl.findMany({
       where: {
         age: ageCategory as gamefowlAge,
         isArchived: false,
+        status: {
+          notIn: [
+            "BREEDING",
+            "INJURED",
+            "DECEASED",
+            "SOLD",
+            "COMPETING",
+            "CONDITIONING",
+          ],
+        },
       },
       orderBy: {
         name: "asc",

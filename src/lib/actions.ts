@@ -2,7 +2,12 @@
 
 import { prisma } from "./prisma";
 import { revalidatePath } from "next/cache";
-import { EventType, AgeCategory, EventStatus } from "@prisma/client";
+import {
+  EventType,
+  AgeCategory,
+  EventStatus,
+  GamefowlStatus,
+} from "@prisma/client";
 
 // Event actions
 export async function createEvent(formData: FormData) {
@@ -25,27 +30,45 @@ export async function createEvent(formData: FormData) {
   }
 
   try {
-    // Create the event
-    const event = await prisma.event.create({
-      data: {
-        eventName,
-        eventType,
-        ageCategory,
-        eventDate: new Date(eventDate),
-        description,
-        status,
-      },
-    });
-
-    // Create event gamefowls
-    if (gamefowlIds.length > 0) {
-      await prisma.eventGamefowl.createMany({
-        data: gamefowlIds.map((gamefowlId) => ({
-          eventId: event.id,
-          gamefowlId,
-        })),
+    // Create the event and update gamefowl statuses in a transaction
+    const event = await prisma.$transaction(async (tx) => {
+      // Create the event
+      const event = await tx.event.create({
+        data: {
+          eventName,
+          eventType,
+          ageCategory,
+          eventDate: new Date(eventDate),
+          description,
+          status,
+        },
       });
-    }
+
+      // Create event gamefowls and update their status
+      if (gamefowlIds.length > 0) {
+        // Create event-gamefowl associations
+        await tx.eventGamefowl.createMany({
+          data: gamefowlIds.map((gamefowlId) => ({
+            eventId: event.id,
+            gamefowlId,
+          })),
+        });
+
+        // Update gamefowl statuses to COMPETING
+        await tx.gamefowl.updateMany({
+          where: {
+            id: {
+              in: gamefowlIds,
+            },
+          },
+          data: {
+            status: GamefowlStatus.COMPETING,
+          },
+        });
+      }
+
+      return event;
+    });
 
     revalidatePath("/list/events");
     return { success: true };

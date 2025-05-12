@@ -4,7 +4,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import InputField from "../InputField";
-import { EventType, AgeCategory, EventStatus, Gamefowl } from "@prisma/client";
+import {
+  EventType,
+  AgeCategory,
+  EventStatus,
+  Gamefowl,
+  ConditioningStatus,
+} from "@prisma/client";
 import { createEvent, updateEvent } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -168,6 +174,42 @@ const EventForm = ({
       );
       setIsSubmitting(false);
       return;
+    }
+
+    // If trying to set status to FINISHED, validate conditioning records
+    if (formData.status === EventStatus.FINISHED) {
+      try {
+        const response = await fetch(`/api/event/${data.id}/conditioning`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch conditioning records");
+        }
+        const conditioningData = await response.json();
+
+        // Check if there are any conditioning records
+        if (!conditioningData || conditioningData.length === 0) {
+          setError(
+            "Cannot mark event as finished because it has no conditioning records"
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Check if any conditioning records are not completed
+        const incompleteConditioning = conditioningData.find(
+          (cond: any) => cond.status !== ConditioningStatus.COMPLETED
+        );
+
+        if (incompleteConditioning) {
+          setError("Please mark all conditioning records as completed first");
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking conditioning records:", error);
+        setError("Failed to validate conditioning records");
+        setIsSubmitting(false);
+        return;
+      }
     }
 
     try {

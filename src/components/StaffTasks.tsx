@@ -22,9 +22,13 @@ import { toast } from "sonner";
 
 interface StaffTasksProps {
   events: CalendarEvent[];
+  onTaskStatusChange?: (taskId: string, completed: boolean) => void;
 }
 
-export default function StaffTasks({ events: initialEvents }: StaffTasksProps) {
+export default function StaffTasks({
+  events: initialEvents,
+  onTaskStatusChange,
+}: StaffTasksProps) {
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [selectedView, setSelectedView] = useState<"calendar" | "list">("list");
   const [selectedIndividualTask, setSelectedIndividualTask] =
@@ -334,107 +338,60 @@ export default function StaffTasks({ events: initialEvents }: StaffTasksProps) {
   };
 
   const handleTaskStatusChange = async (taskId: string, completed: boolean) => {
-    setUpdatingTasks((prev) => ({ ...prev, [taskId]: true }));
     try {
-      // Determine task type from the ID
-      const taskType = taskId.split("-")[0];
-      let endpoint;
+      setUpdatingTasks((prev) => ({ ...prev, [taskId]: true }));
 
-      // Choose the appropriate endpoint based on task type
-      if (taskType === "oneTime") {
-        endpoint = `/api/tasks/onetime/${taskId}`;
-      } else if (taskType === "daily") {
-        endpoint = `/api/tasks/daily/${taskId}`;
-      } else {
-        endpoint = `/api/tasks/${taskId}`;
+      // Find the task to get its completion ID
+      const task = events.find((event) => event.id === taskId);
+      if (!task) {
+        throw new Error("Task not found");
       }
 
-      console.log("Sending task status update:", {
-        taskId,
-        completed,
-        endpoint,
-        taskType,
-      });
+      // For recurring tasks, we need the completion ID
+      const completionId =
+        task.type === "recurrent" ? task.completionId : taskId;
+      if (!completionId) {
+        throw new Error("No completion ID found for this task");
+      }
 
-      const response = await fetch(endpoint, {
-        method: "PATCH",
+      const response = await fetch("/api/tasks/update-status", {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          completed: completed,
+          taskId: completionId,
+          status: completed ? "FINISHED" : "ASSIGNED",
         }),
       });
 
-      const data = await response.json();
-      console.log("Received response:", data);
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to update task status");
+        throw new Error("Failed to update task status");
       }
 
-      if (!data.task) {
-        throw new Error("No task data received from server");
-      }
-
-      // Update the events state with the new task data
+      // Update local state
       setEvents((prevEvents) =>
-        prevEvents.map((event) => {
-          if (event.id === taskId) {
-            const updatedEvent = {
-              ...event,
-              completed: data.task.completed,
-              status: data.task.completed ? "FINISHED" : "ASSIGNED",
-              completionId: data.task.id.toString(),
-            };
-            console.log("Updating event:", {
-              original: event,
-              updated: updatedEvent,
-            });
-            return updatedEvent;
-          }
-          return event;
-        })
+        prevEvents.map((event) =>
+          event.id === taskId
+            ? {
+                ...event,
+                status: completed ? "FINISHED" : "ASSIGNED",
+                completed,
+              }
+            : event
+        )
       );
 
-      // Update the selected task if it's the one being modified
-      if (selectedIndividualTask?.id === taskId) {
-        setSelectedIndividualTask({
-          ...selectedIndividualTask,
-          completed: data.task.completed,
-          status: data.task.completed ? "FINISHED" : "ASSIGNED",
-          completionId: data.task.id.toString(),
-        });
-      }
+      // Notify parent component
+      onTaskStatusChange?.(taskId, completed);
 
-      // Show toast notification
-      if (completed) {
-        toast.success("Task marked as completed!", {
-          duration: 2000,
-          position: "top-center",
-        });
-      } else {
-        toast.info("Task marked as not completed", {
-          duration: 2000,
-          position: "top-center",
-        });
-      }
-
-      // Close the modal after a short delay to show the animation
-      setTimeout(() => {
-        setIsIndividualTaskModalOpen(false);
-        setSelectedIndividualTask(null);
-        setUpdatingTasks((prev) => ({ ...prev, [taskId]: false }));
-      }, 300);
+      toast.success(
+        `Task marked as ${completed ? "completed" : "not completed"}`
+      );
     } catch (error) {
       console.error("Error updating task status:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update task status",
-        {
-          duration: 2000,
-          position: "top-center",
-        }
-      );
+      toast.error("Failed to update task status");
+    } finally {
       setUpdatingTasks((prev) => ({ ...prev, [taskId]: false }));
     }
   };
@@ -444,81 +401,25 @@ export default function StaffTasks({ events: initialEvents }: StaffTasksProps) {
     completed: boolean,
     isDaily: boolean = false
   ) => {
-    setUpdatingTasks((prev) => ({ ...prev, [recurrentId.toString()]: true }));
     try {
-      // Use the appropriate endpoint based on whether it's a daily task
-      const endpoint = isDaily
-        ? `/api/tasks/daily/group/${recurrentId}`
-        : `/api/tasks/group/${recurrentId}`;
-
-      const response = await fetch(endpoint, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          completed: completed,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update group task status");
-      }
-
-      const data = await response.json();
-      if (!data.task) {
-        throw new Error("No task data received from server");
-      }
-
-      // Update the events state with the new task data
-      setEvents((prevEvents) =>
-        prevEvents.map((event) => {
-          if (
-            event.type === "recurrent" &&
-            event.recurrentId === recurrentId.toString()
-          ) {
-            return {
-              ...event,
-              completed: data.task.completed,
-              status: data.task.schedule.status,
-            };
-          }
-          return event;
-        })
+      // Find all tasks with this recurrentId
+      const tasksToUpdate = events.filter(
+        (event) =>
+          event.type === "recurrent" &&
+          event.recurrentId === recurrentId.toString()
       );
 
-      // Show toast notification
-      if (completed) {
-        toast.success("All tasks in the group marked as completed!", {
-          duration: 2000,
-          position: "top-center",
-        });
-      } else {
-        toast.info("All tasks in the group marked as not completed", {
-          duration: 2000,
-          position: "top-center",
-        });
+      // Update each task's status
+      for (const task of tasksToUpdate) {
+        await handleTaskStatusChange(task.id, completed);
       }
 
-      setUpdatingTasks((prev) => ({
-        ...prev,
-        [recurrentId.toString()]: false,
-      }));
+      toast.success(
+        `All tasks ${completed ? "completed" : "marked as not completed"}`
+      );
     } catch (error) {
-      console.error("Error updating group task status:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to update group task status",
-        {
-          duration: 2000,
-          position: "top-center",
-        }
-      );
-      setUpdatingTasks((prev) => ({
-        ...prev,
-        [recurrentId.toString()]: false,
-      }));
+      console.error("Error updating grouped tasks:", error);
+      toast.error("Failed to update all tasks");
     }
   };
 
@@ -577,73 +478,21 @@ export default function StaffTasks({ events: initialEvents }: StaffTasksProps) {
     completionId: number,
     completed: boolean
   ) => {
-    setUpdatingTasks((prev) => ({ ...prev, [completionId.toString()]: true }));
     try {
-      const response = await fetch(`/api/tasks/completion/${completionId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          completed: completed,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update completion status");
-      }
-
-      const data = await response.json();
-      if (!data.completion) {
-        throw new Error("No completion data received from server");
-      }
-
-      // Update the events state with the new completion data
-      setEvents((prevEvents) =>
-        prevEvents.map((event) => {
-          if (
-            event.type === "recurrent" &&
-            event.recurrentId === recurrentId.toString() &&
-            event.completionId === completionId.toString()
-          ) {
-            return {
-              ...event,
-              completed: data.completion.completed,
-              status: data.schedule.status,
-            };
-          }
-          return event;
-        })
+      // Find the task with this completionId
+      const taskToUpdate = events.find(
+        (event) =>
+          event.type === "recurrent" &&
+          event.recurrentId === recurrentId.toString() &&
+          event.completionId === completionId.toString()
       );
 
-      // Show toast notification
-      if (completed) {
-        toast.success("Task marked as completed!", {
-          duration: 2000,
-          position: "top-center",
-        });
-      } else {
-        toast.info("Task marked as not completed", {
-          duration: 2000,
-          position: "top-center",
-        });
+      if (taskToUpdate) {
+        await handleTaskStatusChange(taskToUpdate.id, completed);
       }
     } catch (error) {
       console.error("Error updating completion status:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to update completion status",
-        {
-          duration: 2000,
-          position: "top-center",
-        }
-      );
-    } finally {
-      setUpdatingTasks((prev) => ({
-        ...prev,
-        [completionId.toString()]: false,
-      }));
+      toast.error("Failed to update task completion status");
     }
   };
 

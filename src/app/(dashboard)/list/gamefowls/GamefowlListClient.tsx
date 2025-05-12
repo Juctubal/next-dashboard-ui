@@ -37,11 +37,6 @@ const columns = [
     className: "hidden lg:table-cell w-1/12",
   },
   {
-    header: "Batch ID",
-    accessor: "batchId",
-    className: "hidden lg:table-cell w-1/12",
-  },
-  {
     header: "Age Classification",
     accessor: "age",
     className: "hidden lg:table-cell w-1/12",
@@ -52,20 +47,31 @@ const columns = [
     className: "hidden lg:table-cell w-1/12",
   },
   {
+    header: "Status",
+    accessor: "status",
+    className: "w-1/12",
+  },
+  {
     header: "Actions",
     accessor: "action",
     className: "w-1/12",
   },
 ];
 
-const renderRow = (
+interface GamefowlRowProps {
   item: Gamefowl & {
     sire?: { id: number; name: string } | null;
     dam?: { id: number; name: string } | null;
-  },
-  isArchived: boolean,
-  onArchiveToggle: (id: number, archive: boolean) => void
-) => {
+  };
+  isArchived: boolean;
+  onArchiveToggle: (id: number, archive: boolean) => void;
+}
+
+const GamefowlRow = ({
+  item,
+  isArchived,
+  onArchiveToggle,
+}: GamefowlRowProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState<
@@ -127,13 +133,31 @@ const renderRow = (
         {item.dam?.name || "N/A"}
       </td>
       <td className="hidden md:table-cell py-3 px-4 dark:text-gray-200">
-        {item.batchId}
-      </td>
-      <td className="hidden md:table-cell py-3 px-4 dark:text-gray-200">
         {item.age}
       </td>
       <td className="hidden md:table-cell py-3 px-4 dark:text-gray-200">
         {item.sex}
+      </td>
+      <td className="py-3 px-4">
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${
+            item.status === "IDLE"
+              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+              : item.status === "COMPETING"
+              ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+              : item.status === "BREEDING"
+              ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
+              : item.status === "CONDITIONING"
+              ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+              : item.status === "INJURED"
+              ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
+              : item.status === "DECEASED"
+              ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+              : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+          }`}
+        >
+          {item.status}
+        </span>
       </td>
       <td className="py-3 px-4">
         <div className="flex items-center gap-2">
@@ -696,7 +720,14 @@ const GamefowlListClient = ({
       {/* LIST */}
       <Table
         columns={columns}
-        renderRow={(item) => renderRow(item, isArchived, handleArchiveToggle)}
+        renderRow={(item) => (
+          <GamefowlRow
+            key={item.id}
+            item={item}
+            isArchived={isArchived}
+            onArchiveToggle={handleArchiveToggle}
+          />
+        )}
         data={displayData}
       />
 

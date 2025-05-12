@@ -19,6 +19,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { format } from "date-fns";
 import { ColumnDef, Row } from "@tanstack/react-table";
+import EventTableRow from "./EventTableRow";
+import ConditioningTableRow from "./ConditioningTableRow";
 
 type EventWithRelations = Event & {
   gamefowl: (EventGamefowl & {
@@ -48,13 +50,13 @@ const eventColumns = [
     className: "hidden lg:table-cell",
   },
   {
-    header: "Status",
-    accessor: "status",
-  },
-  {
     header: "Gamefowls",
     accessor: "gamefowl",
     className: "hidden lg:table-cell",
+  },
+  {
+    header: "Status",
+    accessor: "status",
   },
   {
     header: "Actions",
@@ -109,72 +111,15 @@ const conditioningColumns = [
     className: "hidden md:table-cell",
   },
   {
+    header: "Status",
+    accessor: "status",
+    className: "hidden md:table-cell",
+  },
+  {
     header: "Actions",
     accessor: "action",
   },
 ];
-
-const renderEventRow = (
-  item: Event & { gamefowl: { gamefowl: { id: number; name: string } }[] }
-) => (
-  <tr
-    key={item.id}
-    className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
-  >
-    <td className="flex items-center gap-4 p-4 dark:text-gray-200">
-      {item.eventName}
-    </td>
-    <td className="hidden md:table-cell dark:text-gray-200">
-      {item.eventType}
-    </td>
-    <td className="hidden md:table-cell text-center align-middle dark:text-gray-200">
-      {item.ageCategory}
-    </td>
-    <td className="hidden md:table-cell dark:text-gray-200">
-      {new Intl.DateTimeFormat("en-US").format(item.eventDate)}
-    </td>
-    {/* <td className="hidden md:table-cell dark:text-gray-200">
-      {item.description}
-    </td> */}
-    <td className="hidden md:table-cell dark:text-gray-200">
-      <span
-        className={`px-2 py-1 rounded-full text-xs ${
-          item.status === "ASSIGNED"
-            ? "bg-blue-100 text-blue-800"
-            : "bg-green-100 text-green-800"
-        }`}
-      >
-        {item.status.charAt(0) + item.status.slice(1).toLowerCase()}
-      </span>
-    </td>
-    <td className="hidden md:table-cell dark:text-gray-200">
-      {item.gamefowl && item.gamefowl.length > 0 ? (
-        <div className="flex flex-wrap gap-1">
-          {item.gamefowl.map((gamefowl) => (
-            <span
-              key={gamefowl.gamefowl.id}
-              className="px-2 py-1 bg-ggPurpleLight dark:bg-gray-700 rounded-md text-xs"
-            >
-              {gamefowl.gamefowl.name} (ID: {gamefowl.gamefowl.id})
-            </span>
-          ))}
-        </div>
-      ) : (
-        <span className="text-gray-400">No gamefowls</span>
-      )}
-    </td>
-    <td>
-      <div className="flex items-center gap-2">
-        {role === "admin" && (
-          <>
-            <FormModal table="event" type="update" data={item} />
-            <FormModal table="event" type="delete" id={item.id} />
-          </>
-        )}
-      </div>
-    </td>
-  </tr>
-);
 
 const renderConditioningProgramRow = (item: ConditioningProgram) => (
   <tr
@@ -245,6 +190,17 @@ const renderConditioningRow = (
       {item.endDate
         ? new Intl.DateTimeFormat("en-US").format(item.endDate)
         : "Not set"}
+    </td>
+    <td className="p-4 dark:text-gray-200">
+      <span
+        className={`px-2 py-1 rounded-full text-xs ${
+          item.status === "ASSIGNED"
+            ? "bg-blue-100 text-blue-800"
+            : "bg-green-100 text-green-800"
+        }`}
+      >
+        {item.status}
+      </span>
     </td>
     <td>
       <div className="flex items-center gap-2">
@@ -338,6 +294,12 @@ const EventListPage = async ({
         gamefowl: {
           include: {
             gamefowl: true,
+          },
+        },
+        conditioning: {
+          select: {
+            id: true,
+            status: true,
           },
         },
       },
@@ -453,7 +415,11 @@ const EventListPage = async ({
 
       {/* LIST */}
       {tab === "events" && (
-        <Table columns={eventColumns} renderRow={renderEventRow} data={data} />
+        <Table
+          columns={eventColumns}
+          renderRow={(item) => <EventTableRow item={item} />}
+          data={data}
+        />
       )}
       {tab === "conditioningPrograms" && (
         <Table
@@ -465,7 +431,7 @@ const EventListPage = async ({
       {tab === "conditioning" && (
         <Table
           columns={conditioningColumns}
-          renderRow={renderConditioningRow}
+          renderRow={(item) => <ConditioningTableRow item={item} role={role} />}
           data={data}
         />
       )}

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Table from "@/components/Table";
 
 interface EventsPageProps {
   params: {
@@ -24,8 +25,12 @@ const EventsPage = async ({ params, searchParams }: EventsPageProps) => {
     include: {
       conditioning: {
         include: {
-          event: true,
-          handler: true,
+          conditioning: {
+            include: {
+              event: true,
+              handler: true,
+            },
+          },
         },
       },
     },
@@ -36,23 +41,33 @@ const EventsPage = async ({ params, searchParams }: EventsPageProps) => {
   }
 
   // Extract unique events from conditioning records
-  const events = gamefowl.conditioning.map((conditioning) => ({
-    id: conditioning.event.id,
-    eventName: conditioning.event.eventName,
-    eventType: conditioning.event.eventType,
-    ageCategory: conditioning.event.ageCategory,
-    eventDate: conditioning.event.eventDate,
-    description: conditioning.event.description,
-    status: conditioning.event.status,
-    handler: conditioning.handler,
-    startDate: conditioning.startDate,
-    endDate: conditioning.endDate,
+  const events = gamefowl.conditioning.map((conditioningGamefowl) => ({
+    id: conditioningGamefowl.conditioning.event?.id,
+    eventName: conditioningGamefowl.conditioning.event?.eventName,
+    eventType: conditioningGamefowl.conditioning.event?.eventType,
+    ageCategory: conditioningGamefowl.conditioning.event?.ageCategory,
+    eventDate: conditioningGamefowl.conditioning.event?.eventDate,
+    description: conditioningGamefowl.conditioning.event?.description,
+    status: conditioningGamefowl.conditioning.event?.status,
+    handler: conditioningGamefowl.conditioning.handler,
+    startDate: conditioningGamefowl.conditioning.startDate,
+    endDate: conditioningGamefowl.conditioning.endDate,
   }));
 
   // Remove duplicates based on event ID
   const uniqueEvents = events.filter(
     (event, index, self) => index === self.findIndex((e) => e.id === event.id)
   );
+
+  // TODO: Replace with real data fetching
+  const conditioningPrograms: any[] = [];
+  const gamefowlColumns = [
+    { header: "Name", accessor: "name" },
+    { header: "Breed", accessor: "breed" },
+    { header: "Age", accessor: "age" },
+    { header: "Status", accessor: "status" },
+  ];
+  const gamefowls: any[] = [];
 
   return (
     <div className="flex-1 p-4 flex flex-col gap-4 xl:flex-row">
@@ -67,7 +82,7 @@ const EventsPage = async ({ params, searchParams }: EventsPageProps) => {
                 Event Type
               </span>
               <span className="font-medium dark:text-gray-200">
-                {gamefowl.conditioning[0].event.eventType}
+                {gamefowl.conditioning[0]?.conditioning.event?.eventType}
               </span>
             </div>
             <div className="flex flex-col gap-1">
@@ -75,7 +90,7 @@ const EventsPage = async ({ params, searchParams }: EventsPageProps) => {
                 Age Category
               </span>
               <span className="font-medium dark:text-gray-200">
-                {gamefowl.conditioning[0].event.ageCategory}
+                {gamefowl.conditioning[0]?.conditioning.event?.ageCategory}
               </span>
             </div>
             <div className="flex flex-col gap-1">
@@ -83,9 +98,12 @@ const EventsPage = async ({ params, searchParams }: EventsPageProps) => {
                 Event Date
               </span>
               <span className="font-medium dark:text-gray-200">
-                {new Intl.DateTimeFormat("en-US").format(
-                  gamefowl.conditioning[0].event.eventDate
-                )}
+                {gamefowl.conditioning[0]?.conditioning.event?.eventDate &&
+                  new Intl.DateTimeFormat("en-US").format(
+                    new Date(
+                      gamefowl.conditioning[0].conditioning.event.eventDate
+                    )
+                  )}
               </span>
             </div>
             <div className="flex flex-col gap-1">
@@ -93,7 +111,7 @@ const EventsPage = async ({ params, searchParams }: EventsPageProps) => {
                 Status
               </span>
               <span className="font-medium dark:text-gray-200">
-                {gamefowl.conditioning[0].event.status}
+                {gamefowl.conditioning[0]?.conditioning.event?.status}
               </span>
             </div>
             <div className="flex flex-col gap-1">
@@ -101,7 +119,7 @@ const EventsPage = async ({ params, searchParams }: EventsPageProps) => {
                 Description
               </span>
               <span className="font-medium dark:text-gray-200">
-                {gamefowl.conditioning[0].event.description}
+                {gamefowl.conditioning[0]?.conditioning.event?.description}
               </span>
             </div>
           </div>
@@ -138,6 +156,21 @@ const EventsPage = async ({ params, searchParams }: EventsPageProps) => {
     </div>
   );
 };
+
+// Conditioning Program columns
+const conditioningProgramColumns = [
+  { header: "Program Name", accessor: "programName" },
+  {
+    header: "Description",
+    accessor: "description",
+    className: "hidden md:table-cell",
+  },
+  { header: "Actions", accessor: "action" },
+];
+
+// Types for table rows (replace with real types as needed)
+type ConditioningProgram = any;
+type Gamefowl = any;
 
 const renderConditioningProgramRow = (program: ConditioningProgram) => (
   <tr

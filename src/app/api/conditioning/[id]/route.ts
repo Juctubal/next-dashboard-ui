@@ -58,3 +58,26 @@ export async function GET(
     );
   }
 }
+
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const id = parseInt(params.id);
+    const { status } = await request.json();
+
+    const conditioning = await prisma.conditioning.update({
+      where: { id },
+      data: { status },
+    });
+
+    return NextResponse.json(conditioning);
+  } catch (error) {
+    console.error("Error updating conditioning status:", error);
+    return NextResponse.json(
+      { error: "Failed to update conditioning status" },
+      { status: 500 }
+    );
+  }
+}

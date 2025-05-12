@@ -20,6 +20,7 @@ import { useState } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import StaffTaskDetailsModalWrapper from "@/components/StaffTaskDetailsModalWrapper";
 import { format } from "date-fns";
+import StaffTasksWrapper from "@/components/StaffTasksWrapper";
 
 interface SingleStaffPageProps {
   params: {
@@ -583,7 +584,7 @@ const SingleStaffPage = async ({ params }: SingleStaffPageProps) => {
         </div>
         {/* BOTTOM */}
         <div className="mt-4">
-          <StaffTasks events={calendarEvents} />
+          <StaffTasksWrapper initialEvents={calendarEvents} />
         </div>
       </div>
       {/* RIGHT */}

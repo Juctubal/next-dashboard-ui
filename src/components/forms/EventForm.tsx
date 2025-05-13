@@ -13,7 +13,7 @@ import {
 } from "@prisma/client";
 import { createEvent, updateEvent } from "@/lib/actions";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Notification from "../ui/Notification";
 
 const schema = z.object({
@@ -38,6 +38,7 @@ const EventForm = ({
   data?: any;
 }) => {
   const router = useRouter();
+  const formRef = useRef<HTMLDivElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<{
@@ -53,6 +54,11 @@ const EventForm = ({
   const [ageCategory, setAgeCategory] = useState<AgeCategory | "">(
     data?.ageCategory || ""
   );
+  const [previousStatus, setPreviousStatus] = useState<EventStatus>(
+    data?.status || EventStatus.ASSIGNED
+  );
+  const [hasCompletedConditioning, setHasCompletedConditioning] =
+    useState(false);
 
   const {
     register,
@@ -75,6 +81,14 @@ const EventForm = ({
   // Watch for changes in eventType and ageCategory
   const watchEventType = watch("eventType");
   const watchAgeCategory = watch("ageCategory");
+  const watchStatus = watch("status");
+
+  // Update previous status when status changes
+  useEffect(() => {
+    if (watchStatus && watchStatus !== previousStatus) {
+      setPreviousStatus(watchStatus as EventStatus);
+    }
+  }, [watchStatus, previousStatus]);
 
   // Fetch gamefowls when eventType or ageCategory changes
   useEffect(() => {
@@ -96,15 +110,45 @@ const EventForm = ({
     }
   }, [data, setValue, type]);
 
+  // Add useEffect to check for completed conditioning records
+  useEffect(() => {
+    const checkConditioningStatus = async () => {
+      if (type === "update" && data?.id) {
+        try {
+          const response = await fetch(`/api/event/${data.id}/conditioning`);
+          if (!response.ok) {
+            throw new Error("Failed to fetch conditioning records");
+          }
+          const conditioningData = await response.json();
+
+          // Check if any conditioning records are completed
+          const hasCompleted = conditioningData.some(
+            (cond: any) => cond.status === ConditioningStatus.COMPLETED
+          );
+          setHasCompletedConditioning(hasCompleted);
+        } catch (error) {
+          console.error("Error checking conditioning records:", error);
+        }
+      }
+    };
+
+    checkConditioningStatus();
+  }, [type, data?.id]);
+
   const fetchGamefowls = async (ageCategory: string) => {
     setLoadingGamefowls(true);
     try {
-      const response = await fetch(`/api/gamefowls?ageCategory=${ageCategory}`);
+      const url = new URL(`/api/gamefowls`, window.location.origin);
+      url.searchParams.append("ageCategory", ageCategory);
+      if (type === "update" && data?.id) {
+        url.searchParams.append("eventId", data.id.toString());
+      }
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch gamefowls");
       }
-      const data = await response.json();
-      setGamefowls(data);
+      const gamefowlData = await response.json();
+      setGamefowls(gamefowlData);
     } catch (error) {
       console.error("Error fetching gamefowls:", error);
       setError("Failed to load gamefowls");
@@ -114,6 +158,14 @@ const EventForm = ({
   };
 
   const handleGamefowlSelection = (gamefowlId: number) => {
+    // Prevent selection if there are completed conditioning records
+    if (hasCompletedConditioning) {
+      setError(
+        "Cannot change gamefowls when conditioning records are completed"
+      );
+      return;
+    }
+
     let newSelectedGamefowls: number[];
     const requiredCount = getRequiredGamefowlCount();
 
@@ -161,6 +213,15 @@ const EventForm = ({
     setNotification(null);
   };
 
+  const handleError = (errorMessage: string) => {
+    setError(errorMessage);
+    setIsSubmitting(false);
+    // Revert status to previous value
+    setValue("status", previousStatus);
+    // Scroll to the top of the form when there's an error
+    formRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   const onSubmit = handleSubmit(async (formData) => {
     setIsSubmitting(true);
     setError(null);
@@ -169,10 +230,9 @@ const EventForm = ({
     // Validate gamefowl selection
     const requiredCount = getRequiredGamefowlCount();
     if (formData.gamefowlIds?.length !== requiredCount) {
-      setError(
+      handleError(
         `Please select exactly ${requiredCount} gamefowl(s) for this event type`
       );
-      setIsSubmitting(false);
       return;
     }
 
@@ -187,10 +247,9 @@ const EventForm = ({
 
         // Check if there are any conditioning records
         if (!conditioningData || conditioningData.length === 0) {
-          setError(
+          handleError(
             "Cannot mark event as finished because it has no conditioning records"
           );
-          setIsSubmitting(false);
           return;
         }
 
@@ -200,14 +259,14 @@ const EventForm = ({
         );
 
         if (incompleteConditioning) {
-          setError("Please mark all conditioning records as completed first");
-          setIsSubmitting(false);
+          handleError(
+            "Please mark all conditioning records as completed first"
+          );
           return;
         }
       } catch (error) {
         console.error("Error checking conditioning records:", error);
-        setError("Failed to validate conditioning records");
-        setIsSubmitting(false);
+        handleError("Failed to validate conditioning records");
         return;
       }
     }
@@ -244,6 +303,8 @@ const EventForm = ({
           window.dispatchEvent(new CustomEvent("closeModal"));
           // Refresh the page to show the new data
           router.refresh();
+          // Force a hard refresh to ensure all components are updated
+          window.location.reload();
         }, 1500);
       } else {
         setNotification({
@@ -263,15 +324,15 @@ const EventForm = ({
   });
 
   return (
-    <>
+    <div ref={formRef} className="p-6">
       <form className="flex flex-col gap-8 p-6" onSubmit={onSubmit}>
         <h1 className="text-xl font-semibold dark:text-white">
           {type === "create" ? "Create" : "Update"} Event
         </h1>
 
         {error && (
-          <div className="p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-md">
-            {error}
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
           </div>
         )}
 
@@ -376,6 +437,9 @@ const EventForm = ({
               <label className="text-xs text-gray-500 dark:text-gray-400">
                 Select Gamefowls ({selectedGamefowls.length}/
                 {getRequiredGamefowlCount()} selected)
+                {hasCompletedConditioning && (
+                  <span className="text-red-500 ml-2">(Cannot be changed)</span>
+                )}
               </label>
 
               {loadingGamefowls ? (
@@ -383,7 +447,13 @@ const EventForm = ({
                   Loading gamefowls...
                 </div>
               ) : gamefowls.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto p-2 border border-gray-200 dark:border-gray-700 rounded-md">
+                <div
+                  className={`grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto p-2 border border-gray-200 dark:border-gray-700 rounded-md ${
+                    hasCompletedConditioning
+                      ? "opacity-50 pointer-events-none"
+                      : ""
+                  }`}
+                >
                   {gamefowls.map((gamefowl) => (
                     <div
                       key={gamefowl.id}
@@ -491,7 +561,7 @@ const EventForm = ({
           onClose={handleNotificationClose}
         />
       )}
-    </>
+    </div>
   );
 };
 

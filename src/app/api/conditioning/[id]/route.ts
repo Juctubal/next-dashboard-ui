@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { NextRequest } from "next/server";
+import { GamefowlStatus } from "@prisma/client";
 
 export async function GET(
   request: NextRequest,
@@ -67,12 +68,47 @@ export async function PUT(
     const id = parseInt(params.id);
     const { status } = await request.json();
 
-    const conditioning = await prisma.conditioning.update({
+    // First get the conditioning record to check if it has an event
+    const conditioning = await prisma.conditioning.findUnique({
+      where: { id },
+      include: {
+        gamefowls: {
+          include: {
+            gamefowl: true,
+          },
+        },
+        event: true,
+      },
+    });
+
+    if (!conditioning) {
+      return NextResponse.json(
+        { error: "Conditioning record not found" },
+        { status: 404 }
+      );
+    }
+
+    // Update the conditioning status
+    const updatedConditioning = await prisma.conditioning.update({
       where: { id },
       data: { status },
     });
 
-    return NextResponse.json(conditioning);
+    // If the conditioning is completed and has an event, update gamefowl status to COMPETING
+    if (status === "COMPLETED" && conditioning.event) {
+      await Promise.all(
+        conditioning.gamefowls.map(({ gamefowl }) =>
+          prisma.gamefowl.update({
+            where: { id: gamefowl.id },
+            data: {
+              status: GamefowlStatus.COMPETING,
+            },
+          })
+        )
+      );
+    }
+
+    return NextResponse.json(updatedConditioning);
   } catch (error) {
     console.error("Error updating conditioning status:", error);
     return NextResponse.json(

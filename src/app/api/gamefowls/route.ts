@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const ageCategory = searchParams.get("ageCategory");
+    const eventId = searchParams.get("eventId");
 
     if (!ageCategory) {
       return NextResponse.json(
@@ -23,16 +24,32 @@ export async function GET(request: NextRequest) {
             in: ["STAG", "BULLSTAG", "COCK"],
           },
           isArchived: false,
-          status: {
-            notIn: [
-              "BREEDING",
-              "INJURED",
-              "DECEASED",
-              "SOLD",
-              "COMPETING",
-              "CONDITIONING",
-            ],
-          },
+          OR: [
+            {
+              status: {
+                notIn: [
+                  "BREEDING",
+                  "INJURED",
+                  "DECEASED",
+                  "SOLD",
+                  "COMPETING",
+                  "CONDITIONING",
+                ],
+              },
+            },
+            // Include gamefowls that are already assigned to this event
+            ...(eventId
+              ? [
+                  {
+                    eventGamefowls: {
+                      some: {
+                        eventId: parseInt(eventId),
+                      },
+                    },
+                  },
+                ]
+              : []),
+          ],
         },
         orderBy: {
           name: "asc",
@@ -54,16 +71,32 @@ export async function GET(request: NextRequest) {
       where: {
         age: ageCategory as gamefowlAge,
         isArchived: false,
-        status: {
-          notIn: [
-            "BREEDING",
-            "INJURED",
-            "DECEASED",
-            "SOLD",
-            "COMPETING",
-            "CONDITIONING",
-          ],
-        },
+        OR: [
+          {
+            status: {
+              notIn: [
+                "BREEDING",
+                "INJURED",
+                "DECEASED",
+                "SOLD",
+                "COMPETING",
+                "CONDITIONING",
+              ],
+            },
+          },
+          // Include gamefowls that are already assigned to this event
+          ...(eventId
+            ? [
+                {
+                  eventGamefowls: {
+                    some: {
+                      eventId: parseInt(eventId),
+                    },
+                  },
+                },
+              ]
+            : []),
+        ],
       },
       orderBy: {
         name: "asc",

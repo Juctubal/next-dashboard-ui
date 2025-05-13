@@ -98,33 +98,128 @@ export async function updateEvent(id: number, formData: FormData) {
   }
 
   try {
-    // Update the event
-    await prisma.event.update({
+    // Get the event with its current gamefowls and conditioning records
+    const event = await prisma.event.findUnique({
       where: { id },
-      data: {
-        eventName,
-        eventType,
-        ageCategory,
-        eventDate: new Date(eventDate),
-        description,
-        status,
+      include: {
+        gamefowl: {
+          include: {
+            gamefowl: true,
+          },
+        },
+        conditioning: {
+          include: {
+            gamefowls: {
+              include: {
+                gamefowl: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    // Delete existing gamefowls
-    await prisma.eventGamefowl.deleteMany({
-      where: { eventId: id },
-    });
-
-    // Create new gamefowls
-    if (gamefowlIds.length > 0) {
-      await prisma.eventGamefowl.createMany({
-        data: gamefowlIds.map((gamefowlId) => ({
-          eventId: id,
-          gamefowlId,
-        })),
-      });
+    if (!event) {
+      return { success: false, error: "Event not found" };
     }
+
+    // Check if any conditioning records are completed
+    const hasCompletedConditioning = event.conditioning.some(
+      (cond) => cond.status === "COMPLETED"
+    );
+
+    if (hasCompletedConditioning) {
+      return {
+        success: false,
+        error:
+          "Cannot change gamefowls when conditioning records are completed",
+      };
+    }
+
+    // Update the event and its associated records in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Get the IDs of previously selected gamefowls
+      const previousGamefowlIds = event.gamefowl.map((g) => g.gamefowl.id);
+
+      // Find gamefowls that are being removed
+      const removedGamefowlIds = previousGamefowlIds.filter(
+        (id) => !gamefowlIds.includes(id)
+      );
+
+      // Reset status of removed gamefowls to IDLE
+      if (removedGamefowlIds.length > 0) {
+        await Promise.all(
+          removedGamefowlIds.map((gamefowlId) =>
+            tx.gamefowl.update({
+              where: { id: gamefowlId },
+              data: {
+                status: GamefowlStatus.IDLE,
+              },
+            })
+          )
+        );
+      }
+
+      // Update the event
+      await tx.event.update({
+        where: { id },
+        data: {
+          eventName,
+          eventType,
+          ageCategory,
+          eventDate: new Date(eventDate),
+          description,
+          status,
+        },
+      });
+
+      // Delete existing event-gamefowl associations
+      await tx.eventGamefowl.deleteMany({
+        where: { eventId: id },
+      });
+
+      // Create new event-gamefowl associations
+      if (gamefowlIds.length > 0) {
+        await tx.eventGamefowl.createMany({
+          data: gamefowlIds.map((gamefowlId) => ({
+            eventId: id,
+            gamefowlId,
+          })),
+        });
+
+        // Update gamefowl status to COMPETING
+        await tx.gamefowl.updateMany({
+          where: {
+            id: {
+              in: gamefowlIds,
+            },
+          },
+          data: {
+            status: GamefowlStatus.COMPETING,
+          },
+        });
+      }
+
+      // Update conditioning records to match new gamefowls
+      for (const conditioning of event.conditioning) {
+        // Delete existing conditioning-gamefowl associations
+        await tx.conditioningGamefowl.deleteMany({
+          where: {
+            conditioningId: conditioning.id,
+          },
+        });
+
+        // Create new conditioning-gamefowl associations
+        if (gamefowlIds.length > 0) {
+          await tx.conditioningGamefowl.createMany({
+            data: gamefowlIds.map((gamefowlId) => ({
+              conditioningId: conditioning.id,
+              gamefowlId,
+            })),
+          });
+        }
+      }
+    });
 
     revalidatePath("/list/events");
     return { success: true };

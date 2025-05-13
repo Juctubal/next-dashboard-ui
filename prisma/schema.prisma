@@ -97,6 +97,7 @@ model Gamefowl {
   sparring_loser  Sparring[]             @relation("SparLose")
   sparring_winner Sparring[]             @relation("SparWin")
   vaccine         Vaccine[]
+  EventResult     EventResult[]
 }
 
 model OneTimeSched {
@@ -140,7 +141,7 @@ model ConditioningActivitySchedule {
   timeOfDay      String               @default("MORNING")
   updatedAt      DateTime             @updatedAt
   activity       ConditioningActivity @relation(fields: [activityId], references: [id])
-  conditioning   Conditioning         @relation(fields: [conditioningId], references: [id])
+  conditioning   Conditioning         @relation(fields: [conditioningId], references: [id], onDelete: Cascade)
 
   @@index([conditioningId])
   @@index([activityId])
@@ -156,7 +157,7 @@ model Conditioning {
   status            ConditioningStatus
   notes             String?
   conProg           ConditioningProgram            @relation(fields: [conProgId], references: [id])
-  event             Event?                         @relation(fields: [eventId], references: [id])
+  event             Event?                         @relation(fields: [eventId], references: [id], onDelete: SetNull)
   handler           Handler                        @relation(fields: [handlerId], references: [id])
   activitySchedules ConditioningActivitySchedule[]
   gamefowls         ConditioningGamefowl[]
@@ -166,7 +167,7 @@ model ConditioningGamefowl {
   id             Int          @id @default(autoincrement())
   conditioningId Int
   gamefowlId     Int
-  conditioning   Conditioning @relation(fields: [conditioningId], references: [id])
+  conditioning   Conditioning @relation(fields: [conditioningId], references: [id], onDelete: Cascade)
   gamefowl       Gamefowl     @relation(fields: [gamefowlId], references: [id])
 
   @@unique([conditioningId, gamefowlId])
@@ -248,9 +249,24 @@ model Event {
   description  String
   status       EventStatus
   handlerId    String?
-  conditioning Conditioning[]
   handler      Handler?        @relation(fields: [handlerId], references: [id])
   gamefowl     EventGamefowl[]
+  conditioning Conditioning[]
+  results      EventResult[]
+}
+
+model EventResult {
+  id         Int      @id @default(autoincrement())
+  eventId    Int
+  gamefowlId Int
+  result     Result
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
+
+  @@unique([eventId, gamefowlId])
 }
 
 model RecurrentSchedules {
@@ -289,7 +305,7 @@ model EventGamefowl {
   eventId    Int
   gamefowlId Int
   createdAt  DateTime @default(now())
-  event      Event    @relation(fields: [eventId], references: [id])
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
 
   @@unique([eventId, gamefowlId])
@@ -387,4 +403,11 @@ enum GamefowlStatus {
   INJURED
   DECEASED
   SOLD
+}
+
+enum Result {
+  WIN
+  LOSS
+  DRAW
+  NO_SHOW
 }

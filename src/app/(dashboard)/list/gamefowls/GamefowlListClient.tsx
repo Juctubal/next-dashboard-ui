@@ -14,6 +14,7 @@ import { calculateGamefowlAge } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import MedicalForm from "@/components/forms/MedicalForm";
 import ConditioningForm from "@/components/forms/ConditioningForm";
+import QRScanner from "@/components/QRScanner";
 
 const columns = [
   {
@@ -49,12 +50,12 @@ const columns = [
   {
     header: "Status",
     accessor: "status",
-    className: "w-1/12",
+    className: "w-[130px] sm:w-1/12",
   },
   {
     header: "Actions",
     accessor: "action",
-    className: "w-1/12",
+    className: "w-[90px] sm:w-1/12",
   },
 ];
 
@@ -138,26 +139,28 @@ const GamefowlRow = ({
       <td className="hidden md:table-cell py-3 px-4 dark:text-gray-200">
         {item.sex}
       </td>
-      <td className="py-3 px-4">
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${
-            item.status === "IDLE"
-              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-              : item.status === "COMPETING"
-              ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-              : item.status === "BREEDING"
-              ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
-              : item.status === "CONDITIONING"
-              ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-              : item.status === "INJURED"
-              ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
-              : item.status === "DECEASED"
-              ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-              : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-          }`}
-        >
-          {item.status}
-        </span>
+      <td className="py-3 px-1 sm:px-4 min-w-[130px]">
+        <div className="flex items-center justify-center">
+          <span
+            className={`inline-block px-1 py-0.5 rounded-full text-[8px] sm:text-xs font-medium whitespace-nowrap ${
+              item.status === "IDLE"
+                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                : item.status === "COMPETING"
+                ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                : item.status === "BREEDING"
+                ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
+                : item.status === "CONDITIONING"
+                ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+                : item.status === "INJURED"
+                ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
+                : item.status === "DECEASED"
+                ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+                : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+            }`}
+          >
+            {item.status}
+          </span>
+        </div>
       </td>
       <td className="py-3 px-4">
         <div className="flex items-center gap-2">
@@ -313,6 +316,7 @@ const GamefowlListClient = ({
   );
   const [selectedAges, setSelectedAges] = useState<string[]>([]);
   const [selectedSexes, setSelectedSexes] = useState<string[]>([]);
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const router = useRouter();
 
   const toggleDropdown = () => {
@@ -531,6 +535,31 @@ const GamefowlListClient = ({
                 {isArchived ? "Active" : "Archive"}
               </Link>
             )}
+            <button
+              onClick={() => setShowQRScanner(true)}
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow"
+              title="Scan QR Code"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-4 h-4"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"
+                />
+              </svg>
+            </button>
             <div className="relative">
               <button
                 onClick={toggleDropdown}
@@ -733,6 +762,9 @@ const GamefowlListClient = ({
 
       {/* PAGINATION */}
       <Pagination page={p} count={totalCount} />
+
+      {/* QR Scanner Modal */}
+      {showQRScanner && <QRScanner onClose={() => setShowQRScanner(false)} />}
     </div>
   );
 };

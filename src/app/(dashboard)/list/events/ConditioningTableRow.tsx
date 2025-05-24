@@ -138,7 +138,7 @@ const ConditioningTableRow = ({ item, role }: ConditioningTableRowProps) => {
             : "Not set"}
         </td>
         <td className="p-4 dark:text-gray-200">
-          <div className="relative">
+          <div className="relative flex items-center gap-2">
             <button
               onClick={toggleStatusEdit}
               className={`px-2 py-1 rounded-full text-xs cursor-pointer ${

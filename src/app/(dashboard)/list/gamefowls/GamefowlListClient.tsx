@@ -74,27 +74,59 @@ const GamefowlRow = ({
   onArchiveToggle,
 }: GamefowlRowProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState<
     "deworming" | "vaccine" | "conditioning" | null
   >(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const statusMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsMenuOpen(false);
       }
+      if (
+        statusMenuRef.current &&
+        !statusMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsStatusMenuOpen(false);
+      }
     };
 
-    if (isMenuOpen) {
+    if (isMenuOpen || isStatusMenuOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isMenuOpen]);
+  }, [isMenuOpen, isStatusMenuOpen]);
+
+  const handleStatusChange = async (newStatus: string) => {
+    try {
+      const response = await fetch(`/api/gamefowl/${item.id}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: newStatus,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update status");
+      }
+
+      // Refresh the page to show updated data
+      window.location.reload();
+    } catch (error) {
+      console.error("Error updating status:", error);
+      alert("Failed to update status");
+    }
+  };
 
   const handleMenuAction = (
     action: "deworming" | "vaccine" | "conditioning"
@@ -103,6 +135,15 @@ const GamefowlRow = ({
     setModalType(action);
     setShowModal(true);
   };
+
+  const statusOptions = [
+    "IDLE",
+    "COMPETING",
+    "BREEDING",
+    "CONDITIONING",
+    "INJURED",
+    "DECEASED",
+  ];
 
   return (
     <tr
@@ -141,25 +182,50 @@ const GamefowlRow = ({
       </td>
       <td className="py-3 px-1 sm:px-4 min-w-[130px]">
         <div className="flex items-center justify-center">
-          <span
-            className={`inline-block px-1 py-0.5 rounded-full text-[8px] sm:text-xs font-medium whitespace-nowrap ${
-              item.status === "IDLE"
-                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                : item.status === "COMPETING"
-                ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                : item.status === "BREEDING"
-                ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
-                : item.status === "CONDITIONING"
-                ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                : item.status === "INJURED"
-                ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
-                : item.status === "DECEASED"
-                ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-                : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-            }`}
-          >
-            {item.status}
-          </span>
+          <div className="relative" ref={statusMenuRef}>
+            <button
+              onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}
+              className={`inline-block px-1 py-0.5 rounded-full text-[8px] sm:text-xs font-medium whitespace-nowrap cursor-pointer ${
+                item.status === "IDLE"
+                  ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                  : item.status === "COMPETING"
+                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                  : item.status === "BREEDING"
+                  ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
+                  : item.status === "CONDITIONING"
+                  ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+                  : item.status === "INJURED"
+                  ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
+                  : item.status === "DECEASED"
+                  ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+                  : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+              }`}
+            >
+              {item.status}
+            </button>
+            {isStatusMenuOpen && (
+              <div className="absolute left-0 mt-2 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10 border border-gray-200 dark:border-gray-700 min-w-[120px]">
+                <div className="py-1">
+                  {statusOptions.map((status) => (
+                    <button
+                      key={status}
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                        status === item.status
+                          ? "bg-gray-100 dark:bg-gray-700"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        handleStatusChange(status);
+                        setIsStatusMenuOpen(false);
+                      }}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </td>
       <td className="py-3 px-4">

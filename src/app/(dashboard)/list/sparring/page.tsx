@@ -142,6 +142,9 @@ const SparringListPage = async ({
       where: {
         isArchived: false,
         sex: "MALE",
+        status: {
+          notIn: ["INJURED", "BREEDING", "DECEASED", "SOLD"],
+        },
       },
       orderBy: {
         eloRating: "desc",

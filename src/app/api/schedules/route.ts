@@ -505,7 +505,7 @@ export async function POST(req: Request) {
 
           // Create recurring schedules for each time slot
           for (const time_of_day of timeSlots) {
-            await prisma.recurrentSchedules.create({
+            const recurrentSchedule = await prisma.recurrentSchedules.create({
               data: {
                 schedId: schedule.id,
                 reccurencePattern,
@@ -514,6 +514,18 @@ export async function POST(req: Request) {
                 time_of_day,
                 weekDays,
                 repeatIndefinitely: true,
+              },
+            });
+
+            // For indefinitely repeating tasks, only create the first day's completion record
+            const taskDate = new Date(startDate);
+            taskDate.setHours(0, 0, 0, 0);
+
+            await prisma.recurringTaskCompletion.create({
+              data: {
+                recurrentId: recurrentSchedule.id,
+                date: taskDate,
+                completed: false,
               },
             });
           }
@@ -530,7 +542,7 @@ export async function POST(req: Request) {
 
           // Create recurring schedules for each time slot
           for (const time_of_day of timeSlots) {
-            await prisma.recurrentSchedules.create({
+            const recurrentSchedule = await prisma.recurrentSchedules.create({
               data: {
                 schedId: schedule.id,
                 reccurencePattern,
@@ -541,6 +553,43 @@ export async function POST(req: Request) {
                 repeatIndefinitely: repeatIndefinitely,
               },
             });
+
+            // Create completion records for each day in the range
+            const currentDate = new Date(startDate);
+            const endDateObj = new Date(endDate);
+            while (currentDate <= endDateObj) {
+              // For weekly pattern, only create records for selected days
+              if (reccurencePattern === "WEEKLY") {
+                const parsedWeekDays = JSON.parse(weekDays || "[]") as string[];
+                const dayNames = [
+                  "Sunday",
+                  "Monday",
+                  "Tuesday",
+                  "Wednesday",
+                  "Thursday",
+                  "Friday",
+                  "Saturday",
+                ];
+                const currentDayName = dayNames[currentDate.getDay()];
+                if (!parsedWeekDays.includes(currentDayName)) {
+                  currentDate.setDate(currentDate.getDate() + 1);
+                  continue;
+                }
+              }
+
+              const taskDate = new Date(currentDate);
+              taskDate.setHours(0, 0, 0, 0);
+
+              await prisma.recurringTaskCompletion.create({
+                data: {
+                  recurrentId: recurrentSchedule.id,
+                  date: taskDate,
+                  completed: false,
+                },
+              });
+
+              currentDate.setDate(currentDate.getDate() + 1);
+            }
           }
         }
       }
@@ -784,7 +833,7 @@ export async function PUT(request: Request) {
 
           // Create recurring schedules for each time slot
           for (const time_of_day of timeSlots) {
-            await prisma.recurrentSchedules.create({
+            const recurrentSchedule = await prisma.recurrentSchedules.create({
               data: {
                 schedId: schedule.id,
                 reccurencePattern,
@@ -793,6 +842,18 @@ export async function PUT(request: Request) {
                 time_of_day,
                 weekDays,
                 repeatIndefinitely: true,
+              },
+            });
+
+            // For indefinitely repeating tasks, only create the first day's completion record
+            const taskDate = new Date(startDate);
+            taskDate.setHours(0, 0, 0, 0);
+
+            await prisma.recurringTaskCompletion.create({
+              data: {
+                recurrentId: recurrentSchedule.id,
+                date: taskDate,
+                completed: false,
               },
             });
           }
@@ -809,7 +870,7 @@ export async function PUT(request: Request) {
 
           // Create recurring schedules for each time slot
           for (const time_of_day of timeSlots) {
-            await prisma.recurrentSchedules.create({
+            const recurrentSchedule = await prisma.recurrentSchedules.create({
               data: {
                 schedId: schedule.id,
                 reccurencePattern,
@@ -820,6 +881,43 @@ export async function PUT(request: Request) {
                 repeatIndefinitely: repeatIndefinitely,
               },
             });
+
+            // Create completion records for each day in the range
+            const currentDate = new Date(startDate);
+            const endDateObj = new Date(endDate);
+            while (currentDate <= endDateObj) {
+              // For weekly pattern, only create records for selected days
+              if (reccurencePattern === "WEEKLY") {
+                const parsedWeekDays = JSON.parse(weekDays || "[]") as string[];
+                const dayNames = [
+                  "Sunday",
+                  "Monday",
+                  "Tuesday",
+                  "Wednesday",
+                  "Thursday",
+                  "Friday",
+                  "Saturday",
+                ];
+                const currentDayName = dayNames[currentDate.getDay()];
+                if (!parsedWeekDays.includes(currentDayName)) {
+                  currentDate.setDate(currentDate.getDate() + 1);
+                  continue;
+                }
+              }
+
+              const taskDate = new Date(currentDate);
+              taskDate.setHours(0, 0, 0, 0);
+
+              await prisma.recurringTaskCompletion.create({
+                data: {
+                  recurrentId: recurrentSchedule.id,
+                  date: taskDate,
+                  completed: false,
+                },
+              });
+
+              currentDate.setDate(currentDate.getDate() + 1);
+            }
           }
         }
       }

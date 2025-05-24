@@ -77,6 +77,31 @@ export async function PATCH(
       });
     }
 
+    // If this is an indefinitely repeating task and it's being marked as completed,
+    // create the next day's completion record
+    if (completed && recurrentSchedule.repeatIndefinitely) {
+      const nextDate = new Date(completionDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+
+      // Check if a completion record already exists for the next day
+      const nextDayRecord = await prisma.recurringTaskCompletion.findFirst({
+        where: {
+          recurrentId: parseInt(recurrentId),
+          date: nextDate,
+        },
+      });
+
+      if (!nextDayRecord) {
+        await prisma.recurringTaskCompletion.create({
+          data: {
+            recurrentId: parseInt(recurrentId),
+            date: nextDate,
+            completed: false,
+          },
+        });
+      }
+    }
+
     // Get all completion records for this recurrent schedule
     const allCompletions = await prisma.recurringTaskCompletion.findMany({
       where: {
@@ -84,21 +109,31 @@ export async function PATCH(
       },
     });
 
-    // Check if all tasks are completed
-    const allTasksCompleted =
-      allCompletions.length > 0 &&
-      allCompletions.every((record) => record.completed);
+    // For indefinitely repeating tasks, only consider the current day's completion status
+    let scheduleStatus;
+    if (recurrentSchedule.repeatIndefinitely) {
+      scheduleStatus = completed ? EventStatus.FINISHED : EventStatus.ASSIGNED;
+    } else {
+      // For non-indefinite tasks, check if all tasks are completed
+      const allTasksCompleted =
+        allCompletions.length > 0 &&
+        allCompletions.every((record) => record.completed);
+      scheduleStatus = allTasksCompleted
+        ? EventStatus.FINISHED
+        : EventStatus.ASSIGNED;
+    }
 
     // Update the schedule status based on completion status
     const schedule = await prisma.schedule.update({
       where: { id: recurrentSchedule.schedId },
       data: {
-        status: allTasksCompleted ? EventStatus.FINISHED : EventStatus.ASSIGNED,
+        status: scheduleStatus,
       },
     });
 
     console.log("Schedule status update:", {
-      allTasksCompleted,
+      isIndefinite: recurrentSchedule.repeatIndefinitely,
+      currentDayCompleted: completed,
       totalTasks: allCompletions.length,
       completedTasks: allCompletions.filter((r) => r.completed).length,
       newStatus: schedule.status,

@@ -2,6 +2,9 @@
 
 import React, { useState } from "react";
 import DerbyRecommendations from "@/components/recommendations/DerbyRecommendations";
+import BreedingRecommendations from "@/components/recommendations/BreedingRecommendations";
+import SparringRecommendations from "@/components/recommendations/SparringRecommendations";
+import ConditioningRecommendations from "@/components/recommendations/ConditioningRecommendations";
 
 export default function RecommendationsPage() {
   const [activeTab, setActiveTab] = useState("derby");
@@ -54,43 +57,9 @@ export default function RecommendationsPage() {
       {/* Tab Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {activeTab === "derby" && <DerbyRecommendations />}
-
-        {activeTab === "breeding" && (
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">
-              Breeding Pair Recommendations
-            </h2>
-            <p className="text-gray-600">
-              Coming soon: AI-powered breeding recommendations based on
-              bloodline compatibility, genetic diversity, and historical
-              performance data.
-            </p>
-          </div>
-        )}
-
-        {activeTab === "sparring" && (
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">
-              Sparring Match Recommendations
-            </h2>
-            <p className="text-gray-600">
-              Coming soon: Balanced sparring matchups based on Elo ratings,
-              recent form, and optimal learning potential.
-            </p>
-          </div>
-        )}
-
-        {activeTab === "conditioning" && (
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">
-              Conditioning Program Recommendations
-            </h2>
-            <p className="text-gray-600">
-              Coming soon: Personalized conditioning programs based on bloodline
-              characteristics, current fitness level, and upcoming events.
-            </p>
-          </div>
-        )}
+        {activeTab === "breeding" && <BreedingRecommendations />}
+        {activeTab === "sparring" && <SparringRecommendations />}
+        {activeTab === "conditioning" && <ConditioningRecommendations />}
       </div>
 
       {/* Analytics Summary */}

@@ -69,8 +69,8 @@ const Menu = async () => {
         },
         {
           icon: "/assignment.png",
-          label: "Statistics and Reports",
-          href: "/list/assignments",
+          label: "Recommendation Module",
+          href: "/recommendations",
           visible: ["admin", "handler", "breeder"],
         },
       ],

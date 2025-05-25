@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed:recommendations": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/seed-recommendations.ts",
+    "update:priors": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/update-priors.ts",
+    "update:priors:standalone": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/update-priors-standalone.ts",
+    "data:stats": "ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" prisma/data-stats.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.9.0",

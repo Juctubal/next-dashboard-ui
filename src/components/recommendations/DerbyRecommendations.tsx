@@ -1,10 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   DerbyRecommendation,
   RecommendationContext,
 } from "@/lib/recommendation/types";
+import { Event, EventStatus, EventType, AgeCategory } from "@prisma/client";
+
+interface EventWithDetails extends Event {
+  _count?: {
+    gamefowl: number;
+  };
+}
 
 export default function DerbyRecommendations() {
   const [recommendations, setRecommendations] = useState<DerbyRecommendation[]>(
@@ -12,23 +19,60 @@ export default function DerbyRecommendations() {
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [events, setEvents] = useState<EventWithDetails[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<EventWithDetails | null>(
+    null
+  );
+  const [loadingEvents, setLoadingEvents] = useState(true);
 
-  // Form state
-  const [eventType, setEventType] = useState<string>("THREE_COCK_DERBY");
-  const [ageCategory, setAgeCategory] = useState<string>("ANY");
-  const [opponentStrength, setOpponentStrength] = useState<number>(1200);
-  const [timeToEvent, setTimeToEvent] = useState<number>(14);
+  // Fetch upcoming/ongoing events
+  const fetchEvents = async () => {
+    setLoadingEvents(true);
+    try {
+      const response = await fetch("/api/events/upcoming");
+      if (!response.ok) {
+        throw new Error("Failed to fetch events");
+      }
+      const data = await response.json();
+      setEvents(data);
+      if (data.length > 0) {
+        setSelectedEvent(data[0]);
+      }
+    } catch (err) {
+      console.error("Error fetching events:", err);
+      setError("Failed to load events");
+    } finally {
+      setLoadingEvents(false);
+    }
+  };
 
-  const fetchRecommendations = async () => {
+  const fetchRecommendations = useCallback(async () => {
+    if (!selectedEvent) return;
+
     setLoading(true);
     setError(null);
 
     try {
       const context: RecommendationContext = {
-        eventType: eventType as any,
-        ageCategory: ageCategory as any,
-        opponentStrength,
-        timeToEvent,
+        eventType:
+          selectedEvent.eventType === "TWO_COCK_DERBY"
+            ? "OTHER"
+            : (selectedEvent.eventType as
+                | "THREE_COCK_DERBY"
+                | "FOUR_COCK_DERBY"
+                | "FIVE_COCK_DERBY"
+                | "SOLO"
+                | "OTHER"),
+        ageCategory: selectedEvent.ageCategory,
+        opponentStrength: 1200, // Default value, could be made configurable
+        timeToEvent: Math.max(
+          0,
+          Math.floor(
+            (new Date(selectedEvent.eventDate).getTime() -
+              new Date().getTime()) /
+              (1000 * 60 * 60 * 24)
+          )
+        ),
       };
 
       const response = await fetch("/api/recommendations/derby", {
@@ -50,82 +94,94 @@ export default function DerbyRecommendations() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedEvent]);
 
   useEffect(() => {
-    fetchRecommendations();
+    fetchEvents();
   }, []);
+
+  useEffect(() => {
+    if (selectedEvent) {
+      fetchRecommendations();
+    }
+  }, [selectedEvent, fetchRecommendations]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
         <h2 className="text-2xl font-bold mb-4">Derby Recommendations</h2>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
-          <div>
-            <label className="block text-sm font-medium mb-2">Event Type</label>
-            <select
-              value={eventType}
-              onChange={(e) => setEventType(e.target.value)}
-              className="w-full p-2 border rounded-md"
-            >
-              <option value="THREE_COCK_DERBY">3-Cock Derby</option>
-              <option value="FOUR_COCK_DERBY">4-Cock Derby</option>
-              <option value="FIVE_COCK_DERBY">5-Cock Derby</option>
-              <option value="SOLO">Solo</option>
-            </select>
-          </div>
-
+        {/* Event Selection */}
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
           <div>
             <label className="block text-sm font-medium mb-2">
-              Age Category
+              Select Event
             </label>
-            <select
-              value={ageCategory}
-              onChange={(e) => setAgeCategory(e.target.value)}
-              className="w-full p-2 border rounded-md"
-            >
-              <option value="ANY">Any</option>
-              <option value="STAG">Stag</option>
-              <option value="BULLSTAG">Bullstag</option>
-              <option value="COCK">Cock</option>
-            </select>
+            {loadingEvents ? (
+              <div className="w-full p-2 border rounded-md bg-gray-100 text-gray-500">
+                Loading events...
+              </div>
+            ) : events.length === 0 ? (
+              <div className="w-full p-2 border rounded-md bg-yellow-50 text-yellow-700">
+                No ongoing or upcoming events found
+              </div>
+            ) : (
+              <select
+                value={selectedEvent?.id || ""}
+                onChange={(e) => {
+                  const event = events.find(
+                    (ev) => ev.id === parseInt(e.target.value)
+                  );
+                  setSelectedEvent(event || null);
+                }}
+                className="w-full p-2 border rounded-md"
+              >
+                {events.map((event) => (
+                  <option key={event.id} value={event.id}>
+                    {event.eventName} -{" "}
+                    {new Date(event.eventDate).toLocaleDateString()}(
+                    {event.eventType.replace(/_/g, " ")}, {event.ageCategory})
+                    {event._count?.gamefowl
+                      ? ` - ${event._count.gamefowl} gamefowls assigned`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Opponent Strength (Elo)
-            </label>
-            <input
-              type="number"
-              value={opponentStrength}
-              onChange={(e) => setOpponentStrength(parseInt(e.target.value))}
-              className="w-full p-2 border rounded-md"
-              min="800"
-              max="2000"
-              step="50"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Days to Event
-            </label>
-            <input
-              type="number"
-              value={timeToEvent}
-              onChange={(e) => setTimeToEvent(parseInt(e.target.value))}
-              className="w-full p-2 border rounded-md"
-              min="0"
-              max="90"
-            />
-          </div>
+          {selectedEvent && (
+            <div className="mt-4 p-3 bg-blue-50 rounded-md">
+              <p className="text-sm text-blue-700">
+                <strong>Event Details:</strong>
+              </p>
+              <p className="text-sm text-gray-600 mt-1">
+                Type: {selectedEvent.eventType.replace(/_/g, " ")}
+              </p>
+              <p className="text-sm text-gray-600">
+                Category: {selectedEvent.ageCategory}
+              </p>
+              <p className="text-sm text-gray-600">
+                Days until event:{" "}
+                {Math.max(
+                  0,
+                  Math.floor(
+                    (new Date(selectedEvent.eventDate).getTime() -
+                      new Date().getTime()) /
+                      (1000 * 60 * 60 * 24)
+                  )
+                )}
+              </p>
+              <p className="text-sm text-gray-600">
+                {selectedEvent.description}
+              </p>
+            </div>
+          )}
         </div>
 
         <button
           onClick={fetchRecommendations}
-          disabled={loading}
+          disabled={loading || !selectedEvent}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
         >
           {loading ? "Loading..." : "Get Recommendations"}

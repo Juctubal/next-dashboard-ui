@@ -1,6 +1,6 @@
 import { Route } from "next";
 
-export const ITEM_PER_PAGE = 5;
+export const ITEM_PER_PAGE = 10;
 
 type RouteAccessMap = {
   [key: string]: string[];

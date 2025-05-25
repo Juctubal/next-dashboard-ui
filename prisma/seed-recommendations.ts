@@ -273,10 +273,19 @@ async function seedRecommendationData() {
         return g.age === event.ageCategory;
       });
 
+      // For derby events, one participant enters the required number of gamefowls
+      if (eligibleGamefowls.length < numGamefowls) {
+        console.log(
+          `Not enough eligible gamefowls for event ${event.eventName}. Skipping...`
+        );
+        continue;
+      }
+
+      // Select the exact number of gamefowls needed for this event
       const selectedGamefowls = faker.helpers.arrayElements(
         eligibleGamefowls,
-        numGamefowls * 4
-      ); // 4 participants
+        numGamefowls
+      );
 
       // Assign gamefowls to event
       for (const gamefowl of selectedGamefowls) {

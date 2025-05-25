@@ -24,6 +24,10 @@ This will create:
 
 - **250 Gamefowls** (200 males, 50 females) across 10 different bloodlines
 - **30 Past Events** with complete results for training
+  - Each event has 1 participant (handler/owner)
+  - Three-Cock Derby: 3 gamefowls per event
+  - Four-Cock Derby: 4 gamefowls per event
+  - Five-Cock Derby: 5 gamefowls per event
 - **500 Sparring Records** with Elo rating updates
 - **100 Breeding Records** for bloodline combination analysis
 - **50 Conditioning Records** for program effectiveness analysis
@@ -75,9 +79,11 @@ The training data includes realistic performance characteristics for each bloodl
 
 ### Event Types Distribution
 
-- Three-Cock Derby: 33%
-- Four-Cock Derby: 33%
-- Five-Cock Derby: 34%
+- Three-Cock Derby: 33% (3 gamefowls per event)
+- Four-Cock Derby: 33% (4 gamefowls per event)
+- Five-Cock Derby: 34% (5 gamefowls per event)
+
+Each event represents one participant entering their required number of gamefowls.
 
 ## How the Recommendations Work
 
@@ -87,6 +93,7 @@ The training data includes realistic performance characteristics for each bloodl
 - Considers health and conditioning readiness
 - Matches gamefowl characteristics to event requirements
 - Predicts win probability based on historical data
+- Recommends the exact number of gamefowls required for the event type
 
 ### 2. Breeding Pairs
 

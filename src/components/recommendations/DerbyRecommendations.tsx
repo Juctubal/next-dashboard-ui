@@ -24,6 +24,26 @@ export default function DerbyRecommendations() {
     null
   );
   const [loadingEvents, setLoadingEvents] = useState(true);
+  const [selectedGamefowls, setSelectedGamefowls] = useState<number[]>([]);
+  const [assigningGamefowls, setAssigningGamefowls] = useState(false);
+
+  // Get the required number of gamefowls based on event type
+  const getRequiredGamefowlCount = (eventType: EventType): number => {
+    switch (eventType) {
+      case "TWO_COCK_DERBY":
+        return 2;
+      case "THREE_COCK_DERBY":
+        return 3;
+      case "FOUR_COCK_DERBY":
+        return 4;
+      case "FIVE_COCK_DERBY":
+        return 5;
+      case "SOLO":
+        return 1;
+      default:
+        return 1;
+    }
+  };
 
   // Fetch upcoming/ongoing events
   const fetchEvents = async () => {
@@ -64,7 +84,6 @@ export default function DerbyRecommendations() {
                 | "SOLO"
                 | "OTHER"),
         ageCategory: selectedEvent.ageCategory,
-        opponentStrength: 1200, // Default value, could be made configurable
         timeToEvent: Math.max(
           0,
           Math.floor(
@@ -103,8 +122,76 @@ export default function DerbyRecommendations() {
   useEffect(() => {
     if (selectedEvent) {
       fetchRecommendations();
+      // Reset selections when event changes
+      setSelectedGamefowls([]);
     }
   }, [selectedEvent, fetchRecommendations]);
+
+  const handleGamefowlSelection = (gamefowlId: number) => {
+    if (!selectedEvent) return;
+
+    const maxSelections = getRequiredGamefowlCount(selectedEvent.eventType);
+
+    setSelectedGamefowls((prev) => {
+      if (prev.includes(gamefowlId)) {
+        // Remove from selection
+        return prev.filter((id) => id !== gamefowlId);
+      } else {
+        // Add to selection if under limit
+        if (prev.length < maxSelections) {
+          return [...prev, gamefowlId];
+        }
+        return prev;
+      }
+    });
+  };
+
+  const handleAssignToEvent = async () => {
+    if (!selectedEvent || selectedGamefowls.length === 0) return;
+
+    setAssigningGamefowls(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/events/${selectedEvent.id}/gamefowls`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            gamefowlIds: selectedGamefowls,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to assign gamefowls to event");
+      }
+
+      // Refresh the page or show success message
+      alert(
+        `Successfully assigned ${selectedGamefowls.length} gamefowls to ${selectedEvent.eventName}`
+      );
+
+      // Reset selections and refresh data
+      setSelectedGamefowls([]);
+      await fetchEvents();
+      await fetchRecommendations();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to assign gamefowls"
+      );
+    } finally {
+      setAssigningGamefowls(false);
+    }
+  };
+
+  const requiredCount = selectedEvent
+    ? getRequiredGamefowlCount(selectedEvent.eventType)
+    : 0;
+  const canAssign = selectedGamefowls.length === requiredCount;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -175,17 +262,49 @@ export default function DerbyRecommendations() {
               <p className="text-sm text-gray-600">
                 {selectedEvent.description}
               </p>
+              <div className="mt-2 p-2 bg-yellow-100 rounded text-sm">
+                <strong className="text-yellow-800">
+                  Required Gamefowls: {requiredCount}
+                </strong>
+                <span className="text-yellow-700 ml-2">
+                  (Selected: {selectedGamefowls.length}/{requiredCount})
+                </span>
+              </div>
             </div>
           )}
         </div>
 
-        <button
-          onClick={fetchRecommendations}
-          disabled={loading || !selectedEvent}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? "Loading..." : "Get Recommendations"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={fetchRecommendations}
+            disabled={loading || !selectedEvent}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? "Loading..." : "Get Recommendations"}
+          </button>
+
+          {selectedGamefowls.length > 0 && (
+            <button
+              onClick={handleAssignToEvent}
+              disabled={!canAssign || assigningGamefowls}
+              className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                canAssign
+                  ? "bg-green-600 text-white hover:bg-green-700"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
+            >
+              {assigningGamefowls
+                ? "Assigning..."
+                : canAssign
+                ? `Assign ${selectedGamefowls.length} Gamefowls to Event`
+                : `Select ${
+                    requiredCount - selectedGamefowls.length
+                  } more gamefowl${
+                    requiredCount - selectedGamefowls.length > 1 ? "s" : ""
+                  }`}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -196,128 +315,155 @@ export default function DerbyRecommendations() {
 
       {/* Recommendations List */}
       <div className="space-y-4">
-        {recommendations.map((rec, index) => (
-          <div
-            key={rec.gamefowlId}
-            className="bg-white p-6 rounded-lg shadow-md border"
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-4 mb-2">
-                  <span className="text-lg font-semibold">#{index + 1}</span>
-                  <h3 className="text-xl font-bold">{rec.gamefowlName}</h3>
-                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                    {rec.bloodline}
-                  </span>
-                </div>
+        {recommendations.map((rec, index) => {
+          const isSelected = selectedGamefowls.includes(rec.gamefowlId);
+          const canSelect =
+            selectedGamefowls.length < requiredCount || isSelected;
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Elo Rating</p>
-                    <p className="font-semibold">{rec.currentElo}</p>
+          return (
+            <div
+              key={rec.gamefowlId}
+              className={`bg-white p-6 rounded-lg shadow-md border transition-all ${
+                isSelected
+                  ? "ring-2 ring-blue-500 bg-blue-50"
+                  : canSelect
+                  ? "hover:shadow-lg cursor-pointer"
+                  : "opacity-60"
+              }`}
+              onClick={() =>
+                canSelect && handleGamefowlSelection(rec.gamefowlId)
+              }
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-4">
+                  {/* Selection Checkbox */}
+                  <div className="mt-1">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleGamefowlSelection(rec.gamefowlId)}
+                      disabled={!canSelect}
+                      className="h-5 w-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                      onClick={(e) => e.stopPropagation()}
+                    />
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Win Probability</p>
-                    <p className="font-semibold">
-                      {Math.round(rec.winProbability * 100)}%
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Health Ready</p>
-                    <div className="flex items-center">
-                      <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
-                        <div
-                          className="bg-green-600 h-2.5 rounded-full"
-                          style={{ width: `${rec.healthReadiness * 100}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-sm">
-                        {Math.round(rec.healthReadiness * 100)}%
+
+                  <div className="flex-1">
+                    <div className="flex items-center gap-4 mb-2">
+                      <span className="text-lg font-semibold">
+                        #{index + 1}
+                      </span>
+                      <h3 className="text-xl font-bold">{rec.gamefowlName}</h3>
+                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                        {rec.bloodline}
                       </span>
                     </div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Condition Ready</p>
-                    <div className="flex items-center">
-                      <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
-                        <div
-                          className="bg-blue-600 h-2.5 rounded-full"
-                          style={{ width: `${rec.conditionReadiness * 100}%` }}
-                        ></div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                      <div>
+                        <p className="text-sm text-gray-600">Elo Rating</p>
+                        <p className="font-semibold">{rec.currentElo}</p>
                       </div>
-                      <span className="text-sm">
-                        {Math.round(rec.conditionReadiness * 100)}%
-                      </span>
+                      <div>
+                        <p className="text-sm text-gray-600">Health Ready</p>
+                        <div className="flex items-center">
+                          <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
+                            <div
+                              className="bg-green-600 h-2.5 rounded-full"
+                              style={{ width: `${rec.healthReadiness * 100}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm">
+                            {Math.round(rec.healthReadiness * 100)}%
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Condition Ready</p>
+                        <div className="flex items-center">
+                          <div className="w-full bg-gray-200 rounded-full h-2.5 mr-2">
+                            <div
+                              className="bg-blue-600 h-2.5 rounded-full"
+                              style={{
+                                width: `${rec.conditionReadiness * 100}%`,
+                              }}
+                            ></div>
+                          </div>
+                          <span className="text-sm">
+                            {Math.round(rec.conditionReadiness * 100)}%
+                          </span>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Reasons */}
+                    {rec.reasons.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-sm font-semibold text-gray-700 mb-1">
+                          Strengths:
+                        </p>
+                        <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                          {rec.reasons.map((reason, idx) => (
+                            <li key={idx}>{reason}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Risk Factors */}
+                    {rec.riskFactors.length > 0 && (
+                      <div>
+                        <p className="text-sm font-semibold text-red-700 mb-1">
+                          Risk Factors:
+                        </p>
+                        <ul className="list-disc list-inside text-sm text-red-600 space-y-1">
+                          {rec.riskFactors.map((risk, idx) => (
+                            <li key={idx}>{risk}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Reasons */}
-                {rec.reasons.length > 0 && (
-                  <div className="mb-3">
-                    <p className="text-sm font-semibold text-gray-700 mb-1">
-                      Strengths:
-                    </p>
-                    <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                      {rec.reasons.map((reason, idx) => (
-                        <li key={idx}>{reason}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Risk Factors */}
-                {rec.riskFactors.length > 0 && (
-                  <div>
-                    <p className="text-sm font-semibold text-red-700 mb-1">
-                      Risk Factors:
-                    </p>
-                    <ul className="list-disc list-inside text-sm text-red-600 space-y-1">
-                      {rec.riskFactors.map((risk, idx) => (
-                        <li key={idx}>{risk}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              {/* Overall Score */}
-              <div className="ml-4 text-center">
-                <p className="text-sm text-gray-600 mb-1">Overall Score</p>
-                <div className="relative w-20 h-20">
-                  <svg className="w-20 h-20 transform -rotate-90">
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="36"
-                      stroke="#e5e7eb"
-                      strokeWidth="8"
-                      fill="none"
-                    />
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="36"
-                      stroke="#3b82f6"
-                      strokeWidth="8"
-                      fill="none"
-                      strokeDasharray={`${2 * Math.PI * 36}`}
-                      strokeDashoffset={`${
-                        2 * Math.PI * 36 * (1 - rec.overallScore)
-                      }`}
-                      className="transition-all duration-500"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xl font-bold">
-                      {Math.round(rec.overallScore * 100)}
-                    </span>
+                {/* Overall Score */}
+                <div className="ml-4 text-center">
+                  <p className="text-sm text-gray-600 mb-1">Overall Score</p>
+                  <div className="relative w-20 h-20">
+                    <svg className="w-20 h-20 transform -rotate-90">
+                      <circle
+                        cx="40"
+                        cy="40"
+                        r="36"
+                        stroke="#e5e7eb"
+                        strokeWidth="8"
+                        fill="none"
+                      />
+                      <circle
+                        cx="40"
+                        cy="40"
+                        r="36"
+                        stroke="#3b82f6"
+                        strokeWidth="8"
+                        fill="none"
+                        strokeDasharray={`${2 * Math.PI * 36}`}
+                        strokeDashoffset={`${
+                          2 * Math.PI * 36 * (1 - rec.overallScore)
+                        }`}
+                        className="transition-all duration-500"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xl font-bold">
+                        {Math.round(rec.overallScore * 100)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {recommendations.length === 0 && !loading && (

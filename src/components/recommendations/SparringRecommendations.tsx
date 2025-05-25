@@ -175,7 +175,7 @@ export default function SparringRecommendations() {
                       {rec.gamefowl1Name}
                     </p>
                     <p className="text-sm text-gray-600">
-                      Elo: {Math.round(rec.gamefowl1Id)}
+                      Elo: {Math.round(rec.gamefowl1Elo)}
                     </p>
                   </div>
                   <div className="bg-red-50 p-3 rounded">
@@ -183,7 +183,7 @@ export default function SparringRecommendations() {
                       {rec.gamefowl2Name}
                     </p>
                     <p className="text-sm text-gray-600">
-                      Elo: {Math.round(rec.gamefowl2Id)}
+                      Elo: {Math.round(rec.gamefowl2Elo)}
                     </p>
                   </div>
                 </div>
@@ -221,7 +221,10 @@ export default function SparringRecommendations() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Win Probability</p>
-                <p className="font-semibold">50-50</p>
+                <p className="font-semibold">
+                  {rec.gamefowl1WinProbability}% - {rec.gamefowl2WinProbability}
+                  %
+                </p>
               </div>
             </div>
 

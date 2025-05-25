@@ -59,6 +59,8 @@ const EventForm = ({
   );
   const [hasCompletedConditioning, setHasCompletedConditioning] =
     useState(false);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
 
   const {
     register,
@@ -82,6 +84,7 @@ const EventForm = ({
   const watchEventType = watch("eventType");
   const watchAgeCategory = watch("ageCategory");
   const watchStatus = watch("status");
+  const watchEventDate = watch("eventDate");
 
   // Update previous status when status changes
   useEffect(() => {
@@ -96,6 +99,13 @@ const EventForm = ({
       fetchGamefowls(watchAgeCategory);
     }
   }, [watchEventType, watchAgeCategory]);
+
+  // Fetch recommendations when eventType, ageCategory, or eventDate changes
+  useEffect(() => {
+    if (watchEventType && watchAgeCategory && watchEventDate) {
+      fetchRecommendations();
+    }
+  }, [watchEventType, watchAgeCategory, watchEventDate]);
 
   // Load existing participants when editing
   useEffect(() => {
@@ -157,6 +167,49 @@ const EventForm = ({
     }
   };
 
+  const fetchRecommendations = async () => {
+    if (!watchEventType || !watchAgeCategory || !watchEventDate) return;
+
+    setLoadingRecommendations(true);
+    try {
+      // Calculate days until event
+      const eventDate = new Date(watchEventDate);
+      const today = new Date();
+      const timeToEvent = Math.max(
+        0,
+        Math.floor(
+          (eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+        )
+      );
+
+      const response = await fetch("/api/recommendations/derby", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          eventType:
+            watchEventType === "TWO_COCK_DERBY" ? "OTHER" : watchEventType,
+          ageCategory: watchAgeCategory,
+          timeToEvent,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch recommendations");
+      }
+
+      const data = await response.json();
+      // Get only top 5 recommendations
+      setRecommendations(data.data.slice(0, 5));
+    } catch (error) {
+      console.error("Error fetching recommendations:", error);
+      setRecommendations([]);
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  };
+
   const handleGamefowlSelection = (gamefowlId: number) => {
     // Prevent selection if there are completed conditioning records
     if (hasCompletedConditioning) {
@@ -190,6 +243,14 @@ const EventForm = ({
     setValue("gamefowlIds", newSelectedGamefowls);
     // Clear any previous error when selection is valid
     setError(null);
+  };
+
+  const handleRecommendationClick = (gamefowlId: number) => {
+    // Check if gamefowl is in the available gamefowls list
+    const isAvailable = gamefowls.some((g) => g.id === gamefowlId);
+    if (isAvailable) {
+      handleGamefowlSelection(gamefowlId);
+    }
   };
 
   const getRequiredGamefowlCount = () => {
@@ -430,6 +491,97 @@ const EventForm = ({
               </p>
             )}
           </div>
+
+          {/* Recommended Gamefowls Section */}
+          {watchEventType &&
+            watchAgeCategory &&
+            watchEventDate &&
+            recommendations.length > 0 && (
+              <div className="flex flex-col gap-2 mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <label className="text-sm font-medium text-blue-900 dark:text-blue-300">
+                  🎯 Top 5 Recommended Gamefowls
+                </label>
+                {loadingRecommendations ? (
+                  <div className="text-center text-gray-500 dark:text-gray-400 py-2">
+                    Loading recommendations...
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {recommendations.map((rec, index) => {
+                      const isSelected = selectedGamefowls.includes(
+                        rec.gamefowlId
+                      );
+                      const isAvailable = gamefowls.some(
+                        (g) => g.id === rec.gamefowlId
+                      );
+
+                      return (
+                        <div
+                          key={rec.gamefowlId}
+                          className={`p-3 rounded-md border transition-all ${
+                            isSelected
+                              ? "bg-ggPurple text-white border-ggPurple"
+                              : isAvailable
+                              ? "bg-white dark:bg-gray-700 border-blue-200 dark:border-blue-700 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer"
+                              : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 opacity-60"
+                          }`}
+                          onClick={() =>
+                            isAvailable &&
+                            !hasCompletedConditioning &&
+                            handleRecommendationClick(rec.gamefowlId)
+                          }
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">
+                                  #{index + 1}
+                                </span>
+                                <span className="font-medium">
+                                  {rec.gamefowlName}
+                                </span>
+                                <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 rounded">
+                                  {rec.bloodline}
+                                </span>
+                              </div>
+                              <div className="text-xs mt-1 space-x-3">
+                                <span>Elo: {rec.currentElo}</span>
+                                <span>
+                                  Health:{" "}
+                                  {Math.round(rec.healthReadiness * 100)}%
+                                </span>
+                                <span>
+                                  Condition:{" "}
+                                  {Math.round(rec.conditionReadiness * 100)}%
+                                </span>
+                              </div>
+                              {rec.reasons.length > 0 && (
+                                <div className="text-xs mt-1 text-gray-600 dark:text-gray-400">
+                                  • {rec.reasons[0]}
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right ml-2">
+                              <div className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                {Math.round(rec.overallScore * 100)}%
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                Score
+                              </div>
+                            </div>
+                          </div>
+                          {!isAvailable && (
+                            <div className="text-xs text-red-500 dark:text-red-400 mt-1">
+                              Not available for this age category
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
           {/* Gamefowl Selection Section */}
           {watchEventType && watchAgeCategory && (

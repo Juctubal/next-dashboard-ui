@@ -128,13 +128,13 @@ export class RecommendationEngine {
    */
   async recommendForDerby(
     context: RecommendationContext,
-    limit: number = 10
+    limit: number = 5
   ): Promise<DerbyRecommendation[]> {
     // Get eligible gamefowls
     const whereClause: any = {
       isArchived: false,
       status: {
-        in: ["IDLE", "CONDITIONING"],
+        notIn: ["BREEDING", "INJURED", "DECEASED", "SOLD"],
       },
       sex: "MALE",
     };
@@ -149,6 +149,11 @@ export class RecommendationEngine {
       } else if (context.ageCategory === "COCK") {
         whereClause.age = "COCK";
       }
+    } else if (context.ageCategory === "ANY") {
+      // For ANY category, include STAG, BULLSTAG, and COCK
+      whereClause.age = {
+        in: ["STAG", "BULLSTAG", "COCK"],
+      };
     }
 
     const gamefowls = await this.prisma.gamefowl.findMany({
@@ -163,23 +168,11 @@ export class RecommendationEngine {
       );
       if (!performanceData) continue;
 
-      // Calculate win probability against expected competition
-      const opponentElo = context.opponentStrength || 1200;
-      const winProbability =
-        EloCalculator.getWinProbability(gamefowl.eloRating, opponentElo) / 100;
+      // Calculate overall score without win probability
+      const overallScore = this.calculateDerbyScore(performanceData, context);
 
-      // Calculate overall score
-      const overallScore = this.calculateDerbyScore(
-        performanceData,
-        winProbability,
-        context
-      );
-
-      // Generate reasons
-      const reasons = this.generateDerbyReasons(
-        performanceData,
-        winProbability
-      );
+      // Generate reasons without win probability
+      const reasons = this.generateDerbyReasons(performanceData);
       const riskFactors = this.identifyRiskFactors(performanceData, context);
 
       recommendations.push({
@@ -187,7 +180,6 @@ export class RecommendationEngine {
         gamefowlName: gamefowl.name,
         bloodline: gamefowl.bloodline,
         currentElo: gamefowl.eloRating,
-        winProbability,
         conditionReadiness: performanceData.conditioningScore,
         healthReadiness: performanceData.healthScore,
         overallScore,
@@ -362,11 +354,22 @@ export class RecommendationEngine {
           eloGap
         );
 
+        // Calculate win probabilities
+        const gamefowl1WinProbability = EloCalculator.getWinProbability(
+          gamefowl1.eloRating,
+          gamefowl2.eloRating
+        );
+        const gamefowl2WinProbability = 100 - gamefowl1WinProbability;
+
         recommendations.push({
           gamefowl1Id: gamefowl1.id,
           gamefowl2Id: gamefowl2.id,
           gamefowl1Name: gamefowl1.name,
           gamefowl2Name: gamefowl2.name,
+          gamefowl1Elo: gamefowl1.eloRating,
+          gamefowl2Elo: gamefowl2.eloRating,
+          gamefowl1WinProbability,
+          gamefowl2WinProbability,
           eloGap,
           matchBalance,
           expectedLearningValue,
@@ -441,22 +444,81 @@ export class RecommendationEngine {
 
   private calculateHealthScore(gamefowl: any): number {
     const now = Date.now();
-    const oneMonth = 30 * 24 * 60 * 60 * 1000;
+    const oneDay = 24 * 60 * 60 * 1000;
 
-    // Check recent vaccinations
-    const recentVaccines = gamefowl.vaccine.filter(
-      (v: any) => now - v.vaccinationDate.getTime() < 6 * oneMonth
-    );
+    // Define required vaccination intervals (in days)
+    const vaccineRequirements = {
+      "Newcastle Disease": 90,
+      "Fowl Pox": 365,
+      "Infectious Bronchitis": 60,
+      "Avian Influenza": 180,
+    };
 
-    // Check recent deworming
-    const recentDeworming = gamefowl.deworming.filter(
-      (d: any) => now - d.dewormDate.getTime() < 3 * oneMonth
-    );
+    // Calculate vaccination score
+    let vaccineScore = 0;
+    let requiredVaccines = 0;
+    let upToDateVaccines = 0;
 
-    const vaccineScore = Math.min(recentVaccines.length / 3, 1) * 0.5;
-    const dewormingScore = Math.min(recentDeworming.length / 2, 1) * 0.5;
+    for (const [vaccineName, intervalDays] of Object.entries(
+      vaccineRequirements
+    )) {
+      requiredVaccines++;
 
-    return vaccineScore + dewormingScore;
+      // Find most recent vaccination of this type
+      const mostRecent = gamefowl.vaccine.find(
+        (v: any) => v.name === vaccineName
+      );
+
+      if (mostRecent) {
+        const daysSinceVaccination = Math.floor(
+          (now - new Date(mostRecent.vaccinationDate).getTime()) / oneDay
+        );
+
+        if (daysSinceVaccination <= intervalDays) {
+          upToDateVaccines++;
+          // Give bonus points for recent vaccinations
+          const freshness = 1 - daysSinceVaccination / intervalDays;
+          vaccineScore += freshness * 0.25;
+        }
+      }
+    }
+
+    // Base vaccine score on percentage of up-to-date vaccines
+    vaccineScore =
+      (upToDateVaccines / requiredVaccines) * 0.5 + Math.min(vaccineScore, 0.1); // Cap bonus at 0.1
+
+    // Calculate deworming score
+    const dewormingInterval = 35; // days
+    let dewormingScore = 0;
+
+    if (gamefowl.deworming.length > 0) {
+      const mostRecentDeworming = gamefowl.deworming[0]; // Already ordered by date desc
+      const daysSinceDeworming = Math.floor(
+        (now - new Date(mostRecentDeworming.dewormDate).getTime()) / oneDay
+      );
+
+      if (daysSinceDeworming <= dewormingInterval) {
+        // Full score if dewormed within interval
+        dewormingScore = 0.4;
+        // Add freshness bonus
+        const freshness = 1 - daysSinceDeworming / dewormingInterval;
+        dewormingScore += freshness * 0.1;
+      } else if (daysSinceDeworming <= dewormingInterval * 1.5) {
+        // Partial score if slightly overdue
+        dewormingScore = 0.2;
+      }
+      // No score if significantly overdue
+    }
+
+    // Combined health score
+    const totalScore = vaccineScore + dewormingScore;
+
+    // Apply penalties for health issues
+    if (gamefowl.status === "INJURED") {
+      return totalScore * 0.5;
+    }
+
+    return Math.min(totalScore, 1);
   }
 
   private calculateConditioningScore(gamefowl: any): number {
@@ -474,7 +536,6 @@ export class RecommendationEngine {
 
   private calculateDerbyScore(
     performance: GamefowlPerformanceData,
-    winProbability: number,
     context: RecommendationContext
   ): number {
     const weights = this.weights;
@@ -534,38 +595,47 @@ export class RecommendationEngine {
 
   // Reason generation methods
 
-  private generateDerbyReasons(
-    performance: GamefowlPerformanceData,
-    winProbability: number
-  ): string[] {
-    const reasons = [];
+  private generateDerbyReasons(performance: GamefowlPerformanceData): string[] {
+    const reasons: string[] = [];
 
-    if (performance.eloRating >= 1400) {
+    if (performance.eloRating > 1300) {
       reasons.push(
-        `Elite rating of ${performance.eloRating} indicates championship potential`
+        `High Elo rating of ${performance.eloRating} indicates strong competitive ability`
       );
     }
 
-    if (winProbability > 0.7) {
+    if (performance.healthScore > 0.8) {
       reasons.push(
-        `High win probability of ${Math.round(
-          winProbability * 100
-        )}% against expected competition`
+        "Excellent health status with up-to-date vaccinations and deworming"
+      );
+    } else if (performance.healthScore > 0.6) {
+      reasons.push("Good health condition with recent medical care");
+    }
+
+    if (performance.conditioningScore > 0.7) {
+      reasons.push("Well-conditioned and ready for competition");
+    }
+
+    if (performance.recentFormScore > 0.7) {
+      reasons.push(
+        `Strong recent form with ${Math.round(
+          performance.recentFormScore * 100
+        )}% win rate in last 5 fights`
       );
     }
 
-    if (performance.recentFormScore > 0.8) {
-      reasons.push("Excellent recent form with strong winning streak");
-    }
-
-    if (performance.bloodlineStrength > 0.7) {
+    if (performance.bloodlineStrength > 0.6) {
       reasons.push(
-        `${performance.bloodline} bloodline shows exceptional historical performance`
+        `${performance.bloodline} bloodline shows proven success rate`
       );
     }
 
-    if (performance.healthScore > 0.9) {
-      reasons.push("Optimal health condition with up-to-date medical care");
+    if (performance.winRate > 0.65) {
+      reasons.push(
+        `Impressive career win rate of ${Math.round(
+          performance.winRate * 100
+        )}%`
+      );
     }
 
     return reasons;
@@ -575,26 +645,41 @@ export class RecommendationEngine {
     performance: GamefowlPerformanceData,
     context: RecommendationContext
   ): string[] {
-    const risks = [];
+    const risks: string[] = [];
+
+    if (performance.healthScore < 0.6) {
+      if (performance.healthScore < 0.3) {
+        risks.push(
+          "Critical health concerns - requires immediate medical attention"
+        );
+      } else {
+        risks.push(
+          "Below optimal health - check vaccination and deworming schedule"
+        );
+      }
+    }
+
+    if (performance.conditioningScore < 0.5) {
+      risks.push("Insufficient conditioning preparation");
+    }
 
     if (performance.recentFormScore < 0.3) {
-      risks.push("Poor recent form may indicate underlying issues");
+      risks.push("Poor recent performance record");
     }
 
-    if (performance.healthScore < 0.5) {
-      risks.push("Overdue for vaccination or deworming");
+    if (performance.totalFights < 3) {
+      risks.push("Limited fight experience");
     }
 
-    if (performance.totalFights < 5) {
-      risks.push("Limited fighting experience");
+    if (context.timeToEvent && context.timeToEvent < 7) {
+      if (performance.conditioningScore < 0.8) {
+        risks.push("Insufficient time for proper conditioning");
+      }
     }
 
-    if (
-      context.timeToEvent &&
-      context.timeToEvent < 7 &&
-      performance.conditioningScore < 0.6
-    ) {
-      risks.push("Insufficient conditioning time before event");
+    // Check for age-related risks
+    if (performance.ageCategory === "STAG" && performance.totalFights > 10) {
+      risks.push("High fight count for young age");
     }
 
     return risks;

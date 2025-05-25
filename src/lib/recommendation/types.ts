@@ -35,7 +35,6 @@ export interface DerbyRecommendation {
   gamefowlName: string;
   bloodline: string;
   currentElo: number;
-  winProbability: number;
   conditionReadiness: number;
   healthReadiness: number;
   overallScore: number;
@@ -48,6 +47,10 @@ export interface SparringMatchRecommendation {
   gamefowl2Id: number;
   gamefowl1Name: string;
   gamefowl2Name: string;
+  gamefowl1Elo: number;
+  gamefowl2Elo: number;
+  gamefowl1WinProbability: number;
+  gamefowl2WinProbability: number;
   eloGap: number;
   matchBalance: number; // 0-1, where 1 is perfectly balanced
   expectedLearningValue: number;
@@ -83,7 +86,6 @@ export interface RecommendationContext {
     | "SOLO"
     | "OTHER";
   ageCategory?: "STAG" | "BULLSTAG" | "COCK" | "ANY";
-  opponentStrength?: number; // Average Elo of expected opponents
   timeToEvent?: number; // Days until event
 }
 

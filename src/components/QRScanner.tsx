@@ -18,6 +18,24 @@ const QRScanner = ({ onClose }: QRScannerProps) => {
 
     const initializeScanner = async () => {
       try {
+        // Check for camera permissions first
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          // If we got here, permission was granted
+          // Stop the stream right away, we just needed to check permissions
+          stream.getTracks().forEach(track => track.stop());
+        } catch (permissionError: any) {
+          console.error("Camera permission error:", permissionError);
+          // Handle specific permission errors
+          if (permissionError.name === 'NotAllowedError' || 
+              permissionError.name === 'PermissionDeniedError') {
+            setError(
+              "Camera access was denied. Please grant camera permissions in your browser settings and try again."
+            );
+            return; // Exit early
+          }
+        }
+
         scanner = new Html5QrcodeScanner(
           "qr-reader",
           {
@@ -27,6 +45,10 @@ const QRScanner = ({ onClose }: QRScannerProps) => {
             showTorchButtonIfSupported: true,
             showZoomSliderIfSupported: true,
             defaultZoomValueIfSupported: 2,
+            formatsToSupport: [0], // QR code only
+            rememberLastUsedCamera: true,
+            useBarCodeDetectorIfSupported: true,
+            supportedScanTypes: [0, 1], // [SCAN_TYPE_CAMERA, SCAN_TYPE_FILE]
           },
           false
         );
@@ -57,11 +79,23 @@ const QRScanner = ({ onClose }: QRScannerProps) => {
         );
 
         setIsScanning(true);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error initializing QR scanner:", err);
-        setError(
-          "Failed to initialize camera. Please check your camera permissions."
-        );
+        
+        // Provide more specific error messages based on the error type
+        if (err.name === 'NotAllowedError' || err.message?.includes('Permission denied')) {
+          setError(
+            "Camera access was denied. Please check your browser settings and grant camera permissions."
+          );
+        } else if (err.name === 'NotFoundError' || err.message?.includes('Requested device not found')) {
+          setError("No camera found on your device.");
+        } else if (err.name === 'NotSupportedError') {
+          setError("Your browser doesn't support camera access. Try using Chrome or Safari.");
+        } else {
+          setError(
+            "Failed to initialize camera. Please check your camera permissions and try again."
+          );
+        }
       }
     };
 

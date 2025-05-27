@@ -446,49 +446,99 @@ export class RecommendationEngine {
     const now = Date.now();
     const oneDay = 24 * 60 * 60 * 1000;
 
-    // Define required vaccination intervals (in days)
-    const vaccineRequirements = {
-      "Newcastle Disease": 90,
-      "Fowl Pox": 365,
-      "Infectious Bronchitis": 60,
-      "Avian Influenza": 180,
-    };
+    // Calculate gamefowl age in days
+    const ageInDays = gamefowl.date_hatched
+      ? Math.floor((now - new Date(gamefowl.date_hatched).getTime()) / oneDay)
+      : 365; // Default to 1 year if no hatch date
+
+    // Define required vaccination intervals based on the seed data
+    const vaccineRequirements = [
+      { name: "Newcastle Disease (B1B1)", requiredAge: 7, intervalDays: 365 },
+      {
+        name: "Newcastle Disease (B1B1) - 2nd dose",
+        requiredAge: 21,
+        intervalDays: 365,
+      },
+      { name: "Fowl Pox", requiredAge: 35, intervalDays: 365 },
+      {
+        name: "Newcastle Disease (Lasota)",
+        requiredAge: 60,
+        intervalDays: 180,
+      },
+      {
+        name: "Newcastle Disease (Lasota) - Booster",
+        requiredAge: 120,
+        intervalDays: 180,
+      },
+      { name: "Fowl Cholera", requiredAge: 90, intervalDays: 365 },
+      { name: "Infectious Bronchitis", requiredAge: 14, intervalDays: 365 },
+      { name: "Marek's Disease", requiredAge: 1, intervalDays: 9999 }, // One-time vaccine
+    ];
 
     // Calculate vaccination score
     let vaccineScore = 0;
     let requiredVaccines = 0;
     let upToDateVaccines = 0;
+    let criticalMissing = false;
 
-    for (const [vaccineName, intervalDays] of Object.entries(
-      vaccineRequirements
-    )) {
-      requiredVaccines++;
+    for (const requirement of vaccineRequirements) {
+      // Only require vaccines appropriate for the gamefowl's age
+      if (ageInDays >= requirement.requiredAge) {
+        requiredVaccines++;
 
-      // Find most recent vaccination of this type
-      const mostRecent = gamefowl.vaccine.find(
-        (v: any) => v.name === vaccineName
-      );
-
-      if (mostRecent) {
-        const daysSinceVaccination = Math.floor(
-          (now - new Date(mostRecent.vaccinationDate).getTime()) / oneDay
+        // Find most recent vaccination of this type
+        const mostRecent = gamefowl.vaccine.find(
+          (v: any) =>
+            v.name === requirement.name ||
+            (requirement.name.includes("Booster") &&
+              v.name.includes("Annual Booster"))
         );
 
-        if (daysSinceVaccination <= intervalDays) {
-          upToDateVaccines++;
-          // Give bonus points for recent vaccinations
-          const freshness = 1 - daysSinceVaccination / intervalDays;
-          vaccineScore += freshness * 0.25;
+        if (mostRecent) {
+          const daysSinceVaccination = Math.floor(
+            (now - new Date(mostRecent.vaccinationDate).getTime()) / oneDay
+          );
+
+          if (daysSinceVaccination <= requirement.intervalDays) {
+            upToDateVaccines++;
+            // Give bonus points for recent vaccinations
+            const freshness =
+              1 - daysSinceVaccination / requirement.intervalDays;
+            vaccineScore += freshness * 0.05;
+          } else {
+            // Mark critical vaccines (Newcastle Disease) as missing
+            if (requirement.name.includes("Newcastle Disease")) {
+              criticalMissing = true;
+            }
+          }
+        } else {
+          // No vaccination record for required vaccine
+          if (
+            requirement.name.includes("Newcastle Disease") &&
+            ageInDays > requirement.requiredAge + 30
+          ) {
+            criticalMissing = true;
+          }
         }
       }
     }
 
     // Base vaccine score on percentage of up-to-date vaccines
-    vaccineScore =
-      (upToDateVaccines / requiredVaccines) * 0.5 + Math.min(vaccineScore, 0.1); // Cap bonus at 0.1
+    if (requiredVaccines > 0) {
+      vaccineScore =
+        (upToDateVaccines / requiredVaccines) * 0.5 +
+        Math.min(vaccineScore, 0.1);
+    } else {
+      vaccineScore = 0.5; // Young bird with no required vaccines yet
+    }
+
+    // Apply penalty for missing critical vaccines
+    if (criticalMissing) {
+      vaccineScore *= 0.5;
+    }
 
     // Calculate deworming score
-    const dewormingInterval = 35; // days
+    const dewormingInterval = ageInDays < 180 ? 45 : 90; // Different intervals based on age
     let dewormingScore = 0;
 
     if (gamefowl.deworming.length > 0) {
@@ -506,8 +556,29 @@ export class RecommendationEngine {
       } else if (daysSinceDeworming <= dewormingInterval * 1.5) {
         // Partial score if slightly overdue
         dewormingScore = 0.2;
+      } else if (daysSinceDeworming <= dewormingInterval * 2) {
+        // Low score if moderately overdue
+        dewormingScore = 0.1;
       }
       // No score if significantly overdue
+    } else if (ageInDays < 21) {
+      // Young birds not yet requiring deworming
+      dewormingScore = 0.5;
+    }
+
+    // Check for pre-conditioning deworming if in conditioning
+    if (gamefowl.status === "CONDITIONING" && gamefowl.deworming.length > 0) {
+      // Check if dewormed within last 14 days (pre-conditioning window)
+      const recentDeworming = gamefowl.deworming.find((d: any) => {
+        const daysSince = Math.floor(
+          (now - new Date(d.dewormDate).getTime()) / oneDay
+        );
+        return daysSince <= 14 && d.notes?.includes("Pre-conditioning");
+      });
+
+      if (recentDeworming) {
+        dewormingScore = Math.min(dewormingScore + 0.1, 0.5);
+      }
     }
 
     // Combined health score
@@ -516,6 +587,11 @@ export class RecommendationEngine {
     // Apply penalties for health issues
     if (gamefowl.status === "INJURED") {
       return totalScore * 0.5;
+    }
+
+    // Apply bonus for young healthy birds
+    if (ageInDays < 365 && totalScore > 0.8) {
+      return Math.min(totalScore * 1.1, 1);
     }
 
     return Math.min(totalScore, 1);
@@ -540,12 +616,21 @@ export class RecommendationEngine {
   ): number {
     const weights = this.weights;
 
+    // Get health impact multiplier from Bayesian analysis
+    const healthImpact = this.bayesian.predictHealthImpact(
+      performance.bloodline,
+      performance.healthScore
+    );
+
     let score =
       weights.eloWeight * (performance.eloRating / 1600) +
       weights.healthWeight * performance.healthScore +
       weights.conditioningWeight * performance.conditioningScore +
       weights.bloodlineWeight * performance.bloodlineStrength +
       weights.recentFormWeight * performance.recentFormScore;
+
+    // Apply health impact multiplier
+    score = score * healthImpact;
 
     // Adjust for context
     if (context.timeToEvent && context.timeToEvent < 7) {

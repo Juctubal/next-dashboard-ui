@@ -9,6 +9,7 @@ The recommendation system uses:
 - **Elo Rating System**: For calculating competitive strength
 - **Bayesian Analysis**: For learning from historical data patterns
 - **Machine Learning**: For predicting outcomes and making recommendations
+- **Health Data Integration**: For factoring in vaccine and deworming schedules
 
 ## Training Data Generation
 
@@ -37,6 +38,35 @@ This will create:
   - 30 past events (finished with results)
   - 35 events with conditioning programs
   - 10 general upcoming events
+- **Vaccine Records** (thousands):
+  - Age-based vaccination schedule
+  - Multiple vaccine types with realistic timing
+  - Annual boosters for older birds
+- **Deworming Records** (thousands):
+  - Regular deworming schedules based on age
+  - Pre-conditioning deworming
+  - Different intervals for young vs mature birds
+
+### Health Management Data
+
+The system now tracks comprehensive health data:
+
+#### Vaccine Schedule:
+
+- **Marek's Disease**: Day 1
+- **Newcastle Disease (B1B1)**: Day 7 and 21
+- **Infectious Bronchitis**: Day 14
+- **Fowl Pox**: Day 35
+- **Newcastle Disease (Lasota)**: Day 60 and 120
+- **Fowl Cholera**: Day 90
+- **Annual Boosters**: Yearly for birds over 1 year
+
+#### Deworming Schedule:
+
+- **First deworming**: 21 days old
+- **Young birds (< 6 months)**: Every 45 days
+- **Mature birds (> 6 months)**: Every 90 days
+- **Pre-conditioning**: 7 days before conditioning starts
 
 ### Conditioning and Status Management
 
@@ -71,19 +101,40 @@ This creates a realistic workflow where:
 After seeding the data, update the Bayesian priors:
 
 ```bash
-# Make sure your dev server is running first
-npm run dev
+# Option 1: Update via API (requires dev server running)
+npm run dev  # In one terminal
+npm run update:priors  # In another terminal
 
-# In another terminal, run:
-npm run update:priors
+# Option 2: Update standalone (no server required)
+npm run update:priors:standalone
 ```
 
-This analyzes the training data and updates:
+Both options update all types of priors:
 
-- Bloodline win rates
-- Bloodline combination success rates
-- Conditioning program effectiveness per bloodline
-- Age category performance metrics
+- **Performance Priors**: Bloodline win rates and fight statistics
+- **Breeding Priors**: Bloodline combination success rates
+- **Conditioning Priors**: Program effectiveness by bloodline
+- **Health Priors**:
+  - Vaccine effectiveness by bloodline
+  - Deworming effectiveness patterns
+  - Health-performance correlations
+
+The update process will:
+
+- Analyze vaccine compliance and effectiveness by bloodline
+- Track deworming effectiveness patterns
+- Calculate health-performance correlations
+- Generate insights about which bloodlines respond best to health protocols
+- Update bloodline win rates
+- Calculate bloodline combination success rates
+- Measure conditioning program effectiveness per bloodline
+- Determine age category performance metrics
+
+**Note**: Use the standalone option if:
+
+- You're running the update as part of a build process
+- The dev server isn't available
+- You want to update priors without API dependencies
 
 ## Data Characteristics
 
@@ -123,26 +174,49 @@ Each event represents one participant entering their required number of gamefowl
 ### 1. Derby Selection
 
 - Analyzes gamefowl Elo ratings and recent performance
+- **Evaluates health readiness based on vaccination and deworming status**
+- **Applies bloodline-specific health impact multipliers**
 - Considers health and conditioning readiness
 - Matches gamefowl characteristics to event requirements
 - Predicts win probability based on historical data
 - Recommends the exact number of gamefowls required for the event type
 
-### 2. Breeding Pairs
+### 2. Health Score Calculation
+
+The health score (0-1) is calculated based on:
+
+- **Vaccination Status (50% of score)**:
+  - Up-to-date vaccines based on age requirements
+  - Freshness bonus for recent vaccinations
+  - Penalties for missing critical vaccines (Newcastle Disease)
+- **Deworming Status (50% of score)**:
+  - Regular deworming compliance
+  - Age-appropriate intervals
+  - Pre-conditioning deworming bonus
+
+### 3. Bayesian Health Analysis
+
+The system learns health patterns:
+
+- **Vaccine Effectiveness**: Tracks how different bloodlines respond to vaccines
+- **Deworming Effectiveness**: Monitors parasite resistance by bloodline
+- **Health-Performance Correlation**: Learns how health impacts fight performance per bloodline
+
+### 4. Breeding Pairs
 
 - Evaluates genetic compatibility based on bloodline combinations
 - Predicts expected offspring Elo rating
 - Calculates genetic diversity score
 - Uses historical breeding success rates
 
-### 3. Sparring Matches
+### 5. Sparring Matches
 
 - Finds balanced matchups based on Elo ratings
 - Maximizes learning value while minimizing injury risk
 - Considers bloodline matchup history
 - Ensures competitive balance
 
-### 4. Conditioning Programs
+### 6. Conditioning Programs
 
 - Matches program intensity to gamefowl needs
 - Considers time until next event
@@ -157,6 +231,8 @@ To modify the training data characteristics, edit `prisma/seed-recommendations.t
 2. **Data Volume**: Adjust the loop counts for more/fewer records
 3. **Date Ranges**: Modify faker date generation parameters
 4. **Win Probabilities**: Adjust the randomness factors in result generation
+5. **Vaccine Types**: Modify the `vaccineTypes` array for different vaccines
+6. **Deworming Medicines**: Update the `dewormingMedicines` array
 
 ## Monitoring Model Performance
 
@@ -166,6 +242,17 @@ After training, monitor the recommendation quality by:
 2. Reviewing Elo rating changes over time
 3. Analyzing breeding success rates
 4. Tracking conditioning program effectiveness
+5. **Monitoring health score correlations with performance**
+6. **Reviewing vaccine and deworming compliance rates**
+
+## Health Data Integration
+
+The recommendation engine now considers:
+
+1. **Vaccine Compliance**: Gamefowls with up-to-date vaccines receive higher health scores
+2. **Deworming Schedule**: Regular deworming improves health readiness
+3. **Bloodline Health Patterns**: Some bloodlines may respond better to certain health protocols
+4. **Pre-event Health Checks**: System prioritizes well-maintained gamefowls for events
 
 ## Troubleshooting
 
@@ -196,6 +283,8 @@ npm run update:priors
 2. **Data Quality**: Ensure accurate result recording for better predictions
 3. **Balanced Data**: Maintain diverse representation across bloodlines
 4. **Performance Monitoring**: Track recommendation accuracy over time
+5. **Health Records**: Keep accurate vaccination and deworming records
+6. **Bloodline Health Tracking**: Monitor health patterns per bloodline
 
 ## Advanced Configuration
 

@@ -502,6 +502,220 @@ async function seedRecommendationData() {
       });
     }
 
+    // Create vaccine records
+    console.log("Creating vaccine records...");
+    const vaccineTypes = [
+      { name: "Newcastle Disease (B1B1)", ageInDays: 7 },
+      { name: "Newcastle Disease (B1B1) - 2nd dose", ageInDays: 21 },
+      { name: "Fowl Pox", ageInDays: 35 },
+      { name: "Newcastle Disease (Lasota)", ageInDays: 60 },
+      { name: "Newcastle Disease (Lasota) - Booster", ageInDays: 120 },
+      { name: "Fowl Cholera", ageInDays: 90 },
+      { name: "Infectious Bronchitis", ageInDays: 14 },
+      { name: "Marek's Disease", ageInDays: 1 },
+    ];
+
+    let vaccineCount = 0;
+    for (const gamefowl of [...gamefowls, ...femaleGamefowls]) {
+      // Calculate gamefowl age in days
+      const ageInDays = gamefowl.date_hatched
+        ? Math.floor(
+            (new Date().getTime() - gamefowl.date_hatched.getTime()) /
+              (1000 * 60 * 60 * 24)
+          )
+        : 365; // Default to 1 year if no hatch date
+
+      // Apply vaccines based on age
+      for (const vaccineType of vaccineTypes) {
+        if (ageInDays >= vaccineType.ageInDays) {
+          // Calculate when this vaccine should have been given
+          const vaccinationDate = new Date(
+            gamefowl.date_hatched!.getTime() +
+              vaccineType.ageInDays * 24 * 60 * 60 * 1000
+          );
+
+          // Add some randomness to vaccination dates (±3 days)
+          const dateOffset = faker.number.int({ min: -3, max: 3 });
+          vaccinationDate.setDate(vaccinationDate.getDate() + dateOffset);
+
+          // Only create record if vaccination date is in the past
+          if (vaccinationDate < new Date()) {
+            await prisma.vaccine.create({
+              data: {
+                gamefowlId: gamefowl.id,
+                vaccinationDate: vaccinationDate,
+                name: vaccineType.name,
+                notes: faker.helpers.arrayElement([
+                  "Administered successfully",
+                  "No adverse reactions",
+                  "Mild swelling at injection site",
+                  "Bird responded well",
+                  "",
+                ]),
+              },
+            });
+            vaccineCount++;
+          }
+        }
+      }
+
+      // Add some annual booster vaccines for older birds
+      if (ageInDays > 365) {
+        const yearsOld = Math.floor(ageInDays / 365);
+        for (let year = 1; year <= yearsOld; year++) {
+          const annualVaccineDate = new Date(
+            gamefowl.date_hatched!.getTime() + year * 365 * 24 * 60 * 60 * 1000
+          );
+
+          // Add randomness
+          annualVaccineDate.setDate(
+            annualVaccineDate.getDate() + faker.number.int({ min: -7, max: 7 })
+          );
+
+          if (annualVaccineDate < new Date()) {
+            await prisma.vaccine.create({
+              data: {
+                gamefowlId: gamefowl.id,
+                vaccinationDate: annualVaccineDate,
+                name: `Annual Booster - Newcastle Disease (Year ${year})`,
+                notes: "Annual vaccination completed",
+              },
+            });
+            vaccineCount++;
+          }
+        }
+      }
+    }
+
+    // Create deworming records
+    console.log("Creating deworming records...");
+    const dewormingMedicines = [
+      "Piperazine",
+      "Levamisole",
+      "Albendazole",
+      "Fenbendazole",
+      "Ivermectin",
+      "Mebendazole",
+    ];
+
+    let dewormingCount = 0;
+    for (const gamefowl of [...gamefowls, ...femaleGamefowls]) {
+      // Calculate gamefowl age in days
+      const ageInDays = gamefowl.date_hatched
+        ? Math.floor(
+            (new Date().getTime() - gamefowl.date_hatched.getTime()) /
+              (1000 * 60 * 60 * 24)
+          )
+        : 365;
+
+      // First deworming at 21 days
+      if (ageInDays >= 21) {
+        let dewormingDate = new Date(
+          gamefowl.date_hatched!.getTime() + 21 * 24 * 60 * 60 * 1000
+        );
+
+        // Add deworming every 45 days for first 6 months
+        while (
+          dewormingDate < new Date() &&
+          dewormingDate <
+            new Date(
+              gamefowl.date_hatched!.getTime() + 180 * 24 * 60 * 60 * 1000
+            )
+        ) {
+          // Add some randomness (±2 days)
+          const actualDate = new Date(dewormingDate);
+          actualDate.setDate(
+            actualDate.getDate() + faker.number.int({ min: -2, max: 2 })
+          );
+
+          await prisma.deworming.create({
+            data: {
+              gamefowlId: gamefowl.id,
+              dewormDate: actualDate,
+              name: faker.helpers.arrayElement(dewormingMedicines),
+              notes: faker.helpers.arrayElement([
+                "Regular deworming schedule",
+                "Preventive deworming",
+                "No worms observed",
+                "Mild infestation treated",
+                "Follow-up treatment recommended",
+                "",
+              ]),
+            },
+          });
+          dewormingCount++;
+
+          // Next deworming in 45 days
+          dewormingDate = new Date(
+            dewormingDate.getTime() + 45 * 24 * 60 * 60 * 1000
+          );
+        }
+
+        // After 6 months, deworm every 3 months
+        if (ageInDays > 180) {
+          dewormingDate = new Date(
+            gamefowl.date_hatched!.getTime() + 180 * 24 * 60 * 60 * 1000
+          );
+
+          while (dewormingDate < new Date()) {
+            // Add some randomness (±5 days)
+            const actualDate = new Date(dewormingDate);
+            actualDate.setDate(
+              actualDate.getDate() + faker.number.int({ min: -5, max: 5 })
+            );
+
+            await prisma.deworming.create({
+              data: {
+                gamefowlId: gamefowl.id,
+                dewormDate: actualDate,
+                name: faker.helpers.arrayElement(dewormingMedicines),
+                notes: faker.helpers.arrayElement([
+                  "Quarterly deworming",
+                  "Routine maintenance",
+                  "Good condition",
+                  "No signs of parasites",
+                  "",
+                ]),
+              },
+            });
+            dewormingCount++;
+
+            // Next deworming in 3 months
+            dewormingDate = new Date(
+              dewormingDate.getTime() + 90 * 24 * 60 * 60 * 1000
+            );
+          }
+        }
+      }
+
+      // Add some conditioning-related deworming (before events)
+      // Check if this gamefowl is in any conditioning program
+      const gamefowlConditioning = await prisma.conditioningGamefowl.findMany({
+        where: { gamefowlId: gamefowl.id },
+        include: { conditioning: true },
+      });
+
+      for (const condGamefowl of gamefowlConditioning) {
+        // Deworm 7 days before conditioning starts
+        const preDewormDate = new Date(
+          condGamefowl.conditioning.startDate.getTime() -
+            7 * 24 * 60 * 60 * 1000
+        );
+
+        if (preDewormDate < new Date()) {
+          await prisma.deworming.create({
+            data: {
+              gamefowlId: gamefowl.id,
+              dewormDate: preDewormDate,
+              name: faker.helpers.arrayElement(["Ivermectin", "Albendazole"]),
+              notes: "Pre-conditioning deworming",
+            },
+          });
+          dewormingCount++;
+        }
+      }
+    }
+
     console.log("✅ Recommendation training data seeded successfully!");
 
     // Get counts for summary
@@ -516,7 +730,9 @@ async function seedRecommendationData() {
       - ${totalConditioning} conditioning records (all linked to events, 1:1 relationship)
       - ${totalEvents} total events (${pastEvents.length} past, ${
       conditioningEvents.length
-    } with conditioning, 10 upcoming)`);
+    } with conditioning, 10 upcoming)
+      - ${vaccineCount} vaccine records
+      - ${dewormingCount} deworming records`);
   } catch (error) {
     console.error("Error seeding data:", error);
     throw error;

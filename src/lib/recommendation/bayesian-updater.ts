@@ -20,6 +20,7 @@ export class BayesianUpdater {
       this.updateBloodlinePerformance(),
       this.updateBreedingCombinations(),
       this.updateConditioningEffectiveness(),
+      this.updateHealthPriors(),
     ]);
   }
 
@@ -176,6 +177,146 @@ export class BayesianUpdater {
         );
       }
     }
+  }
+
+  /**
+   * Update health-related priors (vaccines and deworming)
+   */
+  async updateHealthPriors(): Promise<void> {
+    const gamefowls = await this.prisma.gamefowl.findMany({
+      where: {
+        isArchived: false,
+      },
+      include: {
+        vaccine: {
+          orderBy: { vaccinationDate: "desc" },
+        },
+        deworming: {
+          orderBy: { dewormDate: "desc" },
+        },
+        sparring_winner: true,
+        sparring_loser: true,
+        EventResult: true,
+      },
+    });
+
+    for (const gamefowl of gamefowls) {
+      // Calculate performance metrics
+      const wins = gamefowl.sparring_winner.length;
+      const losses = gamefowl.sparring_loser.length;
+      const totalFights = wins + losses;
+      const winRate = totalFights > 0 ? wins / totalFights : 0;
+
+      // Calculate event performance
+      const eventWins = gamefowl.EventResult.filter(
+        (r) => r.result === "WIN"
+      ).length;
+      const eventTotal = gamefowl.EventResult.length;
+      const eventWinRate = eventTotal > 0 ? eventWins / eventTotal : winRate;
+
+      // Overall performance score
+      const performanceScore = (winRate + eventWinRate) / 2;
+
+      // Calculate health score components
+      const now = Date.now();
+      const oneDay = 24 * 60 * 60 * 1000;
+      const ageInDays = gamefowl.date_hatched
+        ? Math.floor((now - new Date(gamefowl.date_hatched).getTime()) / oneDay)
+        : 365;
+
+      // Vaccine compliance score
+      const requiredVaccines = this.getRequiredVaccines(ageInDays);
+      let vaccineCompliance = 0;
+      let vaccineCount = 0;
+
+      for (const vaccine of requiredVaccines) {
+        const hasVaccine = gamefowl.vaccine.some((v) => {
+          const daysSince = Math.floor(
+            (now - new Date(v.vaccinationDate).getTime()) / oneDay
+          );
+          return v.name === vaccine.name && daysSince <= vaccine.intervalDays;
+        });
+
+        if (hasVaccine) {
+          vaccineCompliance++;
+
+          // Update vaccine effectiveness for this bloodline
+          this.analyzer.updateVaccineEffectiveness(
+            gamefowl.bloodline,
+            vaccine.name,
+            0.7 + performanceScore * 0.3 // Base effectiveness + performance bonus
+          );
+        }
+        vaccineCount++;
+      }
+
+      const vaccineScore =
+        vaccineCount > 0 ? vaccineCompliance / vaccineCount : 0;
+
+      // Deworming compliance score
+      const dewormingInterval = ageInDays < 180 ? 45 : 90;
+      let dewormingScore = 0;
+
+      if (gamefowl.deworming.length > 0) {
+        const daysSinceDeworming = Math.floor(
+          (now - new Date(gamefowl.deworming[0].dewormDate).getTime()) / oneDay
+        );
+
+        if (daysSinceDeworming <= dewormingInterval) {
+          dewormingScore = 1;
+        } else if (daysSinceDeworming <= dewormingInterval * 1.5) {
+          dewormingScore = 0.5;
+        }
+
+        // Update deworming effectiveness
+        this.analyzer.updateDewormingEffectiveness(
+          gamefowl.bloodline,
+          0.8 + performanceScore * 0.2 // Base effectiveness + performance bonus
+        );
+      }
+
+      // Overall health score
+      const healthScore = (vaccineScore + dewormingScore) / 2;
+
+      // Update health-performance correlation
+      if (totalFights > 0 || eventTotal > 0) {
+        this.analyzer.updateHealthPerformanceCorrelation(
+          gamefowl.bloodline,
+          healthScore,
+          performanceScore
+        );
+      }
+    }
+  }
+
+  /**
+   * Helper method to get required vaccines based on age
+   */
+  private getRequiredVaccines(ageInDays: number) {
+    const vaccines = [
+      { name: "Newcastle Disease (B1B1)", requiredAge: 7, intervalDays: 365 },
+      {
+        name: "Newcastle Disease (B1B1) - 2nd dose",
+        requiredAge: 21,
+        intervalDays: 365,
+      },
+      { name: "Fowl Pox", requiredAge: 35, intervalDays: 365 },
+      {
+        name: "Newcastle Disease (Lasota)",
+        requiredAge: 60,
+        intervalDays: 180,
+      },
+      {
+        name: "Newcastle Disease (Lasota) - Booster",
+        requiredAge: 120,
+        intervalDays: 180,
+      },
+      { name: "Fowl Cholera", requiredAge: 90, intervalDays: 365 },
+      { name: "Infectious Bronchitis", requiredAge: 14, intervalDays: 365 },
+      { name: "Marek's Disease", requiredAge: 1, intervalDays: 9999 },
+    ];
+
+    return vaccines.filter((v) => ageInDays >= v.requiredAge);
   }
 
   /**

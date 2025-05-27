@@ -12,6 +12,9 @@ export class BayesianAnalyzer {
       bloodlineCombinations: {},
       conditioningEffectiveness: {},
       agePerformance: {},
+      vaccineEffectiveness: {},
+      dewormingEffectiveness: {},
+      healthToPerformanceCorrelation: {},
     };
   }
 
@@ -211,6 +214,109 @@ export class BayesianAnalyzer {
   }
 
   /**
+   * Update vaccine effectiveness for a bloodline
+   * @param bloodline Gamefowl bloodline
+   * @param vaccine Vaccine name
+   * @param healthOutcome Health score after vaccination (0-1)
+   */
+  updateVaccineEffectiveness(
+    bloodline: string,
+    vaccine: string,
+    healthOutcome: number
+  ): void {
+    if (!this.priors.vaccineEffectiveness[bloodline]) {
+      this.priors.vaccineEffectiveness[bloodline] = {};
+    }
+
+    const currentPrior =
+      this.priors.vaccineEffectiveness[bloodline][vaccine] || 0.7; // Default effectiveness
+
+    // Weighted update
+    const weight = 0.1;
+    this.priors.vaccineEffectiveness[bloodline][vaccine] =
+      weight * healthOutcome + (1 - weight) * currentPrior;
+  }
+
+  /**
+   * Update deworming effectiveness for a bloodline
+   * @param bloodline Gamefowl bloodline
+   * @param effectiveness Observed effectiveness (0-1)
+   */
+  updateDewormingEffectiveness(bloodline: string, effectiveness: number): void {
+    const currentPrior = this.priors.dewormingEffectiveness[bloodline] || 0.8;
+
+    // Weighted update
+    const weight = 0.15;
+    this.priors.dewormingEffectiveness[bloodline] =
+      weight * effectiveness + (1 - weight) * currentPrior;
+  }
+
+  /**
+   * Update health to performance correlation
+   * @param bloodline Gamefowl bloodline
+   * @param healthScore Current health score
+   * @param performanceScore Fight performance score
+   */
+  updateHealthPerformanceCorrelation(
+    bloodline: string,
+    healthScore: number,
+    performanceScore: number
+  ): void {
+    const currentCorrelation =
+      this.priors.healthToPerformanceCorrelation[bloodline] || 0.5;
+
+    // Calculate correlation factor
+    const correlationFactor = healthScore * performanceScore;
+
+    // Weighted update
+    const weight = 0.1;
+    this.priors.healthToPerformanceCorrelation[bloodline] =
+      weight * correlationFactor + (1 - weight) * currentCorrelation;
+  }
+
+  /**
+   * Get vaccine effectiveness for a bloodline
+   * @param bloodline Gamefowl bloodline
+   * @param vaccine Vaccine name
+   * @returns Effectiveness score (0-1)
+   */
+  getVaccineEffectiveness(bloodline: string, vaccine: string): number {
+    if (this.priors.vaccineEffectiveness[bloodline]?.[vaccine]) {
+      return this.priors.vaccineEffectiveness[bloodline][vaccine];
+    }
+
+    // Check if we have data for this vaccine across other bloodlines
+    let totalEffectiveness = 0;
+    let count = 0;
+
+    for (const bl in this.priors.vaccineEffectiveness) {
+      if (this.priors.vaccineEffectiveness[bl][vaccine] !== undefined) {
+        totalEffectiveness += this.priors.vaccineEffectiveness[bl][vaccine];
+        count++;
+      }
+    }
+
+    return count > 0 ? totalEffectiveness / count : 0.7; // Default to 0.7 if no data
+  }
+
+  /**
+   * Predict health impact on performance
+   * @param bloodline Gamefowl bloodline
+   * @param currentHealthScore Current health score
+   * @returns Expected performance multiplier
+   */
+  predictHealthImpact(bloodline: string, currentHealthScore: number): number {
+    const correlation =
+      this.priors.healthToPerformanceCorrelation[bloodline] || 0.5;
+
+    // Health impact follows a sigmoid curve
+    const baseImpact = 1 / (1 + Math.exp(-10 * (currentHealthScore - 0.5)));
+
+    // Adjust based on bloodline-specific correlation
+    return baseImpact * (0.5 + correlation);
+  }
+
+  /**
    * Get prior beliefs summary
    * @returns Summary of current Bayesian priors
    */
@@ -218,6 +324,17 @@ export class BayesianAnalyzer {
     topBloodlines: Array<{ bloodline: string; winRate: number }>;
     bestCombinations: Array<{ combination: string; successRate: number }>;
     effectivePrograms: Array<{ program: string; avgEffectiveness: number }>;
+    healthInsights: {
+      vaccineResponsiveness: Array<{ bloodline: string; avgResponse: number }>;
+      dewormingResponsiveness: Array<{
+        bloodline: string;
+        effectiveness: number;
+      }>;
+      healthPerformanceCorrelation: Array<{
+        bloodline: string;
+        correlation: number;
+      }>;
+    };
   } {
     // Top bloodlines by win rate
     const topBloodlines = Object.entries(this.priors.bloodlineWinRates)
@@ -241,7 +358,38 @@ export class BayesianAnalyzer {
       }))
       .sort((a, b) => b.avgEffectiveness - a.avgEffectiveness);
 
-    return { topBloodlines, bestCombinations, effectivePrograms };
+    // Health insights
+    const vaccineResponsiveness = Object.entries(
+      this.priors.vaccineEffectiveness
+    )
+      .map(([bloodline, vaccines]) => ({
+        bloodline,
+        avgResponse: this.calculateAverage(Object.values(vaccines)),
+      }))
+      .sort((a, b) => b.avgResponse - a.avgResponse);
+
+    const dewormingResponsiveness = Object.entries(
+      this.priors.dewormingEffectiveness
+    )
+      .map(([bloodline, effectiveness]) => ({ bloodline, effectiveness }))
+      .sort((a, b) => b.effectiveness - a.effectiveness);
+
+    const healthPerformanceCorrelation = Object.entries(
+      this.priors.healthToPerformanceCorrelation
+    )
+      .map(([bloodline, correlation]) => ({ bloodline, correlation }))
+      .sort((a, b) => b.correlation - a.correlation);
+
+    return {
+      topBloodlines,
+      bestCombinations,
+      effectivePrograms,
+      healthInsights: {
+        vaccineResponsiveness,
+        dewormingResponsiveness,
+        healthPerformanceCorrelation,
+      },
+    };
   }
 
   /**

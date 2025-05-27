@@ -76,6 +76,9 @@ export interface BayesianPrior {
   bloodlineCombinations: Record<string, number>;
   conditioningEffectiveness: Record<string, Record<string, number>>; // programId -> bloodline -> effectiveness
   agePerformance: Record<string, number>;
+  vaccineEffectiveness: Record<string, Record<string, number>>; // bloodline -> vaccine -> effectiveness
+  dewormingEffectiveness: Record<string, number>; // bloodline -> effectiveness
+  healthToPerformanceCorrelation: Record<string, number>; // bloodline -> correlation
 }
 
 export interface RecommendationContext {

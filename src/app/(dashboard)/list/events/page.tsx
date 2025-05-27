@@ -239,6 +239,14 @@ const EventListPage = () => {
 
   const p = page ? parseInt(page) : 1;
 
+  const getTabParams = (targetTab: string) => {
+    // Only include tab and page when switching tabs
+    return {
+      tab: targetTab,
+      ...(page && { page: "1" }), // Reset to first page when switching tabs
+    };
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -332,15 +340,7 @@ const EventListPage = () => {
         <Link
           href={{
             pathname: "/list/events",
-            query: {
-              tab: "events",
-              ...(page && { page }),
-              ...(sortBy && { sortBy }),
-              sortOrder,
-              ...(eventType && { eventType }),
-              ...(ageCategory && { ageCategory }),
-              ...(status && { status }),
-            },
+            query: getTabParams("events"),
           }}
           className={`px-4 py-2 font-medium text-sm ${
             tab === "events"
@@ -353,12 +353,7 @@ const EventListPage = () => {
         <Link
           href={{
             pathname: "/list/events",
-            query: {
-              tab: "conditioningPrograms",
-              ...(page && { page }),
-              ...(sortBy && { sortBy }),
-              sortOrder,
-            },
+            query: getTabParams("conditioningPrograms"),
           }}
           className={`px-4 py-2 font-medium text-sm ${
             tab === "conditioningPrograms"
@@ -371,15 +366,7 @@ const EventListPage = () => {
         <Link
           href={{
             pathname: "/list/events",
-            query: {
-              tab: "conditioning",
-              ...(page && { page }),
-              ...(sortBy && { sortBy }),
-              sortOrder,
-              ...(status && { status }),
-              ...(startDate && { startDate }),
-              ...(endDate && { endDate }),
-            },
+            query: getTabParams("conditioning"),
           }}
           className={`px-4 py-2 font-medium text-sm ${
             tab === "conditioning"

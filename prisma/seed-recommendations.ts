@@ -559,10 +559,22 @@ async function seedRecommendationData() {
         }
       }
 
-      // Add some annual booster vaccines for older birds
+      // Add annual booster vaccines based on age category
       if (ageInDays > 365) {
         const yearsOld = Math.floor(ageInDays / 365);
-        for (let year = 1; year <= yearsOld; year++) {
+
+        // Determine booster frequency based on age category
+        let boosterInterval = 1; // Default for STAG and BULLSTAG
+        if (gamefowl.age === "COCK") {
+          boosterInterval = 3; // Every 3 years for COCK
+        }
+
+        // Add boosters based on the determined interval
+        for (
+          let year = boosterInterval;
+          year <= yearsOld;
+          year += boosterInterval
+        ) {
           const annualVaccineDate = new Date(
             gamefowl.date_hatched!.getTime() + year * 365 * 24 * 60 * 60 * 1000
           );
@@ -578,7 +590,7 @@ async function seedRecommendationData() {
                 gamefowlId: gamefowl.id,
                 vaccinationDate: annualVaccineDate,
                 name: `Annual Booster - Newcastle Disease (Year ${year})`,
-                notes: "Annual vaccination completed",
+                notes: `Annual vaccination completed - ${gamefowl.age} booster schedule`,
               },
             });
             vaccineCount++;
@@ -614,7 +626,7 @@ async function seedRecommendationData() {
           gamefowl.date_hatched!.getTime() + 21 * 24 * 60 * 60 * 1000
         );
 
-        // Add deworming every 45 days for first 6 months
+        // Add deworming every 180 days for first 6 months (reduced from 45 days)
         while (
           dewormingDate < new Date() &&
           dewormingDate <
@@ -645,13 +657,13 @@ async function seedRecommendationData() {
           });
           dewormingCount++;
 
-          // Next deworming in 45 days
+          // Next deworming in 180 days (reduced from 45 days)
           dewormingDate = new Date(
-            dewormingDate.getTime() + 45 * 24 * 60 * 60 * 1000
+            dewormingDate.getTime() + 180 * 24 * 60 * 60 * 1000
           );
         }
 
-        // After 6 months, deworm every 3 months
+        // After 6 months, deworm every 6 months (reduced from 3 months)
         if (ageInDays > 180) {
           dewormingDate = new Date(
             gamefowl.date_hatched!.getTime() + 180 * 24 * 60 * 60 * 1000
@@ -680,9 +692,9 @@ async function seedRecommendationData() {
             });
             dewormingCount++;
 
-            // Next deworming in 3 months
+            // Next deworming in 6 months (reduced from 3 months)
             dewormingDate = new Date(
-              dewormingDate.getTime() + 90 * 24 * 60 * 60 * 1000
+              dewormingDate.getTime() + 180 * 24 * 60 * 60 * 1000
             );
           }
         }

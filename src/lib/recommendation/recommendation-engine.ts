@@ -481,6 +481,9 @@ export class RecommendationEngine {
     let upToDateVaccines = 0;
     let criticalMissing = false;
 
+    // Determine booster interval based on age category
+    const boosterInterval = gamefowl.age === "COCK" ? 365 * 3 : 365; // 3 years for COCK, 1 year for others
+
     for (const requirement of vaccineRequirements) {
       // Only require vaccines appropriate for the gamefowl's age
       if (ageInDays >= requirement.requiredAge) {
@@ -499,11 +502,15 @@ export class RecommendationEngine {
             (now - new Date(mostRecent.vaccinationDate).getTime()) / oneDay
           );
 
-          if (daysSinceVaccination <= requirement.intervalDays) {
+          // Use appropriate interval for boosters
+          const intervalDays = requirement.name.includes("Booster")
+            ? boosterInterval
+            : requirement.intervalDays;
+
+          if (daysSinceVaccination <= intervalDays) {
             upToDateVaccines++;
             // Give bonus points for recent vaccinations
-            const freshness =
-              1 - daysSinceVaccination / requirement.intervalDays;
+            const freshness = 1 - daysSinceVaccination / intervalDays;
             vaccineScore += freshness * 0.05;
           } else {
             // Mark critical vaccines (Newcastle Disease) as missing
@@ -538,7 +545,7 @@ export class RecommendationEngine {
     }
 
     // Calculate deworming score
-    const dewormingInterval = ageInDays < 180 ? 45 : 90; // Different intervals based on age
+    const dewormingInterval = ageInDays < 180 ? 180 : 180; // Both intervals are now 180 days
     let dewormingScore = 0;
 
     if (gamefowl.deworming.length > 0) {
@@ -568,12 +575,12 @@ export class RecommendationEngine {
 
     // Check for pre-conditioning deworming if in conditioning
     if (gamefowl.status === "CONDITIONING" && gamefowl.deworming.length > 0) {
-      // Check if dewormed within last 14 days (pre-conditioning window)
+      // Check if dewormed within last 30 days (increased from 14 days due to reduced frequency)
       const recentDeworming = gamefowl.deworming.find((d: any) => {
         const daysSince = Math.floor(
           (now - new Date(d.dewormDate).getTime()) / oneDay
         );
-        return daysSince <= 14 && d.notes?.includes("Pre-conditioning");
+        return daysSince <= 30 && d.notes?.includes("Pre-conditioning");
       });
 
       if (recentDeworming) {

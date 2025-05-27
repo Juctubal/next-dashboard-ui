@@ -47,7 +47,7 @@ const ConditioningTableRow = ({ item, role }: ConditioningTableRowProps) => {
   const router = useRouter();
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<ConditioningStatus>(
-    item.status as ConditioningStatus
+    item.status || "ASSIGNED"
   );
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [showStatusConfirmation, setShowStatusConfirmation] = useState(false);
@@ -55,6 +55,12 @@ const ConditioningTableRow = ({ item, role }: ConditioningTableRowProps) => {
     null
   );
   const statusDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (item.status) {
+      setCurrentStatus(item.status);
+    }
+  }, [item.status]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -127,22 +133,28 @@ const ConditioningTableRow = ({ item, role }: ConditioningTableRowProps) => {
       >
         <td className="p-4 dark:text-gray-200">
           <div className="flex flex-wrap gap-1">
-            {item.gamefowls.map(({ gamefowl }) => (
+            {item.gamefowls?.map(({ gamefowl }) => (
               <span
                 key={gamefowl.id}
                 className="px-2 py-1 bg-ggPurpleLight dark:bg-gray-700 rounded-md text-xs"
               >
                 {gamefowl.name} (ID: {gamefowl.id})
               </span>
-            ))}
+            )) || (
+              <span className="text-gray-500 dark:text-gray-400 text-xs">
+                No gamefowls assigned
+              </span>
+            )}
           </div>
         </td>
-        <td className="p-4 dark:text-gray-200">{item.conProg.programName}</td>
+        <td className="p-4 dark:text-gray-200">
+          {item.conProg?.programName || "No program assigned"}
+        </td>
         <td className="p-4 dark:text-gray-200">
           {item.event?.eventName || "No event"}
         </td>
         <td className="p-4 dark:text-gray-200">
-          {item.handler.first_name} {item.handler.last_name}
+          {item.handler?.first_name} {item.handler?.last_name}
         </td>
         <td className="hidden md:table-cell p-4 dark:text-gray-200">
           {formatDate(item.startDate)}

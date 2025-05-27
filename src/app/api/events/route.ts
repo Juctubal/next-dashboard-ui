@@ -1,82 +1,156 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { headers } from "next/headers";
+import { ITEM_PER_PAGE } from "@/lib/settings";
+import { NextResponse } from "next/server";
 
-// Cache duration in seconds (5 minutes)
-const CACHE_DURATION = 300;
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const page = parseInt(searchParams.get("page") || "1");
+  const tab = searchParams.get("tab") || "events";
+  const sortBy = searchParams.get("sortBy");
+  const sortOrder = searchParams.get("sortOrder") || "desc";
+  const eventType = searchParams.get("eventType");
+  const ageCategory = searchParams.get("ageCategory");
+  const status = searchParams.get("status");
+  const startDate = searchParams.get("startDate");
+  const endDate = searchParams.get("endDate");
 
-interface EventData {
-  id: number;
-  eventName: string;
-  eventDate: string;
-  description: string;
-}
+  // URL PARAMS CONDITION
+  const eventQuery: any = {};
+  const conditioningProgramQuery: any = {};
+  const conditioningQuery: any = {};
 
-// In-memory cache
-let cache: {
-  data: EventData[] | null;
-  timestamp: number;
-} = {
-  data: null,
-  timestamp: 0,
-};
+  // Handle event filters
+  if (eventType && eventType !== "all") {
+    eventQuery.eventType = eventType;
+  }
 
-export async function GET() {
-  try {
-    // Check if we have cached data that's still valid
-    const now = Date.now();
-    if (cache.data && now - cache.timestamp < CACHE_DURATION * 1000) {
-      return NextResponse.json(cache.data, {
-        headers: {
-          "Cache-Control": "public, max-age=300",
-        },
-      });
+  if (ageCategory && ageCategory !== "all") {
+    eventQuery.ageCategory = ageCategory;
+  }
+
+  if (status && status !== "all") {
+    eventQuery.status = status;
+  }
+
+  // Handle conditioning filters
+  if (tab === "conditioning") {
+    if (status && status !== "all") {
+      conditioningQuery.status = status;
     }
 
-    // Fetch events from the database
-    const events = await prisma.event.findMany({
-      orderBy: {
-        eventDate: "asc",
-      },
-      select: {
-        id: true,
-        eventName: true,
-        eventDate: true,
-        eventType: true,
-        ageCategory: true,
-        description: true,
-      },
-    });
+    if (startDate) {
+      conditioningQuery.startDate = {
+        gte: new Date(startDate),
+      };
+    }
 
-    // Transform the events to match the format expected by the EventCalendar component
-    const formattedEvents = events.map((event) => ({
-      id: event.id,
-      eventName: event.eventName,
-      eventDate: event.eventDate.toISOString(),
-      description: `${event.eventType} - ${event.ageCategory} - ${event.description}`,
-    }));
+    if (endDate) {
+      conditioningQuery.endDate = {
+        lte: new Date(endDate),
+      };
+    }
+  }
 
-    // Update cache
-    cache = {
-      data: formattedEvents,
-      timestamp: now,
-    };
+  try {
+    let data: any[] = [];
+    let count = 0;
 
-    return NextResponse.json(formattedEvents, {
-      headers: {
-        "Cache-Control": "public, max-age=300",
-      },
-    });
+    if (tab === "events") {
+      [data, count] = await prisma.$transaction([
+        prisma.event.findMany({
+          where: eventQuery,
+          include: {
+            gamefowl: {
+              include: {
+                gamefowl: true,
+              },
+            },
+            conditioning: {
+              include: {
+                gamefowls: {
+                  include: {
+                    gamefowl: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: sortBy
+            ? {
+                [sortBy]: sortOrder,
+              }
+            : {
+                eventDate: "desc",
+              },
+          take: ITEM_PER_PAGE,
+          skip: ITEM_PER_PAGE * (page - 1),
+        }),
+        prisma.event.count({ where: eventQuery }),
+      ]);
+    } else if (tab === "conditioningPrograms") {
+      [data, count] = await prisma.$transaction([
+        prisma.conditioningProgram.findMany({
+          where: conditioningProgramQuery,
+          take: ITEM_PER_PAGE,
+          skip: ITEM_PER_PAGE * (page - 1),
+        }),
+        prisma.conditioningProgram.count({ where: conditioningProgramQuery }),
+      ]);
+    } else if (tab === "conditioning") {
+      [data, count] = await prisma.$transaction([
+        prisma.conditioning.findMany({
+          where: conditioningQuery,
+          include: {
+            conProg: {
+              select: {
+                id: true,
+                programName: true,
+              },
+            },
+            event: {
+              select: {
+                id: true,
+                eventName: true,
+              },
+            },
+            handler: {
+              select: {
+                id: true,
+                first_name: true,
+                last_name: true,
+              },
+            },
+            gamefowls: {
+              include: {
+                gamefowl: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: sortBy
+            ? {
+                [sortBy]: sortOrder,
+              }
+            : {
+                startDate: "desc",
+              },
+          take: ITEM_PER_PAGE,
+          skip: ITEM_PER_PAGE * (page - 1),
+        }),
+        prisma.conditioning.count({ where: conditioningQuery }),
+      ]);
+    }
+
+    return NextResponse.json({ data, count });
   } catch (error) {
-    console.error("Error fetching events from database:", error);
+    console.error("Error fetching data:", error);
     return NextResponse.json(
-      { error: "Failed to fetch events" },
-      {
-        status: 500,
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      }
+      { error: "Failed to fetch data" },
+      { status: 500 }
     );
   }
 }

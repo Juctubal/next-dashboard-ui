@@ -10,26 +10,20 @@ import {
   ConditioningStatus,
   EventGamefowl,
   Gamefowl,
+  EventType,
+  AgeCategory,
 } from "@prisma/client";
 import FormModal from "@/components/FormModal";
 import EventResultForm from "@/components/EventResultForm";
 import { format } from "date-fns";
-
-type EventWithRelations = Event & {
-  gamefowl: (EventGamefowl & {
-    gamefowl: Gamefowl;
-  })[];
-  conditioning: {
-    id: number;
-    status: ConditioningStatus;
-  }[];
-};
+import { EventWithRelations } from "@/types/event";
 
 interface EventTableRowProps {
   item: EventWithRelations;
+  role: string;
 }
 
-const EventTableRow = ({ item }: EventTableRowProps) => {
+const EventTableRow = ({ item, role }: EventTableRowProps) => {
   const router = useRouter();
   const [currentStatus, setCurrentStatus] = useState<EventStatus>(item.status);
   const [isEditingStatus, setIsEditingStatus] = useState(false);
@@ -38,6 +32,10 @@ const EventTableRow = ({ item }: EventTableRowProps) => {
   const [showStatusConfirmation, setShowStatusConfirmation] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<EventStatus | null>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setCurrentStatus(item.status);
+  }, [item.status]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -121,6 +119,23 @@ const EventTableRow = ({ item }: EventTableRowProps) => {
     }
   };
 
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return "Invalid date";
+      }
+      return new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }).format(date);
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "Invalid date";
+    }
+  };
+
   return (
     <>
       <tr
@@ -142,7 +157,7 @@ const EventTableRow = ({ item }: EventTableRowProps) => {
           {item.ageCategory}
         </td>
         <td className="hidden md:table-cell dark:text-gray-200">
-          {format(new Date(item.eventDate), "MMM dd, yyyy")}
+          {formatDate(item.eventDate)}
         </td>
         <td className="hidden md:table-cell dark:text-gray-200">
           {item.gamefowl && item.gamefowl.length > 0 ? (

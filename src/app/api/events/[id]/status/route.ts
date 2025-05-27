@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { EventStatus, ConditioningStatus } from "@prisma/client";
+import {
+  EventStatus,
+  ConditioningStatus,
+  GamefowlStatus,
+} from "@prisma/client";
 
 export async function PATCH(
   request: Request,
@@ -15,25 +19,33 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 
-    // If trying to set status to FINISHED, validate conditioning records
-    if (status === EventStatus.FINISHED) {
-      // Get the event with its conditioning records
-      const event = await prisma.event.findUnique({
-        where: { id: eventId },
-        include: {
-          conditioning: {
-            select: {
-              id: true,
-              status: true,
+    // Get the event with its conditioning records and gamefowls
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: {
+        conditioning: {
+          include: {
+            gamefowls: {
+              include: {
+                gamefowl: true,
+              },
             },
           },
         },
-      });
+        gamefowl: {
+          include: {
+            gamefowl: true,
+          },
+        },
+      },
+    });
 
-      if (!event) {
-        return NextResponse.json({ error: "Event not found" }, { status: 404 });
-      }
+    if (!event) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
 
+    // If trying to set status to FINISHED, validate conditioning records
+    if (status === EventStatus.FINISHED) {
       // Check if there are any conditioning records
       if (!event.conditioning || event.conditioning.length === 0) {
         return NextResponse.json(
@@ -58,10 +70,42 @@ export async function PATCH(
       }
     }
 
-    // If validation passes, update the event status
-    const updatedEvent = await prisma.event.update({
-      where: { id: eventId },
-      data: { status },
+    // Update the event status and gamefowl statuses in a transaction
+    const updatedEvent = await prisma.$transaction(async (tx) => {
+      // Update the event status
+      const updatedEvent = await tx.event.update({
+        where: { id: eventId },
+        data: { status },
+      });
+
+      // Update gamefowl statuses based on the new event status
+      if (status === EventStatus.FINISHED) {
+        // When event is finished, update all gamefowls to IDLE
+        await tx.gamefowl.updateMany({
+          where: {
+            id: {
+              in: event.gamefowl.map((eg) => eg.gamefowl.id),
+            },
+          },
+          data: {
+            status: GamefowlStatus.IDLE,
+          },
+        });
+      } else if (status === EventStatus.ASSIGNED) {
+        // When event is assigned, update all gamefowls to COMPETING
+        await tx.gamefowl.updateMany({
+          where: {
+            id: {
+              in: event.gamefowl.map((eg) => eg.gamefowl.id),
+            },
+          },
+          data: {
+            status: GamefowlStatus.COMPETING,
+          },
+        });
+      }
+
+      return updatedEvent;
     });
 
     return NextResponse.json(updatedEvent);

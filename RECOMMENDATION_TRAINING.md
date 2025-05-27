@@ -30,8 +30,41 @@ This will create:
   - Five-Cock Derby: 5 gamefowls per event
 - **500 Sparring Records** with Elo rating updates
 - **100 Breeding Records** for bloodline combination analysis
-- **50 Conditioning Records** for program effectiveness analysis
-- **10 Upcoming Events** for testing recommendations
+- **35 Conditioning Records**:
+  - All linked to specific events (1:1 relationship)
+  - Each event has exactly one conditioning program
+- **75 Total Events**:
+  - 30 past events (finished with results)
+  - 35 events with conditioning programs
+  - 10 general upcoming events
+
+### Conditioning and Status Management
+
+The training data implements realistic status transitions with a strict one-to-one relationship between conditioning records and events:
+
+#### Event-Conditioning Relationship:
+
+- **Every conditioning record MUST have an associated event**
+- **Each event can have at most ONE conditioning record**
+- This ensures proper tracking and management of gamefowl preparation
+
+#### When Gamefowl is Added to Conditioning:
+
+- Status changes to `CONDITIONING`
+- Gamefowl is being prepared for a specific event
+
+#### When Conditioning is Completed:
+
+- Gamefowl status changes to `COMPETING`
+- Ready for the specific event
+
+This creates a realistic workflow where:
+
+1. **Event is Created** → Assigned to a handler
+2. **Conditioning Program Started** → Linked to the event
+3. **Gamefowls Selected** → Status changes to `CONDITIONING`
+4. **Program Completed** → Status changes to `COMPETING`
+5. **After Event** → Status returns to `IDLE` or `DECEASED` (if lost)
 
 ### Step 2: Update Bayesian Priors
 

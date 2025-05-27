@@ -6,30 +6,40 @@ import { toast } from "sonner";
 import { Conditioning, ConditioningStatus } from "@prisma/client";
 import FormModal from "@/components/FormModal";
 
-type ConditioningWithRelations = Conditioning & {
-  conProg: {
-    id: number;
-    programName: string;
-  };
-  event: {
-    id: number;
-    eventName: string;
-  } | null;
-  handler: {
-    id: string;
-    first_name: string;
-    last_name: string;
-  };
-  gamefowls: {
-    gamefowl: {
-      id: number;
-      name: string;
-    };
-  }[];
-};
+interface Gamefowl {
+  id: string;
+  name: string;
+}
+
+interface Handler {
+  id: string;
+  first_name: string;
+  last_name: string;
+}
+
+interface Event {
+  id: string;
+  eventName: string;
+}
+
+interface ConditioningProgram {
+  id: string;
+  programName: string;
+}
+
+interface ConditioningItem {
+  id: string;
+  startDate: string | null;
+  endDate: string | null;
+  status: ConditioningStatus;
+  gamefowls: { gamefowl: Gamefowl }[];
+  handler: Handler;
+  event: Event | null;
+  conProg: ConditioningProgram;
+}
 
 interface ConditioningTableRowProps {
-  item: ConditioningWithRelations;
+  item: ConditioningItem;
   role: string;
 }
 
@@ -104,6 +114,11 @@ const ConditioningTableRow = ({ item, role }: ConditioningTableRowProps) => {
     setIsEditingStatus(!isEditingStatus);
   };
 
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Not set";
+    return new Intl.DateTimeFormat("en-US").format(new Date(dateString));
+  };
+
   return (
     <>
       <tr
@@ -130,12 +145,10 @@ const ConditioningTableRow = ({ item, role }: ConditioningTableRowProps) => {
           {item.handler.first_name} {item.handler.last_name}
         </td>
         <td className="hidden md:table-cell p-4 dark:text-gray-200">
-          {new Intl.DateTimeFormat("en-US").format(item.startDate)}
+          {formatDate(item.startDate)}
         </td>
         <td className="hidden md:table-cell p-4 dark:text-gray-200">
-          {item.endDate
-            ? new Intl.DateTimeFormat("en-US").format(item.endDate)
-            : "Not set"}
+          {formatDate(item.endDate)}
         </td>
         <td className="p-4 dark:text-gray-200">
           <div className="relative flex items-center gap-2">

@@ -1,9 +1,10 @@
+"use client";
+
 import FormModal from "@/components/FormModal";
 import Pagination from "@/components/Pagination";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 import { eventsData, role } from "@/lib/data";
-import { prisma } from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import {
   Conditioning,
@@ -13,20 +14,22 @@ import {
   Prisma,
   EventGamefowl,
   Gamefowl,
+  EventType,
+  AgeCategory,
+  EventStatus,
+  ConditioningStatus,
 } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { ColumnDef, Row } from "@tanstack/react-table";
 import EventTableRow from "./EventTableRow";
 import ConditioningTableRow from "./ConditioningTableRow";
-
-type EventWithRelations = Event & {
-  gamefowl: (EventGamefowl & {
-    gamefowl: Gamefowl;
-  })[];
-};
+import EventFilters from "./EventFilters";
+import ConditioningFilters from "./ConditioningFilters";
+import { useRouter, useSearchParams } from "next/navigation";
+import { EventWithRelations } from "@/types/event";
 
 // Event columns
 const eventColumns = [
@@ -215,129 +218,71 @@ const renderConditioningRow = (
   </tr>
 );
 
-const EventListPage = async ({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | undefined };
-}) => {
-  const { page, tab = "events", ...queryParams } = searchParams;
+const EventListPage = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [data, setData] = useState<any[]>([]);
+  const [count, setCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const {
+    page,
+    tab = "events",
+    sortBy,
+    sortOrder = "desc",
+    eventType,
+    ageCategory,
+    status,
+    startDate,
+    endDate,
+  } = Object.fromEntries(searchParams.entries());
 
   const p = page ? parseInt(page) : 1;
 
-  // URL PARAMS CONDITION
-  const eventQuery: Prisma.EventWhereInput = {};
-  const conditioningProgramQuery: Prisma.ConditioningProgramWhereInput = {};
-  const conditioningQuery: Prisma.ConditioningWhereInput = {};
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          page: p.toString(),
+          tab,
+          ...(sortBy && { sortBy }),
+          sortOrder,
+          ...(eventType && { eventType }),
+          ...(ageCategory && { ageCategory }),
+          ...(status && { status }),
+          ...(startDate && { startDate }),
+          ...(endDate && { endDate }),
+        });
 
-  if (queryParams) {
-    for (const [key, value] of Object.entries(queryParams)) {
-      if (value !== undefined) {
-        switch (key) {
-          case "eventId":
-            conditioningQuery.eventId = parseInt(value);
-            break;
-          case "search":
-            if (tab === "events") {
-              eventQuery.OR = [
-                { eventName: { contains: value, mode: "insensitive" } },
-                { description: { contains: value, mode: "insensitive" } },
-              ];
-            } else if (tab === "conditioningPrograms") {
-              conditioningProgramQuery.OR = [
-                { programName: { contains: value, mode: "insensitive" } },
-                { description: { contains: value, mode: "insensitive" } },
-              ];
-            } else if (tab === "conditioning") {
-              conditioningQuery.OR = [
-                {
-                  gamefowls: {
-                    some: {
-                      gamefowl: {
-                        id: parseInt(value) || undefined,
-                      },
-                    },
-                  },
-                },
-                {
-                  conProg: {
-                    programName: { contains: value, mode: "insensitive" },
-                  },
-                },
-                {
-                  event: {
-                    eventName: { contains: value, mode: "insensitive" },
-                  },
-                },
-                {
-                  handler: {
-                    OR: [
-                      { first_name: { contains: value, mode: "insensitive" } },
-                      { last_name: { contains: value, mode: "insensitive" } },
-                    ],
-                  },
-                },
-              ];
-            }
-            break;
+        const response = await fetch(`/api/events?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch data");
         }
+        const result = await response.json();
+        setData(result.data || []);
+        setCount(result.count || 0);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setData([]);
+        setCount(0);
+      } finally {
+        setLoading(false);
       }
-    }
-  }
+    };
 
-  // Fetch data based on the active tab
-  let data: any[] = [];
-  let count = 0;
-
-  if (tab === "events") {
-    const events = await prisma.event.findMany({
-      include: {
-        gamefowl: {
-          include: {
-            gamefowl: true,
-          },
-        },
-        conditioning: {
-          select: {
-            id: true,
-            status: true,
-          },
-        },
-      },
-      orderBy: {
-        eventDate: "desc",
-      },
-    });
-    data = events;
-    count = events.length;
-  } else if (tab === "conditioningPrograms") {
-    [data, count] = await prisma.$transaction([
-      prisma.conditioningProgram.findMany({
-        where: conditioningProgramQuery,
-        take: ITEM_PER_PAGE,
-        skip: ITEM_PER_PAGE * (p - 1),
-      }),
-      prisma.conditioningProgram.count({ where: conditioningProgramQuery }),
-    ]);
-  } else if (tab === "conditioning") {
-    [data, count] = await prisma.$transaction([
-      prisma.conditioning.findMany({
-        where: conditioningQuery,
-        include: {
-          conProg: true,
-          event: true,
-          handler: true,
-          gamefowls: {
-            include: {
-              gamefowl: true,
-            },
-          },
-        },
-        take: ITEM_PER_PAGE,
-        skip: ITEM_PER_PAGE * (p - 1),
-      }),
-      prisma.conditioning.count({ where: conditioningQuery }),
-    ]);
-  }
+    fetchData();
+  }, [
+    p,
+    tab,
+    sortBy,
+    sortOrder,
+    eventType,
+    ageCategory,
+    status,
+    startDate,
+    endDate,
+  ]);
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded-md flex-1 m-4 mt-0">
@@ -347,14 +292,26 @@ const EventListPage = async ({
           Events & Conditioning
         </h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-          <TableSearch disabled={data.length === 0} />
+          <TableSearch disabled={loading || !data || data.length === 0} />
           <div className="flex items-center gap-4 self-end">
-            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
-              <Image src="/filter.png" alt="" width={14} height={14} />
-            </button>
-            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
-              <Image src="/sort.png" alt="" width={14} height={14} />
-            </button>
+            {tab === "events" && (
+              <EventFilters
+                eventType={eventType}
+                ageCategory={ageCategory}
+                status={status}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+              />
+            )}
+            {tab === "conditioning" && (
+              <ConditioningFilters
+                status={status}
+                startDate={startDate}
+                endDate={endDate}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+              />
+            )}
             {role === "admin" && (
               <>
                 {tab === "events" && <FormModal table="event" type="create" />}
@@ -375,7 +332,15 @@ const EventListPage = async ({
         <Link
           href={{
             pathname: "/list/events",
-            query: { ...queryParams, tab: "events" },
+            query: {
+              tab: "events",
+              ...(page && { page }),
+              ...(sortBy && { sortBy }),
+              sortOrder,
+              ...(eventType && { eventType }),
+              ...(ageCategory && { ageCategory }),
+              ...(status && { status }),
+            },
           }}
           className={`px-4 py-2 font-medium text-sm ${
             tab === "events"
@@ -388,7 +353,12 @@ const EventListPage = async ({
         <Link
           href={{
             pathname: "/list/events",
-            query: { ...queryParams, tab: "conditioningPrograms" },
+            query: {
+              tab: "conditioningPrograms",
+              ...(page && { page }),
+              ...(sortBy && { sortBy }),
+              sortOrder,
+            },
           }}
           className={`px-4 py-2 font-medium text-sm ${
             tab === "conditioningPrograms"
@@ -401,7 +371,15 @@ const EventListPage = async ({
         <Link
           href={{
             pathname: "/list/events",
-            query: { ...queryParams, tab: "conditioning" },
+            query: {
+              tab: "conditioning",
+              ...(page && { page }),
+              ...(sortBy && { sortBy }),
+              sortOrder,
+              ...(status && { status }),
+              ...(startDate && { startDate }),
+              ...(endDate && { endDate }),
+            },
           }}
           className={`px-4 py-2 font-medium text-sm ${
             tab === "conditioning"
@@ -414,26 +392,36 @@ const EventListPage = async ({
       </div>
 
       {/* LIST */}
-      {tab === "events" && (
-        <Table
-          columns={eventColumns}
-          renderRow={(item) => <EventTableRow item={item} />}
-          data={data}
-        />
-      )}
-      {tab === "conditioningPrograms" && (
-        <Table
-          columns={conditioningProgramColumns}
-          renderRow={renderConditioningProgramRow}
-          data={data}
-        />
-      )}
-      {tab === "conditioning" && (
-        <Table
-          columns={conditioningColumns}
-          renderRow={(item) => <ConditioningTableRow item={item} role={role} />}
-          data={data}
-        />
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ggPurple"></div>
+        </div>
+      ) : (
+        <>
+          {tab === "events" && (
+            <Table
+              columns={eventColumns}
+              renderRow={(item) => <EventTableRow item={item} role={role} />}
+              data={data}
+            />
+          )}
+          {tab === "conditioningPrograms" && (
+            <Table
+              columns={conditioningProgramColumns}
+              renderRow={renderConditioningProgramRow}
+              data={data}
+            />
+          )}
+          {tab === "conditioning" && (
+            <Table
+              columns={conditioningColumns}
+              renderRow={(item) => (
+                <ConditioningTableRow item={item} role={role} />
+              )}
+              data={data}
+            />
+          )}
+        </>
       )}
 
       {/* PAGINATION */}

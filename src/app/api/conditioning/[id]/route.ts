@@ -88,25 +88,62 @@ export async function PUT(
       );
     }
 
-    // Update the conditioning status
-    const updatedConditioning = await prisma.conditioning.update({
-      where: { id },
-      data: { status },
-    });
+    // Update the conditioning status and gamefowl statuses in a transaction
+    const updatedConditioning = await prisma.$transaction(async (tx) => {
+      // Update the conditioning status
+      const updatedConditioning = await tx.conditioning.update({
+        where: { id },
+        data: { status },
+      });
 
-    // If the conditioning is completed and has an event, update gamefowl status to COMPETING
-    if (status === "COMPLETED" && conditioning.event) {
-      await Promise.all(
-        conditioning.gamefowls.map(({ gamefowl }) =>
-          prisma.gamefowl.update({
-            where: { id: gamefowl.id },
-            data: {
-              status: GamefowlStatus.COMPETING,
-            },
-          })
-        )
+      // Get all gamefowl IDs associated with this conditioning
+      const gamefowlIds = conditioning.gamefowls.map(
+        ({ gamefowl }) => gamefowl.id
       );
-    }
+
+      if (status === "COMPLETED") {
+        // For each gamefowl, check if it has any other active conditioning records
+        for (const gamefowlId of gamefowlIds) {
+          const otherActiveConditionings = await tx.conditioning.findMany({
+            where: {
+              gamefowls: {
+                some: {
+                  gamefowlId: gamefowlId,
+                },
+              },
+              status: "ASSIGNED",
+              id: {
+                not: id, // Exclude current conditioning record
+              },
+            },
+          });
+
+          // Only update gamefowl status if there are no other active conditionings
+          if (otherActiveConditionings.length === 0) {
+            await tx.gamefowl.update({
+              where: { id: gamefowlId },
+              data: {
+                status: GamefowlStatus.IDLE,
+              },
+            });
+          }
+        }
+      } else if (status === "ASSIGNED") {
+        // If the conditioning is assigned, update gamefowl status to CONDITIONING
+        await Promise.all(
+          conditioning.gamefowls.map(({ gamefowl }) =>
+            tx.gamefowl.update({
+              where: { id: gamefowl.id },
+              data: {
+                status: GamefowlStatus.CONDITIONING,
+              },
+            })
+          )
+        );
+      }
+
+      return updatedConditioning;
+    });
 
     return NextResponse.json(updatedConditioning);
   } catch (error) {

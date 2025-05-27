@@ -362,34 +362,96 @@ async function seedRecommendationData() {
 
     // Create conditioning records
     console.log("Creating conditioning records...");
-    for (let i = 0; i < 50; i++) {
+
+    // Create events specifically for conditioning (35 total to match conditioning records)
+    const conditioningEvents = [];
+    for (let i = 0; i < 35; i++) {
+      const eventDate = faker.date.between({
+        from: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000), // 60 days ago
+        to: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days future
+      });
+
+      const event = await prisma.event.create({
+        data: {
+          eventName: `${faker.location.city()} Derby - Conditioning ${i + 1}`,
+          eventType: faker.helpers.arrayElement([
+            "THREE_COCK_DERBY",
+            "FOUR_COCK_DERBY",
+            "FIVE_COCK_DERBY",
+          ]),
+          ageCategory: faker.helpers.arrayElement([
+            "STAG",
+            "BULLSTAG",
+            "COCK",
+            "ANY",
+          ]),
+          eventDate: eventDate,
+          description: faker.lorem.sentence(),
+          status: "ASSIGNED",
+          handlerId: faker.helpers.arrayElement(handlers).id,
+        },
+      });
+      conditioningEvents.push(event);
+    }
+
+    // Create one conditioning record per event
+    for (const event of conditioningEvents) {
       const program = faker.helpers.arrayElement(conditioningPrograms);
       const handler = faker.helpers.arrayElement(handlers);
-      const startDate = faker.date.recent({ days: 60 });
+
+      // Calculate start date based on event date
+      const eventDate = new Date(event.eventDate);
       const duration = program.programName.includes("21")
         ? 21
         : program.programName.includes("14")
         ? 14
         : 28;
 
+      // Start conditioning program before the event
+      const daysBeforeEvent = duration + faker.number.int({ min: 3, max: 10 });
+      const startDate = new Date(
+        eventDate.getTime() - daysBeforeEvent * 24 * 60 * 60 * 1000
+      );
+      const endDate = new Date(
+        startDate.getTime() + duration * 24 * 60 * 60 * 1000
+      );
+
+      // Determine if this conditioning is completed
+      const isCompleted = endDate < new Date();
+
       const conditioning = await prisma.conditioning.create({
         data: {
+          eventId: event.id, // Every conditioning is linked to an event
           conProgId: program.id,
           handlerId: handler.id,
           startDate: startDate,
-          endDate: new Date(
-            startDate.getTime() + duration * 24 * 60 * 60 * 1000
-          ),
-          status: faker.helpers.arrayElement(["ASSIGNED", "COMPLETED"]),
-          notes: faker.lorem.sentence(),
+          endDate: endDate,
+          status: isCompleted ? "COMPLETED" : "ASSIGNED",
+          notes: `Conditioning program for ${event.eventName}`,
         },
       });
 
-      // Assign gamefowls to conditioning
+      // Get eligible gamefowls for this event
+      const eventType = event.eventType;
+      const numGamefowls =
+        eventType === "THREE_COCK_DERBY"
+          ? 3
+          : eventType === "FOUR_COCK_DERBY"
+          ? 4
+          : 5;
+
+      const eligibleGamefowls = gamefowls.filter((g) => {
+        if (g.status === "DECEASED") return false;
+        if (event.ageCategory === "ANY") return true;
+        return g.age === event.ageCategory;
+      });
+
+      // Select gamefowls for conditioning
       const conditioningGamefowls = faker.helpers.arrayElements(
-        gamefowls,
-        faker.number.int({ min: 1, max: 5 })
+        eligibleGamefowls,
+        Math.min(numGamefowls, eligibleGamefowls.length)
       );
+
       for (const gamefowl of conditioningGamefowls) {
         await prisma.conditioningGamefowl.create({
           data: {
@@ -397,6 +459,21 @@ async function seedRecommendationData() {
             gamefowlId: gamefowl.id,
           },
         });
+
+        // Update gamefowl status based on conditioning status
+        if (isCompleted) {
+          // Conditioning is completed and linked to event -> COMPETING
+          await prisma.gamefowl.update({
+            where: { id: gamefowl.id },
+            data: { status: "COMPETING" },
+          });
+        } else {
+          // Conditioning is ongoing -> CONDITIONING
+          await prisma.gamefowl.update({
+            where: { id: gamefowl.id },
+            data: { status: "CONDITIONING" },
+          });
+        }
       }
     }
 
@@ -426,13 +503,20 @@ async function seedRecommendationData() {
     }
 
     console.log("✅ Recommendation training data seeded successfully!");
+
+    // Get counts for summary
+    const totalConditioning = await prisma.conditioning.count();
+    const totalEvents = await prisma.event.count();
+
     console.log(`Created:
       - ${gamefowls.length + femaleGamefowls.length} gamefowls
       - ${pastEvents.length} past events with results
       - 500 sparring records
       - 100 breeding records
-      - 50 conditioning records
-      - 10 upcoming events`);
+      - ${totalConditioning} conditioning records (all linked to events, 1:1 relationship)
+      - ${totalEvents} total events (${pastEvents.length} past, ${
+      conditioningEvents.length
+    } with conditioning, 10 upcoming)`);
   } catch (error) {
     console.error("Error seeding data:", error);
     throw error;

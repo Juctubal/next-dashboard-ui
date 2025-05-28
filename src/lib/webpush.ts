@@ -27,7 +27,7 @@ if (!publicKey || !privateKey) {
 
 // Configure web-push with your VAPID details
 webpush.setVapidDetails(
-  'jonctubal@gmail.com', // Change to your email
+  'mailto:support@example.com', // Change to your email
   vapidKeys.publicKey,
   vapidKeys.privateKey
 );

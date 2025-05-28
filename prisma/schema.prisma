@@ -207,37 +207,37 @@ model Schedule {
 }
 
 model Handler {
-  id           String         @id @default(cuid())
-  username     String         @unique
-  password     String
-  first_name   String
-  middle_name  String?
-  last_name    String
-  email        String?        @unique
-  img          String?
-  phone        String?
-  role         UserRole
-  status       UserStatus
-  createdAt    DateTime       @default(now())
-  isArchived   Boolean        @default(false)
-  conditioning Conditioning[]
-  event        Event[]
+  id               String            @id @default(cuid())
+  username         String            @unique
+  password         String
+  first_name       String
+  middle_name      String?
+  last_name        String
+  email            String?           @unique
+  img              String?
+  phone            String?
+  role             UserRole
+  status           UserStatus
+  createdAt        DateTime          @default(now())
+  isArchived       Boolean           @default(false)
+  conditioning     Conditioning[]
+  event            Event[]
 }
 
 model Breeder {
-  id          String     @id @default(cuid())
-  username    String     @unique
-  password    String
-  first_name  String
-  last_name   String
-  email       String?    @unique
-  img         String?
-  phone       String?
-  role        UserRole   @default(breeder)
-  status      UserStatus @default(ACTIVE)
-  createdAt   DateTime   @default(now())
-  middle_name String?
-  isArchived  Boolean    @default(false)
+  id               String            @id @default(cuid())
+  username         String            @unique
+  password         String
+  first_name       String
+  last_name        String
+  email            String?           @unique
+  img              String?
+  phone            String?
+  role             UserRole          @default(breeder)
+  status           UserStatus        @default(ACTIVE)
+  createdAt        DateTime          @default(now())
+  middle_name      String?
+  isArchived       Boolean           @default(false)
 }
 
 model Event {
@@ -390,6 +390,18 @@ enum gamefowlAge {
   HEN
 }
 
+model PushSubscription {
+  id         String   @id @default(cuid())
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  userId     String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+
 enum GamefowlSex {
   MALE
   FEMALE
@@ -411,3 +423,5 @@ enum Result {
   DRAW
   NO_SHOW
 }
+
+

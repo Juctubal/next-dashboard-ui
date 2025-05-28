@@ -5,6 +5,15 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 
+// Need to use dynamic import for client component in server component
+import dynamic from "next/dynamic";
+
+// Dynamically import with no SSR to avoid hydration issues
+const ServiceWorkerRegistration = dynamic(
+  () => import("@/components/ServiceWorkerRegistration"),
+  { ssr: false }
+);
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -19,11 +28,13 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
+      {/* Added suppressHydrationWarning to prevent hydration errors with Clerk */}
       <html lang="en" suppressHydrationWarning>
         <body className={inter.className}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             {children}
             <Toaster richColors position="top-center" />
+            <ServiceWorkerRegistration />
           </ThemeProvider>
         </body>
       </html>

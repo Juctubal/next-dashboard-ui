@@ -2,6 +2,7 @@ import Menu from "@/components/Menu";
 import Navbar from "@/components/Navbar";
 import Image from "next/image";
 import Link from "next/link";
+import NotificationScheduler from "@/components/NotificationScheduler";
 
 export default function RootLayout({
   children,
@@ -9,7 +10,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="h-screen flex">
+      <div className="h-screen flex">
       {/* LEFT - Only visible on desktop */}
       <div className="hidden lg:block w-[20%] xl:w-[18%] p-4 dark:bg-gray-900">
         <Link href="/" className="flex items-center justify-start gap-2">
@@ -25,6 +26,7 @@ export default function RootLayout({
           <Menu />
         </div>
         <Navbar />
+        <NotificationScheduler />
         {children}
       </div>
     </div>

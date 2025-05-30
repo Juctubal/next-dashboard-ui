@@ -6,29 +6,51 @@ import { SparringMatchRecommendation } from "@/lib/recommendation/types";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { maxEloGap, minMatchBalance, bloodline } = body;
+    const {
+      maxEloGap = 200,
+      minMatchBalance = 0.7,
+      bloodline,
+      eloTolerance = 30,
+    } = body;
 
     const engine = new RecommendationEngine(prisma);
-    let recommendations = await engine.recommendSparringMatches(20);
+    let recommendations = await engine.recommendSparringMatches(
+      20,
+      eloTolerance
+    );
 
-    // Get bloodline information for each recommendation
-    const enrichedRecommendations: (SparringMatchRecommendation & {
-      gamefowl1Bloodline?: string;
-      gamefowl2Bloodline?: string;
-    })[] = await Promise.all(
+    // Get additional information for each recommendation
+    const enrichedRecommendations = await Promise.all(
       recommendations.map(async (rec) => {
         const gamefowl1 = await prisma.gamefowl.findUnique({
           where: { id: rec.gamefowl1Id },
-          select: { bloodline: true },
+          include: {
+            sparring_winner: true,
+            sparring_loser: true,
+            conditioning: {
+              orderBy: { id: "desc" },
+              take: 1,
+            },
+          },
         });
         const gamefowl2 = await prisma.gamefowl.findUnique({
           where: { id: rec.gamefowl2Id },
-          select: { bloodline: true },
+          include: {
+            sparring_winner: true,
+            sparring_loser: true,
+            conditioning: {
+              orderBy: { id: "desc" },
+              take: 1,
+            },
+          },
         });
+
         return {
           ...rec,
           gamefowl1Bloodline: gamefowl1?.bloodline,
           gamefowl2Bloodline: gamefowl2?.bloodline,
+          gamefowl1Conditioning: !!gamefowl1?.conditioning?.[0],
+          gamefowl2Conditioning: !!gamefowl2?.conditioning?.[0],
         };
       })
     );

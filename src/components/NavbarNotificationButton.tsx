@@ -64,11 +64,11 @@ const NavbarNotificationButton = () => {
       <div className="bg-white dark:bg-gray-800 rounded-full w-7 h-7 flex items-center justify-center cursor-pointer relative">
         <Bell className="h-4 w-4 text-gray-600 dark:text-gray-300" />
         {subscribingCount > 0 && (
-          <div className="absolute -top-2 -right-2 w-4 h-4 flex items-center justify-center bg-purple-500 text-white rounded-full text-xs">
+          <div className="absolute -top-2 -right-2 w-4 h-4 flex items-center justify-center bg-purple-500 text-white rounded-full text-xs z-10">
             {subscribingCount}
           </div>
         )}
-        <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+        <span className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
           {subscription ? "Notifications On" : "Notifications Off"}
         </span>
       </div>

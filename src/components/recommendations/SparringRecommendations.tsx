@@ -7,6 +7,7 @@ interface SparringFilters {
   maxEloGap?: number;
   minMatchBalance?: number;
   bloodline?: string;
+  eloTolerance?: number;
 }
 
 export default function SparringRecommendations() {
@@ -19,6 +20,7 @@ export default function SparringRecommendations() {
   const [filters, setFilters] = useState<SparringFilters>({
     maxEloGap: 200,
     minMatchBalance: 0.7,
+    eloTolerance: 30,
   });
 
   // Fetch available bloodlines
@@ -85,7 +87,24 @@ export default function SparringRecommendations() {
       </h2>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            ELO Tolerance (±)
+          </label>
+          <input
+            type="number"
+            value={filters.eloTolerance || 30}
+            onChange={(e) =>
+              setFilters({ ...filters, eloTolerance: parseInt(e.target.value) })
+            }
+            className="w-full p-2 border rounded-md"
+            min="10"
+            max="100"
+            step="10"
+          />
+        </div>
+
         <div>
           <label className="block text-sm font-medium mb-2">
             Maximum Elo Difference
@@ -177,6 +196,9 @@ export default function SparringRecommendations() {
                     <p className="text-sm text-gray-600">
                       Elo: {Math.round(rec.gamefowl1Elo)}
                     </p>
+                    <p className="text-sm text-gray-600">
+                      Record: {rec.gamefowl1TrackRecord}
+                    </p>
                   </div>
                   <div className="bg-red-50 p-3 rounded">
                     <p className="font-medium text-red-900">
@@ -184,6 +206,9 @@ export default function SparringRecommendations() {
                     </p>
                     <p className="text-sm text-gray-600">
                       Elo: {Math.round(rec.gamefowl2Elo)}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Record: {rec.gamefowl2TrackRecord}
                     </p>
                   </div>
                 </div>
@@ -234,6 +259,19 @@ export default function SparringRecommendations() {
                   Match Benefits:
                 </p>
                 <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                  {rec.matchingCriteria && (
+                    <>
+                      {rec.matchingCriteria.trackRecordSimilarity && (
+                        <li>Track records are well-matched</li>
+                      )}
+                      {rec.matchingCriteria.eloWithinTolerance && (
+                        <li>ELO ratings within acceptable tolerance</li>
+                      )}
+                      {rec.matchingCriteria.conditioningMatch && (
+                        <li>Both gamefowls properly conditioned</li>
+                      )}
+                    </>
+                  )}
                   {rec.reasons.map((reason, idx) => (
                     <li key={idx}>{reason}</li>
                   ))}

@@ -24,9 +24,15 @@ export interface BreedingPairRecommendation {
   sireName: string;
   damName: string;
   compatibilityScore: number;
-  expectedOffspringElo: number;
   bloodlineCombinationSuccess: number;
   geneticDiversityScore: number;
+  strengthIndicators: {
+    sparringRecord: boolean;
+    healthStatus: boolean;
+    conditioning: boolean;
+    activity: boolean;
+    temperament: boolean;
+  };
   reasons: string[];
 }
 
@@ -49,11 +55,19 @@ export interface SparringMatchRecommendation {
   gamefowl2Name: string;
   gamefowl1Elo: number;
   gamefowl2Elo: number;
+  gamefowl1TrackRecord: string;
+  gamefowl2TrackRecord: string;
   gamefowl1WinProbability: number;
   gamefowl2WinProbability: number;
   eloGap: number;
   matchBalance: number; // 0-1, where 1 is perfectly balanced
   expectedLearningValue: number;
+  matchingCriteria: {
+    trackRecordSimilarity: boolean;
+    eloWithinTolerance: boolean;
+    conditioningMatch: boolean;
+    previousOutcomes: boolean;
+  };
   reasons: string[];
 }
 

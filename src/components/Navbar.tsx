@@ -28,7 +28,7 @@ const Navbar = async () => {
             title="Update Gamefowl Ages"
           >
             <Image src="/date.png" alt="Update Ages" height={20} width={20} />
-            <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            <span className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
               Update Ages
             </span>
           </Link>

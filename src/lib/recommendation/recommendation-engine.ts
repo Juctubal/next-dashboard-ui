@@ -200,13 +200,29 @@ export class RecommendationEngine {
   async recommendBreedingPairs(
     limit: number = 10
   ): Promise<BreedingPairRecommendation[]> {
-    // Get potential sires and dams
+    // Get potential sires and dams with their full data
     const sires = await this.prisma.gamefowl.findMany({
       where: {
         isArchived: false,
         sex: "MALE",
         status: {
           in: ["IDLE", "BREEDING"],
+        },
+      },
+      include: {
+        sparring_winner: true,
+        sparring_loser: true,
+        vaccine: {
+          orderBy: { vaccinationDate: "desc" },
+          take: 5,
+        },
+        deworming: {
+          orderBy: { dewormDate: "desc" },
+          take: 5,
+        },
+        conditioning: {
+          orderBy: { id: "desc" },
+          take: 1,
         },
       },
     });
@@ -217,6 +233,22 @@ export class RecommendationEngine {
         sex: "FEMALE",
         status: {
           in: ["IDLE", "BREEDING"],
+        },
+      },
+      include: {
+        sparring_winner: true,
+        sparring_loser: true,
+        vaccine: {
+          orderBy: { vaccinationDate: "desc" },
+          take: 5,
+        },
+        deworming: {
+          orderBy: { dewormDate: "desc" },
+          take: 5,
+        },
+        conditioning: {
+          orderBy: { id: "desc" },
+          take: 1,
         },
       },
     });
@@ -239,12 +271,6 @@ export class RecommendationEngine {
           damData.winRate
         );
 
-        // Calculate expected offspring Elo
-        const expectedOffspring = EloCalculator.calculateOffspringPotential(
-          sire.eloRating,
-          dam.eloRating
-        );
-
         // Calculate genetic diversity
         const geneticDiversityScore = this.calculateGeneticDiversity(
           sire.bloodline,
@@ -256,11 +282,21 @@ export class RecommendationEngine {
           `${sire.bloodline}:${dam.bloodline}`
         );
 
-        const reasons = this.generateBreedingReasons(
+        // Calculate strength indicators
+        const strengthIndicators = {
+          sparringRecord: this.hasGoodSparringRecord(sire, dam),
+          healthStatus: this.hasExcellentHealth(sire, dam),
+          conditioning: this.hasProperConditioning(sire, dam),
+          activity: this.hasHighActivity(sire, dam),
+          temperament: this.hasBalancedTemperament(sireData, damData),
+        };
+
+        const reasons = this.generateBreedingReasonsWithIndicators(
           sireData,
           damData,
           compatibilityScore,
-          geneticDiversityScore
+          geneticDiversityScore,
+          strengthIndicators
         );
 
         recommendations.push({
@@ -269,9 +305,9 @@ export class RecommendationEngine {
           sireName: sire.name,
           damName: dam.name,
           compatibilityScore,
-          expectedOffspringElo: expectedOffspring.expected,
           bloodlineCombinationSuccess,
           geneticDiversityScore,
+          strengthIndicators,
           reasons,
         });
       }
@@ -287,15 +323,24 @@ export class RecommendationEngine {
    * Recommend sparring matches
    */
   async recommendSparringMatches(
-    limit: number = 10
+    limit: number = 10,
+    eloTolerance: number = 30
   ): Promise<SparringMatchRecommendation[]> {
-    // Get gamefowls available for sparring
+    // Get gamefowls available for sparring with their full data
     const gamefowls = await this.prisma.gamefowl.findMany({
       where: {
         isArchived: false,
         sex: "MALE",
         status: {
           in: ["IDLE", "CONDITIONING"],
+        },
+      },
+      include: {
+        sparring_winner: true,
+        sparring_loser: true,
+        conditioning: {
+          orderBy: { id: "desc" },
+          take: 1,
         },
       },
       orderBy: {
@@ -348,10 +393,38 @@ export class RecommendationEngine {
 
         if (recentMatch) continue;
 
-        const reasons = this.generateSparringReasons(
+        // Calculate track records
+        const gamefowl1Wins = gamefowl1.sparring_winner?.length || 0;
+        const gamefowl1Losses = gamefowl1.sparring_loser?.length || 0;
+        const gamefowl2Wins = gamefowl2.sparring_winner?.length || 0;
+        const gamefowl2Losses = gamefowl2.sparring_loser?.length || 0;
+
+        const gamefowl1TrackRecord = `${gamefowl1Wins}-${gamefowl1Losses}`;
+        const gamefowl2TrackRecord = `${gamefowl2Wins}-${gamefowl2Losses}`;
+
+        // Calculate matching criteria
+        const matchingCriteria = {
+          trackRecordSimilarity: this.areTrackRecordsSimilar(
+            gamefowl1Wins,
+            gamefowl1Losses,
+            gamefowl2Wins,
+            gamefowl2Losses
+          ),
+          eloWithinTolerance: eloGap <= eloTolerance,
+          conditioningMatch: this.haveMatchingConditioning(
+            gamefowl1,
+            gamefowl2
+          ),
+          previousOutcomes: !recentMatch,
+        };
+
+        const reasons = this.generateSparringReasonsWithCriteria(
           matchBalance,
           expectedLearningValue,
-          eloGap
+          eloGap,
+          matchingCriteria,
+          gamefowl1TrackRecord,
+          gamefowl2TrackRecord
         );
 
         // Calculate win probabilities
@@ -368,11 +441,14 @@ export class RecommendationEngine {
           gamefowl2Name: gamefowl2.name,
           gamefowl1Elo: gamefowl1.eloRating,
           gamefowl2Elo: gamefowl2.eloRating,
+          gamefowl1TrackRecord,
+          gamefowl2TrackRecord,
           gamefowl1WinProbability,
           gamefowl2WinProbability,
           eloGap,
           matchBalance,
           expectedLearningValue,
+          matchingCriteria,
           reasons,
         });
 
@@ -847,6 +923,190 @@ export class RecommendationEngine {
 
     if (gamefowl.conditioningScore < 0.5) {
       reasons.push("Gamefowl urgently needs structured conditioning");
+    }
+
+    return reasons;
+  }
+
+  private generateBreedingReasonsWithIndicators(
+    sire: GamefowlPerformanceData,
+    dam: GamefowlPerformanceData,
+    compatibility: number,
+    geneticDiversity: number,
+    indicators: any
+  ): string[] {
+    const reasons = [];
+
+    if (compatibility > 0.8) {
+      reasons.push(
+        "Exceptional bloodline compatibility based on historical data"
+      );
+    }
+
+    if (sire.eloRating > 1400 && dam.eloRating > 1200) {
+      reasons.push("Both parents have proven championship genetics");
+    }
+
+    if (geneticDiversity > 0.7) {
+      reasons.push("Good genetic diversity will strengthen the bloodline");
+    }
+
+    if (sire.bloodlineStrength > 0.8) {
+      reasons.push(`${sire.bloodline} sire line shows dominant winning traits`);
+    }
+
+    if (indicators.sparringRecord) {
+      reasons.push("Good sparring record between the parents");
+    }
+
+    if (indicators.healthStatus) {
+      reasons.push("Both parents have excellent health status");
+    }
+
+    if (indicators.conditioning) {
+      reasons.push("Both parents have proper conditioning");
+    }
+
+    if (indicators.activity) {
+      reasons.push("Both parents have high activity level");
+    }
+
+    if (indicators.temperament) {
+      reasons.push("Balanced temperament between the parents");
+    }
+
+    return reasons;
+  }
+
+  private hasGoodSparringRecord(sire: any, dam: any): boolean {
+    const sireWins = sire.sparring_winner?.length || 0;
+    const sireLosses = sire.sparring_loser?.length || 0;
+    const damWins = dam.sparring_winner?.length || 0;
+    const damLosses = dam.sparring_loser?.length || 0;
+
+    const sireTotal = sireWins + sireLosses;
+    const damTotal = damWins + damLosses;
+
+    // Good record if win rate > 60% with at least 3 fights
+    const sireGoodRecord = sireTotal >= 3 && sireWins / sireTotal > 0.6;
+    const damGoodRecord = damTotal >= 3 && damWins / damTotal > 0.6;
+
+    return sireGoodRecord || damGoodRecord;
+  }
+
+  private hasExcellentHealth(sire: any, dam: any): boolean {
+    const now = Date.now();
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    const sixMonths = 180 * 24 * 60 * 60 * 1000;
+
+    // Check recent vaccinations
+    const sireRecentVaccine = sire.vaccine?.some(
+      (v: any) => now - new Date(v.vaccinationDate).getTime() < sixMonths
+    );
+    const damRecentVaccine = dam.vaccine?.some(
+      (v: any) => now - new Date(v.vaccinationDate).getTime() < sixMonths
+    );
+
+    // Check recent deworming
+    const sireRecentDeworming = sire.deworming?.some(
+      (d: any) => now - new Date(d.dewormDate).getTime() < sixMonths
+    );
+    const damRecentDeworming = dam.deworming?.some(
+      (d: any) => now - new Date(d.dewormDate).getTime() < sixMonths
+    );
+
+    return (
+      (sireRecentVaccine && sireRecentDeworming) ||
+      (damRecentVaccine && damRecentDeworming)
+    );
+  }
+
+  private hasProperConditioning(sire: any, dam: any): boolean {
+    // Check if they have active or recent conditioning
+    const sireConditioned = sire.conditioning?.length > 0;
+    const damConditioned = dam.conditioning?.length > 0;
+
+    return sireConditioned || damConditioned;
+  }
+
+  private hasHighActivity(sire: any, dam: any): boolean {
+    // Check if they are actively competing or training
+    const activeStatuses = ["IDLE", "COMPETING", "CONDITIONING"];
+    return (
+      activeStatuses.includes(sire.status) &&
+      activeStatuses.includes(dam.status)
+    );
+  }
+
+  private hasBalancedTemperament(
+    sireData: GamefowlPerformanceData,
+    damData: GamefowlPerformanceData
+  ): boolean {
+    // Good temperament if consistent performance (recent form > 0.6)
+    return sireData.recentFormScore > 0.6 || damData.recentFormScore > 0.6;
+  }
+
+  private areTrackRecordsSimilar(
+    wins1: number,
+    losses1: number,
+    wins2: number,
+    losses2: number
+  ): boolean {
+    const total1 = wins1 + losses1;
+    const total2 = wins2 + losses2;
+
+    if (total1 === 0 || total2 === 0) return false;
+
+    const winRate1 = wins1 / total1;
+    const winRate2 = wins2 / total2;
+
+    const difference = Math.abs(winRate1 - winRate2);
+    return difference < 0.1;
+  }
+
+  private haveMatchingConditioning(gamefowl1: any, gamefowl2: any): boolean {
+    const condition1 = gamefowl1.conditioning?.length > 0;
+    const condition2 = gamefowl2.conditioning?.length > 0;
+
+    return condition1 && condition2;
+  }
+
+  private generateSparringReasonsWithCriteria(
+    balance: number,
+    learningValue: number,
+    eloGap: number,
+    matchingCriteria: any,
+    gamefowl1TrackRecord: string,
+    gamefowl2TrackRecord: string
+  ): string[] {
+    const reasons = [];
+
+    if (balance > 0.9) {
+      reasons.push("Perfectly balanced match for competitive sparring");
+    }
+
+    if (learningValue > 0.8) {
+      reasons.push("Optimal skill gap for maximum learning potential");
+    }
+
+    if (eloGap < 100) {
+      reasons.push("Close ratings ensure unpredictable and exciting match");
+    }
+
+    if (matchingCriteria.trackRecordSimilarity) {
+      reasons.push("Track records are similar");
+    }
+
+    if (matchingCriteria.eloWithinTolerance) {
+      reasons.push(`Elo gap within tolerance (${eloGap} points)`);
+    }
+
+    if (matchingCriteria.conditioningMatch) {
+      reasons.push("Both gamefowls have matching conditioning");
+    }
+
+    if (matchingCriteria.previousOutcomes) {
+      reasons.push("No recent outcomes between the gamefowls");
     }
 
     return reasons;

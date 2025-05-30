@@ -6,8 +6,7 @@ import { Gamefowl } from "@prisma/client";
 
 interface BreedingFilters {
   targetBloodline?: string;
-  minElo?: number;
-  maxAge?: number;
+  ageCategory?: string;
 }
 
 export default function BreedingRecommendations() {
@@ -17,9 +16,13 @@ export default function BreedingRecommendations() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bloodlines, setBloodlines] = useState<string[]>([]);
-  const [filters, setFilters] = useState<BreedingFilters>({
-    minElo: 1000,
-  });
+  const [filters, setFilters] = useState<BreedingFilters>({});
+
+  const ageCategories = [
+    { value: "STAG", label: "Stag" },
+    { value: "BULLSTAG", label: "Bullstag" },
+    { value: "COCK", label: "Cock" },
+  ];
 
   // Fetch available bloodlines
   const fetchBloodlines = async () => {
@@ -71,7 +74,7 @@ export default function BreedingRecommendations() {
       </h2>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
         <div>
           <label className="block text-sm font-medium mb-2">
             Target Bloodline
@@ -96,40 +99,24 @@ export default function BreedingRecommendations() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2">
-            Minimum Elo Rating
-          </label>
-          <input
-            type="number"
-            value={filters.minElo || 1000}
-            onChange={(e) =>
-              setFilters({ ...filters, minElo: parseInt(e.target.value) })
-            }
-            className="w-full p-2 border rounded-md"
-            min="800"
-            max="2000"
-            step="50"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Maximum Age (months)
-          </label>
-          <input
-            type="number"
-            value={filters.maxAge || ""}
+          <label className="block text-sm font-medium mb-2">Age Category</label>
+          <select
+            value={filters.ageCategory || ""}
             onChange={(e) =>
               setFilters({
                 ...filters,
-                maxAge: e.target.value ? parseInt(e.target.value) : undefined,
+                ageCategory: e.target.value || undefined,
               })
             }
             className="w-full p-2 border rounded-md"
-            min="6"
-            max="60"
-            placeholder="Any age"
-          />
+          >
+            <option value="">All Categories</option>
+            {ageCategories.map((category) => (
+              <option key={category.value} value={category.value}>
+                {category.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -166,13 +153,7 @@ export default function BreedingRecommendations() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
-              <div>
-                <p className="text-sm text-gray-600">Expected Offspring Elo</p>
-                <p className="font-semibold">
-                  {Math.round(rec.expectedOffspringElo)}
-                </p>
-              </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-3">
               <div>
                 <p className="text-sm text-gray-600">Bloodline Success Rate</p>
                 <p className="font-semibold">
@@ -211,6 +192,21 @@ export default function BreedingRecommendations() {
                   Strengths:
                 </p>
                 <ul className="list-disc list-inside text-sm text-green-700 space-y-1">
+                  {rec.strengthIndicators?.sparringRecord && (
+                    <li>Good sparring track record</li>
+                  )}
+                  {rec.strengthIndicators?.healthStatus && (
+                    <li>Excellent health status</li>
+                  )}
+                  {rec.strengthIndicators?.conditioning && (
+                    <li>Proper conditioning</li>
+                  )}
+                  {rec.strengthIndicators?.activity && (
+                    <li>High activity/alertness level</li>
+                  )}
+                  {rec.strengthIndicators?.temperament && (
+                    <li>Balanced temperament</li>
+                  )}
                   {rec.reasons.map((reason, idx) => (
                     <li key={idx}>{reason}</li>
                   ))}

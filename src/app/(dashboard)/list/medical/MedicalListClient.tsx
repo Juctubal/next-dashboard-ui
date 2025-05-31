@@ -38,7 +38,6 @@ const commonColumns = [
   {
     header: "Gamefowl ID",
     accessor: "gamefowlId",
-    className: "hidden md:table-cell",
   },
   {
     header: "Medicine Name",
@@ -73,7 +72,7 @@ const MedicalListClient = ({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
     null
   );
-  const [sortBy, setSortBy] = useState<"name" | "date" | null>(null);
+  const [sortBy, setSortBy] = useState<"name" | "date" | "gamefowlId" | null>(null);
 
   const toggleDropdown = () => {
     setDropdownOpen(!isDropdownOpen);
@@ -109,6 +108,12 @@ const MedicalListClient = ({
       return sortDirection === "asc"
         ? dateA.getTime() - dateB.getTime()
         : dateB.getTime() - dateA.getTime();
+    } else if (sortBy === "gamefowlId") {
+      const idA = a.gamefowlId;
+      const idB = b.gamefowlId;
+      return sortDirection === "asc"
+        ? idA - idB
+        : idB - idA;
     }
 
     return 0;
@@ -160,8 +165,13 @@ const MedicalListClient = ({
       className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
     >
       <td className="p-4 dark:text-gray-200">{item.id}</td>
-      <td className="hidden md:table-cell p-4 dark:text-gray-200">
-        {item.gamefowlId}
+      <td className="p-4 dark:text-gray-200">
+        <div className="flex flex-col">
+          <h3 className="font-semibold dark:text-gray-200">{item.gamefowl.name}</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            ID: {item.gamefowlId}
+          </p>
+        </div>
       </td>
       <td className="hidden md:table-cell p-4 dark:text-gray-200">
         {item.name}
@@ -346,6 +356,31 @@ const MedicalListClient = ({
                       }}
                     >
                       Name (Z-A)
+                    </button>
+                  </div>
+                  <div className="py-1">
+                    <div className="px-4 py-2 text-sm font-medium text-gray-700 border-b border-gray-200">
+                      Sort by Gamefowl ID
+                    </div>
+                    <button
+                      className="block w-full px-4 py-2 text-gray-700 hover:bg-gray-100 text-left"
+                      onClick={() => {
+                        setSortBy("gamefowlId");
+                        setSortDirection("asc");
+                        setSortDropdownOpen(false);
+                      }}
+                    >
+                      Gamefowl ID (Ascending)
+                    </button>
+                    <button
+                      className="block w-full px-4 py-2 text-gray-700 hover:bg-gray-100 text-left"
+                      onClick={() => {
+                        setSortBy("gamefowlId");
+                        setSortDirection("desc");
+                        setSortDropdownOpen(false);
+                      }}
+                    >
+                      Gamefowl ID (Descending)
                     </button>
                   </div>
                   <div className="py-1">

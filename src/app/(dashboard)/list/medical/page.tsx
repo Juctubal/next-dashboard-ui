@@ -28,6 +28,7 @@ export default async function MedicalListPage({
         OR: [
           { name: { contains: search, mode: Prisma.QueryMode.insensitive } },
           { notes: { contains: search, mode: Prisma.QueryMode.insensitive } },
+          { gamefowl: { name: { contains: search, mode: Prisma.QueryMode.insensitive } } },
         ],
       },
       { isArchived },

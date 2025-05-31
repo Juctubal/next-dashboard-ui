@@ -25,7 +25,7 @@ const schema = z.object({
   eventDate: z.string().min(1, { message: "Event date is required!" }),
   description: z.string().min(1, { message: "Description is required!" }),
   status: z.nativeEnum(EventStatus, { message: "Status is required!" }),
-  gamefowlIds: z.array(z.number()).optional(),
+  gamefowlIds: z.array(z.number()).optional().default([]),
 });
 
 type Inputs = z.infer<typeof schema>;
@@ -288,11 +288,11 @@ const EventForm = ({
     setError(null);
     setNotification(null);
 
-    // Validate gamefowl selection
+    // Validate gamefowl selection (if any gamefowls are selected)
     const requiredCount = getRequiredGamefowlCount();
-    if (formData.gamefowlIds?.length !== requiredCount) {
+    if (formData.gamefowlIds && formData.gamefowlIds.length > 0 && formData.gamefowlIds.length !== requiredCount) {
       handleError(
-        `Please select exactly ${requiredCount} gamefowl(s) for this event type`
+        `If selecting gamefowls, please select exactly ${requiredCount} gamefowl(s) for this event type`
       );
       return;
     }

@@ -1,7 +1,7 @@
 "use client";
 
 import { Gamefowl } from "@prisma/client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Notification from "../ui/Notification";
 
@@ -38,6 +38,14 @@ const SparringForm = ({
     message: string;
     type: "success" | "error";
   } | null>(null);
+  
+  // Search functionality
+  const [gamefowl1Search, setGamefowl1Search] = useState("");
+  const [gamefowl2Search, setGamefowl2Search] = useState("");
+  const [isGamefowl1DropdownOpen, setIsGamefowl1DropdownOpen] = useState(false);
+  const [isGamefowl2DropdownOpen, setIsGamefowl2DropdownOpen] = useState(false);
+  const gamefowl1Ref = useRef<HTMLDivElement>(null);
+  const gamefowl2Ref = useRef<HTMLDivElement>(null);
 
   // Calculate Elo rating changes
   const calculateEloChanges = (winner: Gamefowl, loser: Gamefowl) => {
@@ -63,6 +71,44 @@ const SparringForm = ({
   const handleNotificationClose = () => {
     setNotification(null);
   };
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (gamefowl1Ref.current && !gamefowl1Ref.current.contains(event.target as Node)) {
+        setIsGamefowl1DropdownOpen(false);
+      }
+      if (gamefowl2Ref.current && !gamefowl2Ref.current.contains(event.target as Node)) {
+        setIsGamefowl2DropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Filter gamefowls based on search term
+  const filteredGamefowl1 = gamefowls
+    .filter((gamefowl) => gamefowl.age !== "CHICK")
+    .filter((gamefowl) => {
+      const searchTerm = gamefowl1Search.toLowerCase();
+      return (
+        gamefowl.id.toString().includes(searchTerm) ||
+        gamefowl.name.toLowerCase().includes(searchTerm)
+      );
+    });
+
+  const filteredGamefowl2 = gamefowls
+    .filter((g) => g.id !== parseInt(gamefowl1Id) && g.age !== "CHICK")
+    .filter((gamefowl) => {
+      const searchTerm = gamefowl2Search.toLowerCase();
+      return (
+        gamefowl.id.toString().includes(searchTerm) ||
+        gamefowl.name.toLowerCase().includes(searchTerm)
+      );
+    });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,44 +218,114 @@ const SparringForm = ({
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Gamefowl 1
           </label>
-          <select
-            value={gamefowl1Id}
-            onChange={(e) => setGamefowl1Id(e.target.value)}
-            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-            required
-          >
-            <option value="">Select Gamefowl 1</option>
-            {gamefowls
-              .filter((gamefowl) => gamefowl.age !== "CHICK")
-              .map((gamefowl) => (
-                <option key={gamefowl.id} value={gamefowl.id}>
-                  {gamefowl.id} - {gamefowl.name} (Elo: {gamefowl.eloRating})
-                </option>
-              ))}
-          </select>
+          <div ref={gamefowl1Ref} className="relative">
+            <div 
+              onClick={() => setIsGamefowl1DropdownOpen(!isGamefowl1DropdownOpen)}
+              className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 cursor-pointer flex justify-between items-center"
+            >
+              <span>
+                {gamefowl1Id 
+                  ? gamefowls.find(g => g.id === parseInt(gamefowl1Id))
+                    ? `${gamefowls.find(g => g.id === parseInt(gamefowl1Id))?.id} - ${gamefowls.find(g => g.id === parseInt(gamefowl1Id))?.name} (Elo: ${gamefowls.find(g => g.id === parseInt(gamefowl1Id))?.eloRating})` 
+                    : "Select Gamefowl 1"
+                  : "Select Gamefowl 1"}
+              </span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+            
+            {isGamefowl1DropdownOpen && (
+              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border rounded-md shadow-lg max-h-60 overflow-auto">
+                <div className="sticky top-0 bg-white dark:bg-gray-800 p-2 border-b">
+                  <input
+                    type="text"
+                    placeholder="Search by ID or name..."
+                    value={gamefowl1Search}
+                    onChange={(e) => setGamefowl1Search(e.target.value)}
+                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                {filteredGamefowl1.length > 0 ? (
+                  filteredGamefowl1.map((gamefowl) => (
+                    <div
+                      key={gamefowl.id}
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                      onClick={() => {
+                        setGamefowl1Id(gamefowl.id.toString());
+                        setIsGamefowl1DropdownOpen(false);
+                        // If gamefowl2 is the same as this one, clear it
+                        if (gamefowl2Id === gamefowl.id.toString()) {
+                          setGamefowl2Id("");
+                        }
+                      }}
+                    >
+                      {gamefowl.id} - {gamefowl.name} (Elo: {gamefowl.eloRating})
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-2 text-gray-500 dark:text-gray-400">No results found</div>
+                )}
+              </div>
+            )}
+          </div>
+          <input type="hidden" value={gamefowl1Id} required />
         </div>
 
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Gamefowl 2
           </label>
-          <select
-            value={gamefowl2Id}
-            onChange={(e) => setGamefowl2Id(e.target.value)}
-            className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-            required
-          >
-            <option value="">Select Gamefowl 2</option>
-            {gamefowls
-              .filter(
-                (g) => g.id !== parseInt(gamefowl1Id) && g.age !== "CHICK"
-              )
-              .map((gamefowl) => (
-                <option key={gamefowl.id} value={gamefowl.id}>
-                  {gamefowl.id} - {gamefowl.name} (Elo: {gamefowl.eloRating})
-                </option>
-              ))}
-          </select>
+          <div ref={gamefowl2Ref} className="relative">
+            <div 
+              onClick={() => setIsGamefowl2DropdownOpen(!isGamefowl2DropdownOpen)}
+              className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 cursor-pointer flex justify-between items-center"
+            >
+              <span>
+                {gamefowl2Id 
+                  ? gamefowls.find(g => g.id === parseInt(gamefowl2Id))
+                    ? `${gamefowls.find(g => g.id === parseInt(gamefowl2Id))?.id} - ${gamefowls.find(g => g.id === parseInt(gamefowl2Id))?.name} (Elo: ${gamefowls.find(g => g.id === parseInt(gamefowl2Id))?.eloRating})` 
+                    : "Select Gamefowl 2"
+                  : "Select Gamefowl 2"}
+              </span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+            
+            {isGamefowl2DropdownOpen && (
+              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border rounded-md shadow-lg max-h-60 overflow-auto">
+                <div className="sticky top-0 bg-white dark:bg-gray-800 p-2 border-b">
+                  <input
+                    type="text"
+                    placeholder="Search by ID or name..."
+                    value={gamefowl2Search}
+                    onChange={(e) => setGamefowl2Search(e.target.value)}
+                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                {filteredGamefowl2.length > 0 ? (
+                  filteredGamefowl2.map((gamefowl) => (
+                    <div
+                      key={gamefowl.id}
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                      onClick={() => {
+                        setGamefowl2Id(gamefowl.id.toString());
+                        setIsGamefowl2DropdownOpen(false);
+                      }}
+                    >
+                      {gamefowl.id} - {gamefowl.name} (Elo: {gamefowl.eloRating})
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-2 text-gray-500 dark:text-gray-400">No results found</div>
+                )}
+              </div>
+            )}
+          </div>
+          <input type="hidden" value={gamefowl2Id} required />
         </div>
 
         <div className="space-y-2">

@@ -3,6 +3,7 @@
 import { Gamefowl } from "@prisma/client";
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 
 interface GamefowlEloListProps {
   gamefowls: Gamefowl[];
@@ -86,11 +87,13 @@ const GamefowlEloList = ({ gamefowls }: GamefowlEloListProps) => {
                           />
                           <div>
                             <div className="font-medium dark:text-gray-200">
-                              {gamefowl.name}
-                              <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                                ({gamefowl.bloodline})
-                              </span>
-                            </div>
+  <Link href={`/list/gamefowls/${gamefowl.id}`} className="hover:underline ">
+    {gamefowl.name}
+  </Link>
+  <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+    ({gamefowl.bloodline})
+  </span>
+</div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">
                               ID: {gamefowl.id}
                             </div>

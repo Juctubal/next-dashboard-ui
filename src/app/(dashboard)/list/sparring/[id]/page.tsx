@@ -34,7 +34,7 @@ const SparringPage = async ({ params, searchParams }: SparringPageProps) => {
       },
       sparring_winner: true,
       sparring_loser: true,
-      gamefowl: true, // For Elo rating
+      // No need to include 'gamefowl' as we're already querying the gamefowl model
     },
   });
 
@@ -95,7 +95,7 @@ const SparringPage = async ({ params, searchParams }: SparringPageProps) => {
               Current Elo Rating
             </p>
             <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">
-              {gamefowl.gamefowl?.eloRating || 1000}
+              {gamefowl.eloRating || 1000}
             </p>
           </div>
         </div>

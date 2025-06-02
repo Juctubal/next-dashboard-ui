@@ -36,6 +36,7 @@ interface ConditioningItem {
   handler: Handler;
   event: Event | null;
   conProg: ConditioningProgram;
+  isArchived: boolean;
 }
 
 interface ConditioningTableRowProps {
@@ -46,14 +47,13 @@ interface ConditioningTableRowProps {
 const ConditioningTableRow = ({ item, role }: ConditioningTableRowProps) => {
   const router = useRouter();
   const [isEditingStatus, setIsEditingStatus] = useState(false);
-  const [currentStatus, setCurrentStatus] = useState<ConditioningStatus>(
-    item.status || "ASSIGNED"
-  );
+  const [currentStatus, setCurrentStatus] = useState<ConditioningStatus>(item.status);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [showStatusConfirmation, setShowStatusConfirmation] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<ConditioningStatus | null>(
     null
   );
+  const [isArchiving, setIsArchiving] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -116,6 +116,112 @@ const ConditioningTableRow = ({ item, role }: ConditioningTableRowProps) => {
     }
   };
 
+  const handleArchiveToggle = async (archive: boolean) => {
+    if (archive) {
+      const confirmed = window.confirm("Are you sure you want to archive this conditioning record?");
+      if (!confirmed) return;
+    }
+    setIsArchiving(true);
+    try {
+      // Log the request for debugging
+      console.log(`[CLIENT] Archiving conditioning record ${item.id}:`, { 
+        archive, 
+        isBoolean: typeof archive === 'boolean',
+        conditioningId: item.id
+      });
+      
+      // Use the working archive-test API endpoint instead of the direct conditioning archive endpoint
+      const requestBody = { 
+        type: "conditioning",
+        id: parseInt(item.id), 
+        isArchived: archive 
+      };
+      console.log('[CLIENT] Request payload:', requestBody);
+      
+      const response = await fetch(`/api/archive-test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+        cache: 'no-store'
+      });
+      
+      console.log('[CLIENT] Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[CLIENT] Archive API error:', errorData);
+        throw new Error(errorData.error || "Failed to update archive status");
+      }
+      
+      // Parse the response and log it
+      const responseData = await response.json();
+      console.log('[CLIENT] Archive API success:', responseData);
+      
+      // Debug: Verify the change was made by immediately checking the current status
+      setTimeout(async () => {
+        try {
+          const checkResponse = await fetch(`/api/debug?id=${item.id}&type=conditioning`);
+          if (checkResponse.ok) {
+            const debugData = await checkResponse.json();
+            console.log('[CLIENT] Verification check of archived status:', debugData);
+          }
+        } catch (e) {
+          console.error('[CLIENT] Debug verification error:', e);
+        }
+      }, 500);
+      
+      // Update succeeded in the database
+      if (archive) {
+        toast.success("Conditioning record successfully archived");
+        
+        // If we've archived an item and aren't showing archived items,
+        // hide this row immediately by adding a CSS class
+        const showArchived = new URLSearchParams(window.location.search).get("showArchived") === "true";
+        if (!showArchived) {
+          // Get the parent row and add a class to hide it
+          const row = document.getElementById(`conditioning-row-${item.id}`);
+          if (row) {
+            row.style.display = "none";
+          }
+          
+          // IMPORTANT: Force a complete page reload rather than a soft refresh
+          // This ensures we get fresh data from the server without any caching
+          setTimeout(() => {
+            console.log('[CLIENT] Performing hard reload');
+            // Add a cache-busting random query parameter
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('_cb', Date.now().toString());
+            window.location.href = currentUrl.toString();
+          }, 1000);
+        } else {
+          // For archive page, do a full reload too with cache busting
+          setTimeout(() => {
+            console.log('[CLIENT] Performing hard reload on archive page');
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('_cb', Date.now().toString());
+            window.location.href = currentUrl.toString();
+          }, 1000);
+        }
+      } else {
+        toast.success("Conditioning record unarchived");
+        
+        // For unarchiving, always do a full page reload with cache busting
+        setTimeout(() => {
+          console.log('[CLIENT] Performing hard reload after unarchive');
+          const currentUrl = new URL(window.location.href);
+          currentUrl.searchParams.set('_cb', Date.now().toString());
+          window.location.href = currentUrl.toString();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('[CLIENT] Archive toggle error:', error);
+      toast.error("Failed to update archive status");
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
+
   const toggleStatusEdit = () => {
     setIsEditingStatus(!isEditingStatus);
   };
@@ -128,6 +234,7 @@ const ConditioningTableRow = ({ item, role }: ConditioningTableRowProps) => {
   return (
     <>
       <tr
+        id={`conditioning-row-${item.id}`}
         key={item.id}
         className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
       >
@@ -173,6 +280,18 @@ const ConditioningTableRow = ({ item, role }: ConditioningTableRowProps) => {
               }`}
             >
               {currentStatus.charAt(0) + currentStatus.slice(1).toLowerCase()}
+            </button>
+            <button
+              onClick={() => handleArchiveToggle(!item.isArchived)}
+              disabled={isArchiving}
+              className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${
+                item.isArchived
+                  ? "bg-gray-200 text-gray-500 border-gray-300 hover:bg-gray-300"
+                  : "bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200"
+              }`}
+              title={item.isArchived ? "Unarchive Conditioning" : "Archive Conditioning"}
+            >
+              {item.isArchived ? "Unarchive" : "Archive"}
             </button>
             {isEditingStatus && (
               <div

@@ -4,21 +4,15 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 
-interface EventFiltersProps {
-  eventType?: string;
-  ageCategory?: string;
-  status?: string;
+interface ConditioningProgramFiltersProps {
   sortBy?: string;
   sortOrder?: string;
 }
 
-const EventFilters = ({
-  eventType,
-  ageCategory,
-  status,
+const ConditioningProgramFilters = ({
   sortBy,
   sortOrder = "desc",
-}: EventFiltersProps) => {
+}: ConditioningProgramFiltersProps) => {
   const router = useRouter();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -65,57 +59,7 @@ const EventFilters = ({
         {isFilterOpen && (
           <div className="absolute right-0 mt-2 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10 border border-gray-200 dark:border-gray-700 min-w-[200px]">
             <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Event Type
-                </label>
-                <select
-                  className="w-full px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
-                  value={eventType || "all"}
-                  onChange={(e) =>
-                    handleFilterChange("eventType", e.target.value)
-                  }
-                >
-                  <option value="all">All Event Types</option>
-                  <option value="FIVE_COCK_DERBY">Five Cock Derby</option>
-                  <option value="FOUR_COCK_DERBY">Four Cock Derby</option>
-                  <option value="THREE_COCK_DERBY">Three Cock Derby</option>
-                  <option value="TWO_COCK_DERBY">Two Cock Derby</option>
-                  <option value="SOLO">Solo</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Age Category
-                </label>
-                <select
-                  className="w-full px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
-                  value={ageCategory || "all"}
-                  onChange={(e) =>
-                    handleFilterChange("ageCategory", e.target.value)
-                  }
-                >
-                  <option value="all">All Age Categories</option>
-                  <option value="COCK">Cock</option>
-                  <option value="BULLSTAG">Bullstag</option>
-                  <option value="STAG">Stag</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Status
-                </label>
-                <select
-                  className="w-full px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
-                  value={status || "all"}
-                  onChange={(e) => handleFilterChange("status", e.target.value)}
-                >
-                  <option value="all">All Status</option>
-                  <option value="ASSIGNED">Assigned</option>
-                  <option value="FINISHED">Finished</option>
-                </select>
-              </div>
-              {/* Archived events toggle moved to main UI */}
+              {/* Archived programs toggle moved to main UI */}
             </div>
           </div>
         )}
@@ -137,11 +81,11 @@ const EventFilters = ({
                 </label>
                 <select
                   className="w-full px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
-                  value={sortBy || "eventDate"}
+                  value={sortBy || "programName"}
                   onChange={(e) => handleFilterChange("sortBy", e.target.value)}
                 >
-                  <option value="eventDate">Event Date</option>
-                  <option value="status">Status</option>
+                  <option value="programName">Program Name</option>
+                  <option value="description">Description</option>
                 </select>
               </div>
               <div>
@@ -167,4 +111,4 @@ const EventFilters = ({
   );
 };
 
-export default EventFilters;
+export default ConditioningProgramFilters;

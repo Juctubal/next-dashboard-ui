@@ -4,6 +4,14 @@ import GamefowlListClient from "./GamefowlListClient";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { Gamefowl, Prisma, GamefowlSex } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+// Prevent caching with metadata export
+export const metadata = {
+  cache: 'no-store',
+};
+
 const GamefowlListPage = async ({
   searchParams,
 }: {
@@ -18,6 +26,12 @@ const GamefowlListPage = async ({
   } = searchParams;
   const p = page ? parseInt(page) : 1;
 
+  // Sorting
+  const sortBy = searchParams.sortBy === 'id' ? 'id' : 'name';
+  const sortDirection = searchParams.sortDirection === 'desc' ? 'desc' : 'asc';
+
+  // Cache control is handled by the metadata export above
+  
   // URL PARAMS CONDITION
   const query = {
     isArchived: showArchived === "true",
@@ -74,7 +88,8 @@ const GamefowlListPage = async ({
     }
   }
 
-  const [data, count] = await prisma.$transaction([
+  try {
+    const [data, count] = await prisma.$transaction([
     prisma.gamefowl.findMany({
       where: query,
       include: {
@@ -92,22 +107,29 @@ const GamefowlListPage = async ({
           },
         },
       },
+      orderBy: {
+        [sortBy]: sortDirection,
+      },
       take: ITEM_PER_PAGE,
       skip: ITEM_PER_PAGE * (p - 1),
     }),
     prisma.gamefowl.count({ where: query }),
   ]);
 
-  const user = await currentUser();
-  const userRole = user?.publicMetadata?.role as string;
+    const user = await currentUser();
+    const userRole = user?.publicMetadata?.role as string;
 
-  return (
+    return (
     <GamefowlListClient
       data={data}
       searchParams={{ ...searchParams, count: count.toString() }}
       userRole={userRole}
     />
-  );
+    );
+  } catch (error) {
+    console.error('Error fetching gamefowls data:', error);
+    throw new Error('Failed to fetch gamefowls data');
+  }
 };
 
 export default GamefowlListPage;

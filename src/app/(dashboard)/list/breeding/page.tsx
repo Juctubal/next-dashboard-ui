@@ -118,8 +118,8 @@ const BreedingListPage = async ({
           {isArchived ? "Archived Breeding" : "All Breeding"}
         </h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-          {role === "admin" && (
-            <Link
+          <TableSearch disabled={totalBreedingCount === 0} />
+          <Link
               href={`/list/breeding?showArchived=${!isArchived}${
                 queryParams.search ? `&search=${queryParams.search}` : ""
               }`}
@@ -129,10 +129,8 @@ const BreedingListPage = async ({
                   : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600"
               }`}
             >
-              {isArchived ? "Active" : "Archive"}
+              {isArchived ? "Show Archived" : "Archive"}
             </Link>
-          )}
-          <TableSearch disabled={totalBreedingCount === 0} />
           <div className="flex items-center gap-4 self-end">
             <button className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow">
               <Image src="/filter.png" alt="" width={14} height={14} />

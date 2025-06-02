@@ -5,29 +5,30 @@ import Pagination from "@/components/Pagination";
 import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 import { eventsData, role } from "@/lib/data";
-import { ITEM_PER_PAGE } from "@/lib/settings";
+
 import {
   Conditioning,
-  ConditioningProgram,
   Event,
   Handler,
-  Prisma,
-  EventGamefowl,
   Gamefowl,
-  EventType,
-  AgeCategory,
-  EventStatus,
-  ConditioningStatus,
 } from "@prisma/client";
+// Use the correct ConditioningProgram interface for the frontend table row
+interface ConditioningProgram {
+  id: string;
+  programName: string;
+  description: string;
+  isArchived: boolean;
+}
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { format } from "date-fns";
 import { ColumnDef, Row } from "@tanstack/react-table";
 import EventTableRow from "./EventTableRow";
 import ConditioningTableRow from "./ConditioningTableRow";
 import EventFilters from "./EventFilters";
 import ConditioningFilters from "./ConditioningFilters";
+import ConditioningProgramFilters from "./ConditioningProgramFilters";
 import { useRouter, useSearchParams } from "next/navigation";
 import { EventWithRelations } from "@/types/event";
 
@@ -124,34 +125,16 @@ const conditioningColumns = [
   },
 ];
 
+import ConditioningProgramTableRow from "./ConditioningProgramTableRow";
+
 const renderConditioningProgramRow = (item: ConditioningProgram) => (
-  <tr
-    key={item.id}
-    className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
-  >
-    <td className="p-4 dark:text-gray-200">
-      <div className="flex flex-col">
-        <span>{item.programName}</span>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          ID: {item.id}
-        </span>
-      </div>
-    </td>
-    <td className="hidden md:table-cell p-4 dark:text-gray-200">
-      {item.description}
-    </td>
-    <td>
-      <div className="flex items-center gap-2">
-        {role === "admin" && (
-          <>
-            <FormModal table="conditioningProgram" type="update" data={item} />
-            <FormModal table="conditioningProgram" type="delete" id={item.id} />
-          </>
-        )}
-      </div>
-    </td>
-  </tr>
-);
+  <ConditioningProgramTableRow item={item} role={role} />
+); // type is already present, but ensure ConditioningProgram is imported from the correct interface
+
+// If you want to be explicit and avoid any confusion, you can do:
+// const renderConditioningProgramRow = (item: ConditioningProgram): JSX.Element => (
+//   <ConditioningProgramTableRow item={item} role={role} />
+// );
 
 const renderConditioningRow = (
   item: Conditioning & {
@@ -218,12 +201,22 @@ const renderConditioningRow = (
   </tr>
 );
 
+// We don't need a separate context for refreshing
+import React from 'react';
+
 const EventListPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [data, setData] = useState<any[]>([]);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0); // Add a key to force remounting
+
+  // Function to force a data refresh
+  const forceRefresh = useCallback(() => {
+    console.log('Force refreshing data...');
+    setRefreshKey(prev => prev + 1);
+  }, []);
 
   const {
     page,
@@ -235,22 +228,58 @@ const EventListPage = () => {
     status,
     startDate,
     endDate,
+    showArchived = "false",
   } = Object.fromEntries(searchParams.entries());
 
   const p = page ? parseInt(page) : 1;
 
   const getTabParams = (targetTab: string) => {
-    // Only include tab and page when switching tabs
-    return {
-      tab: targetTab,
-      ...(page && { page: "1" }), // Reset to first page when switching tabs
-    };
+    // Create a clean object with just the parameters we want to keep
+    const params: Record<string, string> = { tab: targetTab };
+    
+    // Keep other relevant parameters when switching tabs
+    params.page = "1"; // Reset to page 1 when switching tabs
+    
+    if (showArchived === "true") {
+      params.showArchived = "true";
+    }
+    
+    const searchValue = searchParams.get("search");
+    if (searchValue) {
+      params.search = searchValue;
+    }
+    
+    if (sortBy) {
+      params.sortBy = sortBy;
+    }
+    
+    if (sortOrder) {
+      params.sortOrder = sortOrder;
+    }
+    
+    return params;
+  };
+
+  // Toggle archive visibility
+  const toggleArchived = () => {
+    const newShowArchived = showArchived === "true" ? "false" : "true";
+    const params = new URLSearchParams(window.location.search);
+    params.set("showArchived", newShowArchived);
+    params.set("page", "1"); // Reset to page 1 when toggling archived
+    
+    router.push(`${window.location.pathname}?${params.toString()}`);
   };
 
   useEffect(() => {
+    // This effect will run whenever refreshKey changes
+    console.log('Effect triggered with refreshKey:', refreshKey);
+    
     const fetchData = async () => {
       setLoading(true);
       try {
+        // Debug: Log current state of showArchived
+        console.log('Current showArchived param:', { showArchived, type: typeof showArchived });
+        
         const params = new URLSearchParams({
           page: p.toString(),
           tab,
@@ -261,14 +290,31 @@ const EventListPage = () => {
           ...(status && { status }),
           ...(startDate && { startDate }),
           ...(endDate && { endDate }),
+          showArchived,  // "true" or "false" as string
         });
+        
+        // Debug: Log constructed URL params
+        console.log('API request URL params:', params.toString());
 
         const response = await fetch(`/api/events?${params.toString()}`);
         if (!response.ok) {
           throw new Error("Failed to fetch data");
         }
         const result = await response.json();
-        setData(result.data || []);
+        
+        // Debug: Log API response
+        console.log('API response:', result);
+    if (tab === "conditioningPrograms" && Array.isArray(result.data)) {
+      setData(result.data.map((item: ConditioningProgram) => ({
+        ...item,
+        id: typeof item.id === 'number' ? String(item.id) : item.id,
+        programName: item.programName ?? '',
+        description: item.description ?? '',
+        isArchived: typeof item.isArchived === 'boolean' ? item.isArchived : false,
+      })));
+    } else {
+      setData(result.data || []);
+    }
         setCount(result.count || 0);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -280,6 +326,18 @@ const EventListPage = () => {
     };
 
     fetchData();
+    console.log('Data fetch triggered with dependencies:', { 
+      page: p, 
+      sortBy, 
+      sortOrder, 
+      eventType, 
+      ageCategory, 
+      status, 
+      startDate, 
+      endDate, 
+      tab, 
+      showArchived 
+    });
   }, [
     p,
     tab,
@@ -290,93 +348,107 @@ const EventListPage = () => {
     status,
     startDate,
     endDate,
+    showArchived,
   ]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-md flex-1 m-4 mt-0">
-      {/* TOP */}
-      <div className="flex items-center justify-between">
-        <h1 className="hidden md:block text-lg font-semibold dark:text-gray-200">
-          Events & Conditioning
-        </h1>
-        <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-          <TableSearch disabled={loading || !data || data.length === 0} />
-          <div className="flex items-center gap-4 self-end">
-            {tab === "events" && (
-              <EventFilters
-                eventType={eventType}
-                ageCategory={ageCategory}
-                status={status}
-                sortBy={sortBy}
-                sortOrder={sortOrder}
-              />
-            )}
-            {tab === "conditioning" && (
-              <ConditioningFilters
-                status={status}
-                startDate={startDate}
-                endDate={endDate}
-                sortBy={sortBy}
-                sortOrder={sortOrder}
-              />
-            )}
-            {role === "admin" && (
-              <>
-                {tab === "events" && <FormModal table="event" type="create" />}
-                {tab === "conditioningPrograms" && (
-                  <FormModal table="conditioningProgram" type="create" />
-                )}
-                {tab === "conditioning" && (
-                  <FormModal table="conditioning" type="create" />
-                )}
-              </>
-            )}
+    <div key={refreshKey} className="bg-white dark:bg-gray-800 p-4 rounded-md flex-1 m-4 mt-0">
+        {/* TOP */}
+        <div className="flex items-center justify-between">
+          <h1 className="hidden md:block text-lg font-semibold dark:text-gray-200">
+            Events & Conditioning
+          </h1>
+          <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+            <TableSearch disabled={loading || !data || data.length === 0} />
+            <div className="flex items-center gap-4 self-end">
+              {/* Archive Toggle Button */}
+              <button
+                onClick={toggleArchived}
+                className={`flex items-center justify-center px-3 py-1.5 rounded-md text-xs font-medium ${showArchived === "true" ? "bg-ggPurple text-white hover:bg-ggPurpleLight" : "bg-gray-100 text-gray-800 hover:bg-gray-200"}`}
+              >
+                {showArchived === "true" ? "Showing Archived" : "Archive"}
+              </button>
+              {tab === "events" && (
+                <EventFilters
+                  eventType={eventType}
+                  ageCategory={ageCategory}
+                  status={status}
+                  sortBy={sortBy}
+                  sortOrder={sortOrder}
+                />
+              )}
+              {tab === "conditioning" && (
+                <ConditioningFilters
+                  status={status}
+                  startDate={startDate}
+                  endDate={endDate}
+                  sortBy={sortBy}
+                  sortOrder={sortOrder}
+                />
+              )}
+              {tab === "conditioningPrograms" && (
+                <ConditioningProgramFilters
+                  sortBy={sortBy}
+                  sortOrder={sortOrder}
+                />
+              )}
+              {role === "admin" && (
+                <>
+                  {tab === "events" && <FormModal table="event" type="create" />}
+                  {tab === "conditioningPrograms" && (
+                    <FormModal table="conditioningProgram" type="create" />
+                  )}
+                  {tab === "conditioning" && (
+                    <FormModal table="conditioning" type="create" />
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* TABS */}
-      <div className="flex items-center gap-4 border-b border-gray-200 dark:border-gray-700 mt-4">
-        <Link
-          href={{
-            pathname: "/list/events",
-            query: getTabParams("events"),
-          }}
-          className={`px-4 py-2 font-medium text-sm ${
-            tab === "events"
-              ? "border-b-2 border-ggPurple text-ggPurple dark:text-ggPurple"
-              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-          }`}
-        >
-          Events
-        </Link>
-        <Link
-          href={{
-            pathname: "/list/events",
-            query: getTabParams("conditioningPrograms"),
-          }}
-          className={`px-4 py-2 font-medium text-sm ${
-            tab === "conditioningPrograms"
-              ? "border-b-2 border-ggPurple text-ggPurple dark:text-ggPurple"
-              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-          }`}
-        >
-          Conditioning Programs
-        </Link>
-        <Link
-          href={{
-            pathname: "/list/events",
-            query: getTabParams("conditioning"),
-          }}
-          className={`px-4 py-2 font-medium text-sm ${
-            tab === "conditioning"
-              ? "border-b-2 border-ggPurple text-ggPurple dark:text-ggPurple"
-              : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-          }`}
-        >
-          Conditioning
-        </Link>
-      </div>
+        {/* TABS */}
+        <div className="flex items-center gap-4 border-b border-gray-200 dark:border-gray-700 mt-4">
+          <Link
+            href={{
+              pathname: "/list/events",
+              query: getTabParams("events"),
+            }}
+            className={`px-4 py-2 font-medium text-sm ${
+              tab === "events"
+                ? "border-b-2 border-ggPurple text-ggPurple dark:text-ggPurple"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            }`}
+          >
+            Events
+          </Link>
+          <Link
+            href={{
+              pathname: "/list/events",
+              query: getTabParams("conditioningPrograms"),
+            }}
+            className={`px-4 py-2 font-medium text-sm ${
+              tab === "conditioningPrograms"
+                ? "border-b-2 border-ggPurple text-ggPurple dark:text-ggPurple"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            }`}
+          >
+            Conditioning Programs
+          </Link>
+          <Link
+            href={{
+              pathname: "/list/events",
+              query: getTabParams("conditioning"),
+            }}
+            className={`px-4 py-2 font-medium text-sm ${
+              tab === "conditioning"
+                ? "border-b-2 border-ggPurple text-ggPurple dark:text-ggPurple"
+                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            }`}
+          >
+            Conditioning
+          </Link>
+        </div>
 
       {/* LIST */}
       {loading ? (
@@ -388,7 +460,15 @@ const EventListPage = () => {
           {tab === "events" && (
             <Table
               columns={eventColumns}
-              renderRow={(item) => <EventTableRow item={item} role={role} />}
+              renderRow={(item) => (
+                <EventTableRow
+                  item={{
+                    ...item,
+                    eventDate: typeof item.eventDate === "string" ? new Date(item.eventDate) : item.eventDate,
+                  }}
+                  role={role}
+                />
+              )}
               data={data}
             />
           )}

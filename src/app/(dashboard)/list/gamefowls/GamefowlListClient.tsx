@@ -348,6 +348,7 @@ const GamefowlRow = ({
                           endDate: new Date(),
                           status: "ASSIGNED",
                           notes: "",
+                          isArchived: false,
                           gamefowls: [{ gamefowlId: item.id, gamefowl: item }],
                         }}
                         onClose={() => setShowModal(false)}
@@ -377,9 +378,8 @@ const GamefowlListClient = ({
 }: GamefowlListClientProps) => {
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setSortDropdownOpen] = useState(false);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
-    null
-  );
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(() => (searchParams.sortDirection === 'desc' ? 'desc' : 'asc'));
+const [sortBy, setSortBy] = useState<'name' | 'id'>(() => (searchParams.sortBy === 'id' ? 'id' : 'name'));
   const [selectedAges, setSelectedAges] = useState<string[]>([]);
   const [selectedSexes, setSelectedSexes] = useState<string[]>([]);
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -485,6 +485,15 @@ const GamefowlListClient = ({
     updateFilters(selectedAges, newSelectedSexes);
   };
 
+  const updateSort = (sortBy: 'name' | 'id', sortDirection: 'asc' | 'desc') => {
+    // Update URL with sort params
+    const params = new URLSearchParams(window.location.search);
+    params.set('sortBy', sortBy);
+    params.set('sortDirection', sortDirection);
+    params.set('page', '1'); // reset to page 1 on sort change
+    router.push(`/list/gamefowls?${params.toString()}`);
+  };
+
   const updateFilters = (ages: string[], sexes: string[]) => {
     // Update URL with selected filters
     const ageParam = ages.includes("all") ? "" : ages.join(",");
@@ -558,19 +567,9 @@ const GamefowlListClient = ({
   // No longer needed as filtering is done on the server
   const filteredData = data;
 
-  // Sort the data based on sortDirection
-  const sortedData = [...filteredData].sort((a, b) => {
-    if (!sortDirection) return 0;
-    const nameA = a.name.toLowerCase();
-    const nameB = b.name.toLowerCase();
-    return sortDirection === "asc"
-      ? nameA.localeCompare(nameB)
-      : nameB.localeCompare(nameA);
-  });
-
-  // Use the data directly without additional pagination
-  // The server has already paginated the data
-  const displayData = sortedData;
+  // Sort the data based on sortBy and sortDirection
+  // The server has already sorted and paginated the data
+  const displayData = filteredData; // No client-side sorting
 
   // Get the total count from the URL params
   const totalCount = searchParams.count
@@ -587,7 +586,6 @@ const GamefowlListClient = ({
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end relative">
-            {role === "admin" && (
               <Link
                 href={`/list/gamefowls?showArchived=${!isArchived}${
                   search ? `&search=${search}` : ""
@@ -598,9 +596,8 @@ const GamefowlListClient = ({
                     : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600"
                 }`}
               >
-                {isArchived ? "Active" : "Archive"}
+                {isArchived ? "Showing Archived" : "Archive"}
               </Link>
-            )}
             <button
               onClick={() => setShowQRScanner(true)}
               className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow"
@@ -785,25 +782,51 @@ const GamefowlListClient = ({
                 <Image src="/sort.png" alt="" width={14} height={14} />
               </button>
               {isSortDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 bg-white shadow-md rounded-md z-10">
-                  <button
-                    className="block w-full px-4 py-2 text-gray-700 hover:bg-gray-100 text-left"
-                    onClick={() => {
-                      setSortDirection("asc");
-                      setSortDropdownOpen(false);
-                    }}
-                  >
-                    Name (A-Z)
-                  </button>
-                  <button
-                    className="block w-full px-4 py-2 text-gray-700 hover:bg-gray-100 text-left"
-                    onClick={() => {
-                      setSortDirection("desc");
-                      setSortDropdownOpen(false);
-                    }}
-                  >
-                    Name (Z-A)
-                  </button>
+                <div className="absolute right-0 top-full mt-2 bg-white shadow-md rounded-md z-10 min-w-[180px]">
+                  <div className="border-b border-gray-200">
+                    <div className="px-4 py-2 text-xs font-semibold text-gray-500">Sort By</div>
+                    <button
+                      className={`block w-full px-4 py-2 text-left ${sortBy === 'name' ? 'bg-gray-100' : ''}`}
+                      onClick={() => {
+                        setSortBy('name');
+                        updateSort('name', sortDirection);
+                      }}
+                    >
+                      Name
+                    </button>
+                    <button
+                      className={`block w-full px-4 py-2 text-left ${sortBy === 'id' ? 'bg-gray-100' : ''}`}
+                      onClick={() => {
+                        setSortBy('id');
+                        updateSort('id', sortDirection);
+                      }}
+                    >
+                      ID Number
+                    </button>
+                  </div>
+                  <div>
+                    <div className="px-4 py-2 text-xs font-semibold text-gray-500">Order</div>
+                    <button
+                      className={`block w-full px-4 py-2 text-left ${sortDirection === 'asc' ? 'bg-gray-100' : ''}`}
+                      onClick={() => {
+                        setSortDirection('asc');
+                        updateSort(sortBy, 'asc');
+                        setSortDropdownOpen(false);
+                      }}
+                    >
+                      Ascending
+                    </button>
+                    <button
+                      className={`block w-full px-4 py-2 text-left ${sortDirection === 'desc' ? 'bg-gray-100' : ''}`}
+                      onClick={() => {
+                        setSortDirection('desc');
+                        updateSort(sortBy, 'desc');
+                        setSortDropdownOpen(false);
+                      }}
+                    >
+                      Descending
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

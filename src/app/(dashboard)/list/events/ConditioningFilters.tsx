@@ -79,6 +79,7 @@ const ConditioningFilters = ({
                   <option value="COMPLETED">Completed</option>
                 </select>
               </div>
+              {/* Archived records toggle moved to main UI */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Start Date

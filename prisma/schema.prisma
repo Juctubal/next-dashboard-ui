@@ -69,7 +69,6 @@ model Gamefowl {
   bloodline       String
   date_hatched    DateTime?
   date_sold       DateTime?
-  status          GamefowlStatus         @default(IDLE)
   /// *
   /// * Parent ID Relations
   sireId          Int?
@@ -83,11 +82,13 @@ model Gamefowl {
   isArchived      Boolean                @default(false)
   eloRating       Int                    @default(1000)
   sex             GamefowlSex
+  status          GamefowlStatus         @default(IDLE)
   damBreeding     Breeding[]             @relation("DamBreeding")
   sireBreeding    Breeding[]             @relation("SireBreeding")
   conditioning    ConditioningGamefowl[]
   deworming       Deworming[]
   eventGamefowls  EventGamefowl[]
+  EventResult     EventResult[]
   dam             Gamefowl?              @relation("DamRelation", fields: [damId], references: [id])
   offspringDam    Gamefowl[]             @relation("DamRelation")
   sire            Gamefowl?              @relation("SireRelation", fields: [sireId], references: [id])
@@ -97,7 +98,6 @@ model Gamefowl {
   sparring_loser  Sparring[]             @relation("SparLose")
   sparring_winner Sparring[]             @relation("SparWin")
   vaccine         Vaccine[]
-  EventResult     EventResult[]
 }
 
 model OneTimeSched {
@@ -115,6 +115,7 @@ model ConditioningProgram {
   description  String
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt
+  isArchived   Boolean                @default(false)
   Conditioning Conditioning[]
   activities   ConditioningActivity[]
 }
@@ -156,8 +157,9 @@ model Conditioning {
   endDate           DateTime?
   status            ConditioningStatus
   notes             String?
+  isArchived        Boolean                        @default(false)
   conProg           ConditioningProgram            @relation(fields: [conProgId], references: [id])
-  event             Event?                         @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  event             Event?                         @relation(fields: [eventId], references: [id])
   handler           Handler                        @relation(fields: [handlerId], references: [id])
   activitySchedules ConditioningActivitySchedule[]
   gamefowls         ConditioningGamefowl[]
@@ -207,37 +209,37 @@ model Schedule {
 }
 
 model Handler {
-  id               String            @id @default(cuid())
-  username         String            @unique
-  password         String
-  first_name       String
-  middle_name      String?
-  last_name        String
-  email            String?           @unique
-  img              String?
-  phone            String?
-  role             UserRole
-  status           UserStatus
-  createdAt        DateTime          @default(now())
-  isArchived       Boolean           @default(false)
-  conditioning     Conditioning[]
-  event            Event[]
+  id           String         @id @default(cuid())
+  username     String         @unique
+  password     String
+  first_name   String
+  middle_name  String?
+  last_name    String
+  email        String?        @unique
+  img          String?
+  phone        String?
+  role         UserRole
+  status       UserStatus
+  createdAt    DateTime       @default(now())
+  isArchived   Boolean        @default(false)
+  conditioning Conditioning[]
+  event        Event[]
 }
 
 model Breeder {
-  id               String            @id @default(cuid())
-  username         String            @unique
-  password         String
-  first_name       String
-  last_name        String
-  email            String?           @unique
-  img              String?
-  phone            String?
-  role             UserRole          @default(breeder)
-  status           UserStatus        @default(ACTIVE)
-  createdAt        DateTime          @default(now())
-  middle_name      String?
-  isArchived       Boolean           @default(false)
+  id          String     @id @default(cuid())
+  username    String     @unique
+  password    String
+  first_name  String
+  last_name   String
+  email       String?    @unique
+  img         String?
+  phone       String?
+  role        UserRole   @default(breeder)
+  status      UserStatus @default(ACTIVE)
+  createdAt   DateTime   @default(now())
+  middle_name String?
+  isArchived  Boolean    @default(false)
 }
 
 model Event {
@@ -249,9 +251,10 @@ model Event {
   description  String
   status       EventStatus
   handlerId    String?
+  isArchived   Boolean         @default(false)
+  conditioning Conditioning[]
   handler      Handler?        @relation(fields: [handlerId], references: [id])
   gamefowl     EventGamefowl[]
-  conditioning Conditioning[]
   results      EventResult[]
 }
 
@@ -272,13 +275,13 @@ model EventResult {
 model RecurrentSchedules {
   id                 Int                       @id @default(autoincrement())
   schedId            Int
-  time_of_day        String
   reccurencePattern  RecurrencePattern
+  time_of_day        String
   endDate            DateTime
   startDate          DateTime
-  customDate         String?
   customInterval     Int?
   weekDays           String?
+  customDate         String?
   repeatIndefinitely Boolean                   @default(false)
   schedule           Schedule                  @relation(fields: [schedId], references: [id], onDelete: Cascade)
   completions        RecurringTaskCompletion[]
@@ -309,6 +312,18 @@ model EventGamefowl {
   gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
 
   @@unique([eventId, gamefowlId])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userId    String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 /// *
@@ -390,18 +405,6 @@ enum gamefowlAge {
   HEN
 }
 
-model PushSubscription {
-  id         String   @id @default(cuid())
-  endpoint   String   @unique
-  p256dh     String
-  auth       String
-  userId     String   @unique
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@index([userId])
-}
-
 enum GamefowlSex {
   MALE
   FEMALE
@@ -423,5 +426,3 @@ enum Result {
   DRAW
   NO_SHOW
 }
-
-

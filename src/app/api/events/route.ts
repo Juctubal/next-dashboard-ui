@@ -2,6 +2,18 @@ import { prisma } from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import { NextResponse } from "next/server";
 
+// Force dynamic rendering to prevent caching
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+// Add cache control headers to prevent caching
+function addNoCacheHeaders(response: NextResponse) {
+  response.headers.set('Cache-Control', 'no-store, max-age=0');
+  response.headers.set('Pragma', 'no-cache');
+  response.headers.set('Expires', '0');
+  return response;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get("page") || "1");
@@ -13,11 +25,46 @@ export async function GET(request: Request) {
   const status = searchParams.get("status");
   const startDate = searchParams.get("startDate");
   const endDate = searchParams.get("endDate");
+  // Parse the showArchived parameter - default to false if not explicitly set to "true"
+  const showArchivedParam = searchParams.get("showArchived");
+  const showArchived = showArchivedParam === "true";
+  console.log('showArchived parameter:', { showArchivedParam, parsed: showArchived });
 
   // URL PARAMS CONDITION
   const eventQuery: any = {};
   const conditioningProgramQuery: any = {};
   const conditioningQuery: any = {};
+  
+  // Handle archived/non-archived filtering
+  if (showArchived) {
+    // When showing archived items, ONLY show archived items
+    console.log('SHOWING ARCHIVED mode active - showing only archived items');
+    
+    // Use explicit boolean true condition
+    eventQuery.isArchived = true;
+    conditioningProgramQuery.isArchived = true;
+    conditioningQuery.isArchived = true;
+    
+    console.log('Filtering to show only archived items:', { 
+      eventQuery, 
+      conditioningProgramQuery, 
+      conditioningQuery 
+    });
+  } else {
+    // When NOT showing archived items, explicitly filter to only show non-archived items
+    console.log('HIDING ARCHIVED mode active - showing only non-archived items');
+    
+    // Using a direct equals:false condition
+    eventQuery.isArchived = false;
+    conditioningProgramQuery.isArchived = false;
+    conditioningQuery.isArchived = false;
+    
+    console.log('Filtering with explicit equals condition:', { 
+      eventQuery, 
+      conditioningProgramQuery, 
+      conditioningQuery 
+    });
+  }
 
   // Handle event filters
   if (eventType && eventType !== "all") {
@@ -145,7 +192,8 @@ export async function GET(request: Request) {
       ]);
     }
 
-    return NextResponse.json({ data, count });
+    const response = NextResponse.json({ data, count });
+    return addNoCacheHeaders(response);
   } catch (error) {
     console.error("Error fetching data:", error);
     return NextResponse.json(

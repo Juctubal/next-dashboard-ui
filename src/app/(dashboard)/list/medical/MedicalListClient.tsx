@@ -271,7 +271,6 @@ const MedicalListClient = ({
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end relative">
-            {role === "admin" && (
               <Link
                 href={`/list/medical?type=${type}&showArchived=${!isArchived}${
                   search ? `&search=${search}` : ""
@@ -282,9 +281,8 @@ const MedicalListClient = ({
                     : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600"
                 }`}
               >
-                {isArchived ? "Active" : "Archive"}
+                {isArchived ? "Show Archived" : "Archive"}
               </Link>
-            )}
             <div className="relative">
               <button
                 onClick={toggleDropdown}

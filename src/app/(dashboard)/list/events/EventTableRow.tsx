@@ -18,12 +18,13 @@ import EventResultForm from "@/components/EventResultForm";
 import { format } from "date-fns";
 import { EventWithRelations } from "@/types/event";
 
-interface EventTableRowProps {
-  item: EventWithRelations;
-  role: string;
+
+interface EventWithRelationsFixed extends Omit<EventWithRelations, 'eventDate'> {
+  isArchived: boolean;
+  eventDate: string | Date; 
 }
 
-const EventTableRow = ({ item, role }: EventTableRowProps) => {
+const EventTableRow = ({ item, role }: { item: EventWithRelationsFixed; role: string }) => {
   const router = useRouter();
   const [currentStatus, setCurrentStatus] = useState<EventStatus>(item.status);
   const [isEditingStatus, setIsEditingStatus] = useState(false);
@@ -31,6 +32,7 @@ const EventTableRow = ({ item, role }: EventTableRowProps) => {
   const [showResultForm, setShowResultForm] = useState(false);
   const [showStatusConfirmation, setShowStatusConfirmation] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<EventStatus | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,7 +53,7 @@ const EventTableRow = ({ item, role }: EventTableRowProps) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleStatusChange = async (newStatus: EventStatus) => {
+  const handleStatusChange = (newStatus: EventStatus) => {
     setPendingStatus(newStatus);
     setShowStatusConfirmation(true);
     setIsEditingStatus(false);
@@ -59,7 +61,6 @@ const EventTableRow = ({ item, role }: EventTableRowProps) => {
 
   const confirmStatusChange = async () => {
     if (!pendingStatus) return;
-
     setIsUpdatingStatus(true);
     try {
       const response = await fetch(`/api/events/${item.id}/status`, {
@@ -69,12 +70,10 @@ const EventTableRow = ({ item, role }: EventTableRowProps) => {
         },
         body: JSON.stringify({ status: pendingStatus }),
       });
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to update status");
       }
-
       setCurrentStatus(pendingStatus);
       toast.success("Event status updated successfully");
       router.refresh();
@@ -89,6 +88,117 @@ const EventTableRow = ({ item, role }: EventTableRowProps) => {
       setPendingStatus(null);
     }
   };
+
+  const handleArchiveToggle = async (archive: boolean) => {
+    if (archive) {
+      const confirmed = window.confirm("Are you sure you want to archive this event?");
+      if (!confirmed) return;
+    }
+    setIsArchiving(true);
+    try {
+      // Log the request for debugging
+      console.log(`[CLIENT] Archiving event ${item.id}:`, { 
+        id: item.id,
+        archive, 
+        currentStatus: item.isArchived 
+      });
+      
+      // Use the working archive-test API endpoint instead of the direct event archive endpoint
+      const requestBody = { 
+        type: "event", 
+        id: item.id, 
+        isArchived: archive === true 
+      };
+      console.log('[CLIENT] Request payload:', requestBody);
+      
+      const response = await fetch(`/api/archive-test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+        cache: 'no-store' // Prevent caching
+      });
+      
+      console.log('[CLIENT] Response status:', response.status);
+      
+      // Parse the response body
+      let responseData;
+      try {
+        responseData = await response.json();
+        console.log('[CLIENT] API response data:', responseData);
+      } catch (parseError) {
+        console.error('[CLIENT] Failed to parse response:', parseError);
+      }
+      
+      if (!response.ok) {
+        throw new Error(responseData?.error || "Failed to update archive status");
+      }
+      
+      // Update succeeded in the database
+      if (archive) {
+        toast.success("Event successfully archived");
+        
+        // If we're currently viewing the non-archived list, hide the row
+        const showArchived = new URLSearchParams(window.location.search).get("showArchived") === "true";
+        console.log('[CLIENT] Current view mode:', { showArchived });
+        
+        if (!showArchived) {
+          console.log('[CLIENT] Hiding row and preparing for page refresh');
+          // Get the parent row and hide it
+          const row = document.getElementById(`event-row-${item.id}`);
+          if (row) {
+            row.style.display = "none";
+          }
+        }
+        
+        // CRITICAL FIX: Force a complete page reload, not just a client-side refresh
+        // This ensures we get fresh data from the server
+        console.log('[CLIENT] Forcing complete page reload in 1 second');
+        setTimeout(() => {
+          console.log('[CLIENT] Performing hard reload after event archive action');
+          const currentUrl = new URL(window.location.href);
+          currentUrl.searchParams.set('_cb', Date.now().toString());
+          window.location.href = currentUrl.toString();
+        }, 1000);
+      } else {
+        toast.success("Event unarchived");
+        // For unarchiving, also force a full page reload with cache busting to ensure fresh data
+        console.log('[CLIENT] Preparing for page refresh after unarchive');
+        setTimeout(() => {
+          console.log('[CLIENT] Performing hard reload after event unarchive action');
+          const currentUrl = new URL(window.location.href);
+          currentUrl.searchParams.set('_cb', Date.now().toString());
+          window.location.href = currentUrl.toString();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error("[CLIENT] Archive toggle error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to update archive status");
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
+
+
+  useEffect(() => {
+    setCurrentStatus(item.status);
+  }, [item.status]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        statusDropdownRef.current &&
+        !statusDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsEditingStatus(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+
 
   const toggleStatusEdit = () => {
     setIsEditingStatus(!isEditingStatus);
@@ -119,9 +229,9 @@ const EventTableRow = ({ item, role }: EventTableRowProps) => {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateInput: string | Date) => {
     try {
-      const date = new Date(dateString);
+      const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
       if (isNaN(date.getTime())) {
         return "Invalid date";
       }
@@ -139,6 +249,7 @@ const EventTableRow = ({ item, role }: EventTableRowProps) => {
   return (
     <>
       <tr
+        id={`event-row-${item.id}`}
         key={item.id}
         className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
       >
@@ -249,12 +360,27 @@ const EventTableRow = ({ item, role }: EventTableRowProps) => {
           <div className="flex items-center gap-2">
             <FormModal table="event" type="update" data={item} />
             <FormModal table="event" type="delete" id={item.id} />
+            <button
+              onClick={() => handleArchiveToggle(!item.isArchived)}
+              disabled={isArchiving}
+              className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${
+                item.isArchived
+                  ? "bg-gray-200 text-gray-500 border-gray-300 hover:bg-gray-300"
+                  : "bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200"
+              }`}
+              title={item.isArchived ? "Unarchive Event" : "Archive Event"}
+            >
+              {item.isArchived ? "Unarchive" : "Archive"}
+            </button>
           </div>
         </td>
       </tr>
       {showResultForm && (
         <EventResultForm
-          event={item}
+          event={{
+            ...item,
+            eventDate: item.eventDate instanceof Date ? item.eventDate : new Date(item.eventDate)
+          } as any}
           onClose={() => setShowResultForm(false)}
           onSubmit={handleSubmitResults}
         />

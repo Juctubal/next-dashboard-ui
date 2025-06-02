@@ -54,12 +54,12 @@ const EventsPage = async ({ params, searchParams }: EventsPageProps) => {
     endDate: conditioningGamefowl.conditioning.endDate,
   }));
 
-  // Remove duplicates based on event ID
+
   const uniqueEvents = events.filter(
     (event, index, self) => index === self.findIndex((e) => e.id === event.id)
   );
 
-  // TODO: Replace with real data fetching
+
   const conditioningPrograms: any[] = [];
   const gamefowlColumns = [
     { header: "Name", accessor: "name" },

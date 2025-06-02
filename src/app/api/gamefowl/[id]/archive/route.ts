@@ -9,10 +9,11 @@ export async function PUT(
   try {
     const user = await currentUser();
 
-    // Check if user is admin
-    if (user?.publicMetadata?.role !== "admin") {
+    // Check if user is admin, handler, or breeder
+    const allowedRoles = ["admin", "handler", "breeder"];
+    if (!allowedRoles.includes(user?.publicMetadata?.role as string)) {
       return NextResponse.json(
-        { error: "Unauthorized. Only admins can archive gamefowl." },
+        { error: "Unauthorized. Only admins, handlers, or breeders can archive gamefowl." },
         { status: 403 }
       );
     }

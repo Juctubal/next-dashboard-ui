@@ -296,7 +296,7 @@ const EventTableRow = ({ item, role }: { item: EventWithRelationsFixed; role: st
                   : "bg-green-100 text-green-800 hover:bg-green-200"
               }`}
             >
-              {currentStatus.charAt(0) + currentStatus.slice(1).toLowerCase()}
+              {currentStatus ? currentStatus.charAt(0) + currentStatus.slice(1).toLowerCase() : 'Unknown'}
             </button>
             {currentStatus === "FINISHED" && (
               <button

@@ -218,9 +218,10 @@ const EventListPage = () => {
     setRefreshKey(prev => prev + 1);
   }, []);
 
+  // Get parameters from URL, ensuring events is the default tab when no tab parameter is present
+  const params = Object.fromEntries(searchParams.entries());
   const {
     page,
-    tab = "events",
     sortBy,
     sortOrder = "desc",
     eventType,
@@ -229,32 +230,30 @@ const EventListPage = () => {
     startDate,
     endDate,
     showArchived = "false",
-  } = Object.fromEntries(searchParams.entries());
+  } = params;
+  
+  // Explicitly set tab to "events" if it's not in the URL
+  const tab = params.tab || "events";
 
   const p = page ? parseInt(page) : 1;
 
   const getTabParams = (targetTab: string) => {
     // Create a clean object with just the parameters we want to keep
+    // Only preserve tab and showArchived, reset all filters and sort when switching tabs
     const params: Record<string, string> = { tab: targetTab };
     
-    // Keep other relevant parameters when switching tabs
-    params.page = "1"; // Reset to page 1 when switching tabs
+    // Don't include page parameter when switching tabs
+    // This will default to page 1 in the useEffect
     
+    // Only preserve showArchived setting
     if (showArchived === "true") {
       params.showArchived = "true";
     }
     
+    // Preserve search term but reset all other filters and sort
     const searchValue = searchParams.get("search");
     if (searchValue) {
       params.search = searchValue;
-    }
-    
-    if (sortBy) {
-      params.sortBy = sortBy;
-    }
-    
-    if (sortOrder) {
-      params.sortOrder = sortOrder;
     }
     
     return params;
@@ -410,10 +409,7 @@ const EventListPage = () => {
         {/* TABS */}
         <div className="flex items-center gap-4 border-b border-gray-200 dark:border-gray-700 mt-4">
           <Link
-            href={{
-              pathname: "/list/events",
-              query: getTabParams("events"),
-            }}
+            href="/list/events"
             className={`px-4 py-2 font-medium text-sm ${
               tab === "events"
                 ? "border-b-2 border-ggPurple text-ggPurple dark:text-ggPurple"

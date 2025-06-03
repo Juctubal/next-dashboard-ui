@@ -272,7 +272,7 @@ const ConditioningProgramForm = ({
                         )
                       }
                       className="mt-1 w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
-                      rows={2}
+                      rows={10}
                       required
                     />
                   </div>

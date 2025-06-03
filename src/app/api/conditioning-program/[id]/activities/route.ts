@@ -19,7 +19,7 @@ export async function GET(
         programId: id,
       },
       orderBy: {
-        name: "asc",
+        id: "asc",
       },
     });
 

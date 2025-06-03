@@ -46,18 +46,21 @@ export async function PUT(request: Request) {
         { status: 400 }
       );
     }
+    
+    // Convert id to number for Prisma
+    const programId = parseInt(id, 10);
 
     // First, delete existing activities
     await prisma.conditioningActivity.deleteMany({
       where: {
-        programId: id,
+        programId,
       },
     });
 
     // Update the conditioning program and create new activities
     const conditioningProgram = await prisma.conditioningProgram.update({
       where: {
-        id: id,
+        id: programId,
       },
       data: {
         programName,

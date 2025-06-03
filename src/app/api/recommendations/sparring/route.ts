@@ -11,13 +11,21 @@ export async function POST(request: NextRequest) {
       minMatchBalance = 0.7,
       bloodline,
       eloTolerance = 30,
+      targetGamefowlId,
     } = body;
 
     const engine = new RecommendationEngine(prisma);
-    let recommendations = await engine.recommendSparringMatches(
-      20,
-      eloTolerance
-    );
+    let recommendations;
+
+    if (targetGamefowlId) {
+      recommendations = await engine.recommendSparringPartnersForGamefowl(
+        parseInt(targetGamefowlId),
+        20,
+        eloTolerance
+      );
+    } else {
+      recommendations = await engine.recommendSparringMatches(20, eloTolerance);
+    }
 
     // Get additional information for each recommendation
     const enrichedRecommendations = await Promise.all(

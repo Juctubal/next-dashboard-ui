@@ -464,6 +464,157 @@ export class RecommendationEngine {
   }
 
   /**
+   * Recommend sparring partners for a specific gamefowl
+   */
+  async recommendSparringPartnersForGamefowl(
+    gamefowlId: number,
+    limit: number = 5,
+    eloTolerance: number = 30
+  ): Promise<SparringMatchRecommendation[]> {
+    // Get the target gamefowl
+    const targetGamefowl = await this.prisma.gamefowl.findUnique({
+      where: { id: gamefowlId },
+      include: {
+        sparring_winner: true,
+        sparring_loser: true,
+        conditioning: {
+          orderBy: { id: "desc" },
+          take: 1,
+        },
+      },
+    });
+
+    if (!targetGamefowl || targetGamefowl.isArchived) {
+      return [];
+    }
+
+    // Get potential sparring partners
+    const potentialPartners = await this.prisma.gamefowl.findMany({
+      where: {
+        isArchived: false,
+        sex: "MALE",
+        status: {
+          in: ["IDLE", "CONDITIONING"],
+        },
+        id: {
+          not: gamefowlId, // Exclude the target gamefowl
+        },
+      },
+      include: {
+        sparring_winner: true,
+        sparring_loser: true,
+        conditioning: {
+          orderBy: { id: "desc" },
+          take: 1,
+        },
+      },
+      orderBy: {
+        eloRating: "desc",
+      },
+    });
+
+    const recommendations: SparringMatchRecommendation[] = [];
+
+    for (const partner of potentialPartners) {
+      // Calculate Elo gap
+      const eloGap = Math.abs(targetGamefowl.eloRating - partner.eloRating);
+
+      // Calculate match balance (closer to 1 is better)
+      const matchBalance = 1 - eloGap / 400; // 400 point gap = 0 balance
+
+      // Calculate expected learning value
+      const expectedLearningValue = this.calculateLearningValue(
+        targetGamefowl.eloRating,
+        partner.eloRating
+      );
+
+      // Check if they've fought recently
+      const recentMatch = await this.prisma.sparring.findFirst({
+        where: {
+          OR: [
+            {
+              gamefowl_1_Id: targetGamefowl.id,
+              gamefowl_2_Id: partner.id,
+            },
+            {
+              gamefowl_1_Id: partner.id,
+              gamefowl_2_Id: targetGamefowl.id,
+            },
+          ],
+          sparringDate: {
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+          },
+        },
+      });
+
+      if (recentMatch) continue;
+
+      // Calculate track records
+      const targetWins = targetGamefowl.sparring_winner?.length || 0;
+      const targetLosses = targetGamefowl.sparring_loser?.length || 0;
+      const partnerWins = partner.sparring_winner?.length || 0;
+      const partnerLosses = partner.sparring_loser?.length || 0;
+
+      const targetTrackRecord = `${targetWins}-${targetLosses}`;
+      const partnerTrackRecord = `${partnerWins}-${partnerLosses}`;
+
+      // Calculate matching criteria
+      const matchingCriteria = {
+        trackRecordSimilarity: this.areTrackRecordsSimilar(
+          targetWins,
+          targetLosses,
+          partnerWins,
+          partnerLosses
+        ),
+        eloWithinTolerance: eloGap <= eloTolerance,
+        conditioningMatch: this.haveMatchingConditioning(
+          targetGamefowl,
+          partner
+        ),
+        previousOutcomes: !recentMatch,
+      };
+
+      const reasons = this.generateSparringReasonsWithCriteria(
+        matchBalance,
+        expectedLearningValue,
+        eloGap,
+        matchingCriteria,
+        targetTrackRecord,
+        partnerTrackRecord
+      );
+
+      // Calculate win probabilities
+      const targetWinProbability = EloCalculator.getWinProbability(
+        targetGamefowl.eloRating,
+        partner.eloRating
+      );
+      const partnerWinProbability = 100 - targetWinProbability;
+
+      recommendations.push({
+        gamefowl1Id: targetGamefowl.id,
+        gamefowl2Id: partner.id,
+        gamefowl1Name: targetGamefowl.name,
+        gamefowl2Name: partner.name,
+        gamefowl1Elo: targetGamefowl.eloRating,
+        gamefowl2Elo: partner.eloRating,
+        gamefowl1TrackRecord: targetTrackRecord,
+        gamefowl2TrackRecord: partnerTrackRecord,
+        gamefowl1WinProbability: targetWinProbability,
+        gamefowl2WinProbability: partnerWinProbability,
+        eloGap,
+        matchBalance,
+        expectedLearningValue,
+        matchingCriteria,
+        reasons,
+      });
+    }
+
+    return recommendations
+      .sort((a, b) => b.matchBalance - a.matchBalance)
+      .slice(0, limit);
+  }
+
+  /**
    * Recommend conditioning programs
    */
   async recommendConditioningPrograms(

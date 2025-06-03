@@ -6,8 +6,12 @@ export async function GET() {
     const gamefowls = await prisma.gamefowl.findMany({
       where: {
         isArchived: false,
+        sex: "MALE",
+        age: {
+          not: "CHICK",
+        },
         status: {
-          notIn: ["COMPETING", "CONDITIONING", "INJURED", "DECEASED", "SOLD"],
+          in: ["IDLE", "CONDITIONING"],
         },
       },
       select: {
@@ -17,6 +21,7 @@ export async function GET() {
         age: true,
         sex: true,
         status: true,
+        eloRating: true,
       },
       orderBy: {
         name: "asc",

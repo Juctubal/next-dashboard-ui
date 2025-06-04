@@ -24,6 +24,8 @@ const ConditioningProgramForm = ({
   const [formData, setFormData] = useState({
     programName: data?.programName || "",
     description: data?.description || "",
+    conditioningType: data?.conditioningType || "",
+    durationDays: data?.durationDays || "",
   });
 
   const [activities, setActivities] = useState<ActivityFormData[]>([]);
@@ -113,6 +115,9 @@ const ConditioningProgramForm = ({
         body: JSON.stringify({
           id: data?.id,
           ...formData,
+          // Convert empty string to undefined for optional fields
+          conditioningType: formData.conditioningType || undefined,
+          durationDays: formData.durationDays ? Number(formData.durationDays) : undefined,
           activities: activities.map((activity) => ({
             name: activity.name,
             description: activity.description,
@@ -173,6 +178,41 @@ const ConditioningProgramForm = ({
             }
             className="border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
             required
+          />
+        </div>
+
+        {/* Conditioning Type (optional) */}
+        <div className="flex flex-col gap-2">
+          <label htmlFor="conditioningType" className="font-medium text-gray-700 dark:text-gray-300">
+            Conditioning Type <span className="text-xs text-gray-400">(optional)</span>
+          </label>
+          <select
+            id="conditioningType"
+            value={formData.conditioningType}
+            onChange={e => setFormData({ ...formData, conditioningType: e.target.value })}
+            className="border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
+          >
+            <option value="">Select type</option>
+            <option value="BROODING">Brooding</option>
+            <option value="BREEDING">Breeding</option>
+            <option value="PRE_CONDITIONING">Pre-conditioning</option>
+            <option value="CONDITIONING">Conditioning</option>
+          </select>
+        </div>
+
+        {/* Duration Days (optional) */}
+        <div className="flex flex-col gap-2">
+          <label htmlFor="durationDays" className="font-medium text-gray-700 dark:text-gray-300">
+            Duration (days) <span className="text-xs text-gray-400">(optional)</span>
+          </label>
+          <input
+            type="number"
+            id="durationDays"
+            min="1"
+            value={formData.durationDays}
+            onChange={e => setFormData({ ...formData, durationDays: e.target.value })}
+            className="border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
+            placeholder="How many days will this program last?"
           />
         </div>
         <div className="flex flex-col gap-2">

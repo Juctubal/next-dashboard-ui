@@ -110,14 +110,16 @@ model OneTimeSched {
 }
 
 model ConditioningProgram {
-  id           Int                    @id @default(autoincrement())
-  programName  String
-  description  String
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
-  isArchived   Boolean                @default(false)
-  Conditioning Conditioning[]
-  activities   ConditioningActivity[]
+  id                Int                    @id @default(autoincrement())
+  programName       String
+  description       String
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  isArchived        Boolean                @default(false)
+  Conditioning      Conditioning[]
+  activities        ConditioningActivity[]
+  conditioningType  ConditioningType?      
+  durationDays      Int?                   
 }
 
 model ConditioningActivity {
@@ -425,4 +427,11 @@ enum Result {
   LOSS
   DRAW
   NO_SHOW
+}
+
+enum ConditioningType {
+  BROODING
+  BREEDING
+  PRE_CONDITIONING
+  CONDITIONING
 }

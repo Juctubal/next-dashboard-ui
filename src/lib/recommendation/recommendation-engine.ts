@@ -1,6 +1,6 @@
 // Main Recommendation Engine
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, ConditioningType } from "@prisma/client";
 import { EloCalculator } from "./elo-calculator";
 import { BayesianAnalyzer } from "./bayesian-analyzer";
 import {
@@ -76,11 +76,11 @@ export class RecommendationEngine {
 
     // Calculate recent form (last 5 fights)
     const recentFights = [
-      ...gamefowl.sparring_winner.map((s) => ({
+      ...gamefowl.sparring_winner.map((s: any) => ({
         date: s.sparringDate,
         won: true,
       })),
-      ...gamefowl.sparring_loser.map((s) => ({
+      ...gamefowl.sparring_loser.map((s: any) => ({
         date: s.sparringDate,
         won: false,
       })),
@@ -200,18 +200,20 @@ export class RecommendationEngine {
   async recommendBreedingPairs(
     limit: number = 10
   ): Promise<BreedingPairRecommendation[]> {
-    // Get potential sires and dams with their full data
-    const sires = await this.prisma.gamefowl.findMany({
+    // Get all males with their full data to find high performers
+    const allMales = await this.prisma.gamefowl.findMany({
       where: {
         isArchived: false,
         sex: "MALE",
-        status: {
-          in: ["IDLE", "BREEDING"],
-        },
       },
       include: {
         sparring_winner: true,
         sparring_loser: true,
+        EventResult: {
+          where: {
+            result: "WIN",
+          },
+        },
         vaccine: {
           orderBy: { vaccinationDate: "desc" },
           take: 5,
@@ -227,6 +229,56 @@ export class RecommendationEngine {
       },
     });
 
+    // Find high ELO males (within 200 points of the highest ELO)
+    const sortedMales = allMales.sort((a, b) => b.eloRating - a.eloRating);
+    const highestElo = sortedMales[0]?.eloRating || 1000;
+
+    // Define high ELO as within 200 points of the highest ELO
+    // This creates a dynamic range that adapts to the current population
+    const highEloThreshold = highestElo - 200;
+
+    const highEloMales = sortedMales.filter(
+      (male) => male.eloRating >= highEloThreshold
+    );
+
+    // Get bloodlines of high ELO males
+    const highEloBloodlines = Array.from(
+      new Set(highEloMales.map((m) => m.bloodline))
+    );
+
+    // Get potential sires (males available for breeding)
+    const sires = await this.prisma.gamefowl.findMany({
+      where: {
+        isArchived: false,
+        sex: "MALE",
+        status: {
+          in: ["IDLE", "BREEDING"],
+        },
+      },
+      include: {
+        sparring_winner: true,
+        sparring_loser: true,
+        EventResult: {
+          where: {
+            result: "WIN",
+          },
+        },
+        vaccine: {
+          orderBy: { vaccinationDate: "desc" },
+          take: 5,
+        },
+        deworming: {
+          orderBy: { dewormDate: "desc" },
+          take: 5,
+        },
+        conditioning: {
+          orderBy: { id: "desc" },
+          take: 1,
+        },
+      },
+    });
+
+    // Get potential dams (females available for breeding)
     const dams = await this.prisma.gamefowl.findMany({
       where: {
         isArchived: false,
@@ -238,6 +290,7 @@ export class RecommendationEngine {
       include: {
         sparring_winner: true,
         sparring_loser: true,
+        EventResult: true,
         vaccine: {
           orderBy: { vaccinationDate: "desc" },
           take: 5,
@@ -259,9 +312,18 @@ export class RecommendationEngine {
       const sireData = await this.getGamefowlPerformanceData(sire.id);
       if (!sireData) continue;
 
+      // Check if sire has event wins
+      const sireEventWins = sire.EventResult?.length || 0;
+      const sireHasGoodSparringRecord = this.hasSireGoodSparringRecord(sire);
+
       for (const dam of dams) {
         const damData = await this.getGamefowlPerformanceData(dam.id);
         if (!damData) continue;
+
+        // Check if dam shares bloodline with high ELO males
+        const damSharesHighEloBloodline = highEloBloodlines.includes(
+          dam.bloodline
+        );
 
         // Calculate compatibility
         const compatibilityScore = this.bayesian.calculateBreedingCompatibility(
@@ -282,21 +344,31 @@ export class RecommendationEngine {
           `${sire.bloodline}:${dam.bloodline}`
         );
 
+        // Boost compatibility if dam shares bloodline with high ELO males
+        let adjustedCompatibilityScore = compatibilityScore;
+        if (damSharesHighEloBloodline) {
+          adjustedCompatibilityScore = Math.min(compatibilityScore * 1.2, 1);
+        }
+
         // Calculate strength indicators
         const strengthIndicators = {
-          sparringRecord: this.hasGoodSparringRecord(sire, dam),
+          sparringRecord: sireHasGoodSparringRecord,
           healthStatus: this.hasExcellentHealth(sire, dam),
           conditioning: this.hasProperConditioning(sire, dam),
-          activity: this.hasHighActivity(sire, dam),
-          temperament: this.hasBalancedTemperament(sireData, damData),
+          activity: false, // Removed as per requirement
+          temperament: false, // Removed as per requirement
+          damSharesSuccessfulBloodline: damSharesHighEloBloodline,
+          sireEventWins: sireEventWins > 0,
         };
 
         const reasons = this.generateBreedingReasonsWithIndicators(
           sireData,
           damData,
-          compatibilityScore,
+          adjustedCompatibilityScore,
           geneticDiversityScore,
-          strengthIndicators
+          strengthIndicators,
+          sireEventWins,
+          damSharesHighEloBloodline
         );
 
         recommendations.push({
@@ -304,7 +376,7 @@ export class RecommendationEngine {
           damId: dam.id,
           sireName: sire.name,
           damName: dam.name,
-          compatibilityScore,
+          compatibilityScore: adjustedCompatibilityScore,
           bloodlineCombinationSuccess,
           geneticDiversityScore,
           strengthIndicators,
@@ -618,12 +690,41 @@ export class RecommendationEngine {
    * Recommend conditioning programs
    */
   async recommendConditioningPrograms(
-    gamefowlId: number
+    gamefowlId: number,
+    timeToEvent?: number,
+    targetType?:
+      | "general"
+      | "brooding"
+      | "breeding"
+      | "derby"
+      | "specific_event"
   ): Promise<ConditioningRecommendation[]> {
     const gamefowl = await this.getGamefowlPerformanceData(gamefowlId);
     if (!gamefowl) return [];
 
+    // Build filter for conditioning type based on target
+    let conditioningTypeFilter: ConditioningType[] | undefined;
+
+    if (targetType === "brooding") {
+      conditioningTypeFilter = [ConditioningType.BROODING];
+    } else if (targetType === "breeding") {
+      conditioningTypeFilter = [ConditioningType.BREEDING];
+    } else if (targetType === "derby" || targetType === "specific_event") {
+      conditioningTypeFilter = [
+        ConditioningType.PRE_CONDITIONING,
+        ConditioningType.CONDITIONING,
+      ];
+    }
+    // For "general", no filter is applied (show all types)
+
     const programs = await this.prisma.conditioningProgram.findMany({
+      where: conditioningTypeFilter
+        ? {
+            conditioningType: {
+              in: conditioningTypeFilter,
+            },
+          }
+        : undefined,
       include: {
         activities: true,
       },
@@ -632,12 +733,14 @@ export class RecommendationEngine {
     const recommendations: ConditioningRecommendation[] = [];
 
     for (const program of programs) {
-      // Predict effectiveness based on bloodline
-      const expectedImprovement = this.bayesian.predictConditioningSuccess(
-        program.id.toString(),
-        gamefowl.bloodline,
-        gamefowl.conditioningScore
-      );
+      // Skip programs that exceed available time to event
+      if (
+        timeToEvent &&
+        program.durationDays &&
+        program.durationDays > timeToEvent
+      ) {
+        continue;
+      }
 
       // Determine customizations based on gamefowl characteristics
       const customizations = this.determineConditioningCustomizations(
@@ -645,10 +748,15 @@ export class RecommendationEngine {
         program
       );
 
+      // If we have a timeToEvent, adjust the duration if needed
+      if (timeToEvent && customizations.duration > timeToEvent) {
+        customizations.duration = timeToEvent;
+      }
+
       const reasons = this.generateConditioningReasons(
         gamefowl,
         program,
-        expectedImprovement
+        timeToEvent
       );
 
       recommendations.push({
@@ -656,15 +764,15 @@ export class RecommendationEngine {
         gamefowlName: gamefowl.name,
         recommendedProgramId: program.id,
         programName: program.programName,
-        expectedImprovement,
+        conditioningType: program.conditioningType || undefined,
+        durationDays: program.durationDays || undefined,
         customizations,
         reasons,
       });
     }
 
-    return recommendations
-      .sort((a, b) => b.expectedImprovement - a.expectedImprovement)
-      .slice(0, 5);
+    // Sort by program suitability (you can add custom logic here)
+    return recommendations.slice(0, 5);
   }
 
   // Helper methods
@@ -897,19 +1005,8 @@ export class RecommendationEngine {
     program: any
   ): any {
     const duration = gamefowl.conditioningScore < 0.5 ? 21 : 14;
-    const intensity =
-      gamefowl.eloRating > 1400
-        ? "intensive"
-        : gamefowl.eloRating > 1200
-        ? "moderate"
-        : "light";
 
-    const focusAreas = [];
-    if (gamefowl.recentFormScore < 0.4) focusAreas.push("stamina");
-    if (gamefowl.winRate < 0.5) focusAreas.push("technique");
-    if (gamefowl.healthScore < 0.7) focusAreas.push("recovery");
-
-    return { duration, intensity, focusAreas };
+    return { duration };
   }
 
   // Reason generation methods
@@ -1058,22 +1155,45 @@ export class RecommendationEngine {
   private generateConditioningReasons(
     gamefowl: GamefowlPerformanceData,
     program: any,
-    expectedImprovement: number
+    timeToEvent?: number
   ): string[] {
     const reasons = [];
 
-    if (expectedImprovement > 0.7) {
-      reasons.push(
-        `${gamefowl.bloodline} bloodline responds exceptionally well to this program`
-      );
+    if (gamefowl.conditioningScore < 0.5) {
+      reasons.push("Gamefowl urgently needs structured conditioning");
     }
 
     if (program.activities.length > 10) {
       reasons.push("Comprehensive program covers all aspects of conditioning");
     }
 
-    if (gamefowl.conditioningScore < 0.5) {
-      reasons.push("Gamefowl urgently needs structured conditioning");
+    if (program.conditioningType) {
+      reasons.push(
+        `Specialized ${program.conditioningType} program suitable for this gamefowl`
+      );
+    }
+
+    // Time-based reasoning
+    if (timeToEvent) {
+      if (program.durationDays && program.durationDays === timeToEvent) {
+        reasons.push("Program duration perfectly matches time until event");
+      }
+    }
+
+    if (program.durationDays && program.durationDays <= 14) {
+      reasons.push("Short duration program ideal for quick preparation");
+    } else if (program.durationDays && program.durationDays > 21) {
+      reasons.push("Extended program for thorough conditioning");
+    }
+
+    if (gamefowl.healthScore > 0.8) {
+      reasons.push("Excellent health status allows for intensive training");
+    }
+
+    if (gamefowl.eloRating > 1300) {
+      reasons.push(
+        "High performance gamefowl will benefit from advanced conditioning"
+      );
     }
 
     return reasons;
@@ -1084,18 +1204,25 @@ export class RecommendationEngine {
     dam: GamefowlPerformanceData,
     compatibility: number,
     geneticDiversity: number,
-    indicators: any
+    indicators: any,
+    sireEventWins: number = 0,
+    damSharesHighEloBloodline: boolean = false
   ): string[] {
     const reasons = [];
 
+    // Only add non-redundant reasons
     if (compatibility > 0.8) {
       reasons.push(
         "Exceptional bloodline compatibility based on historical data"
       );
     }
 
-    if (sire.eloRating > 1400 && dam.eloRating > 1200) {
-      reasons.push("Both parents have proven championship genetics");
+    if (sire.eloRating > 1400) {
+      if (dam.eloRating > 1200) {
+        reasons.push("Both parents have proven championship genetics");
+      } else {
+        reasons.push(`Sire has elite ELO rating of ${sire.eloRating}`);
+      }
     }
 
     if (geneticDiversity > 0.7) {
@@ -1106,43 +1233,30 @@ export class RecommendationEngine {
       reasons.push(`${sire.bloodline} sire line shows dominant winning traits`);
     }
 
-    if (indicators.sparringRecord) {
-      reasons.push("Good sparring record between the parents");
+    // Add event wins information
+    if (sireEventWins > 0) {
+      reasons.push(
+        `Sire has won ${sireEventWins} event${sireEventWins > 1 ? "s" : ""}`
+      );
     }
 
-    if (indicators.healthStatus) {
-      reasons.push("Both parents have excellent health status");
-    }
-
-    if (indicators.conditioning) {
-      reasons.push("Both parents have proper conditioning");
-    }
-
-    if (indicators.activity) {
-      reasons.push("Both parents have high activity level");
-    }
-
-    if (indicators.temperament) {
-      reasons.push("Balanced temperament between the parents");
+    // Add dam bloodline information
+    if (damSharesHighEloBloodline) {
+      reasons.push(
+        `Dam's ${dam.bloodline} bloodline has produced high ELO males`
+      );
     }
 
     return reasons;
   }
 
-  private hasGoodSparringRecord(sire: any, dam: any): boolean {
+  private hasSireGoodSparringRecord(sire: any): boolean {
     const sireWins = sire.sparring_winner?.length || 0;
     const sireLosses = sire.sparring_loser?.length || 0;
-    const damWins = dam.sparring_winner?.length || 0;
-    const damLosses = dam.sparring_loser?.length || 0;
-
     const sireTotal = sireWins + sireLosses;
-    const damTotal = damWins + damLosses;
 
     // Good record if win rate > 60% with at least 3 fights
-    const sireGoodRecord = sireTotal >= 3 && sireWins / sireTotal > 0.6;
-    const damGoodRecord = damTotal >= 3 && damWins / damTotal > 0.6;
-
-    return sireGoodRecord || damGoodRecord;
+    return sireTotal >= 3 && sireWins / sireTotal > 0.6;
   }
 
   private hasExcellentHealth(sire: any, dam: any): boolean {
@@ -1193,8 +1307,8 @@ export class RecommendationEngine {
     sireData: GamefowlPerformanceData,
     damData: GamefowlPerformanceData
   ): boolean {
-    // Good temperament if consistent performance (recent form > 0.6)
-    return sireData.recentFormScore > 0.6 || damData.recentFormScore > 0.6;
+    // This method is no longer used but kept for backward compatibility
+    return false;
   }
 
   private areTrackRecordsSimilar(

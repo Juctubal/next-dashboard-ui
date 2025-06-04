@@ -2,13 +2,12 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { ConditioningRecommendation } from "@/lib/recommendation/types";
-import { ConditioningProgram } from "@prisma/client";
 
 interface ConditioningFilters {
   eventId?: number;
+  targetType?: "general" | "brooding" | "breeding" | "derby" | "specific_event";
   bloodline?: string;
   timeToEvent?: number;
-  intensity?: "light" | "moderate" | "intensive";
 }
 
 export default function ConditioningRecommendations() {
@@ -21,8 +20,26 @@ export default function ConditioningRecommendations() {
   const [bloodlines, setBloodlines] = useState<string[]>([]);
   const [filters, setFilters] = useState<ConditioningFilters>({
     timeToEvent: 14,
-    intensity: "moderate",
+    targetType: "general",
   });
+  const [applyingProgram, setApplyingProgram] = useState<number | null>(null);
+
+  // Helper function to calculate days to event
+  const calculateDaysToEvent = useCallback(() => {
+    if (filters.targetType === "specific_event" && filters.eventId) {
+      const selectedEvent = events.find(
+        (event) => event.id === filters.eventId
+      );
+      if (selectedEvent) {
+        const eventDate = new Date(selectedEvent.eventDate);
+        const today = new Date();
+        const diffTime = eventDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return Math.max(1, diffDays);
+      }
+    }
+    return filters.timeToEvent || 14;
+  }, [filters.targetType, filters.eventId, filters.timeToEvent, events]);
 
   // Fetch upcoming events
   const fetchEvents = async () => {
@@ -53,12 +70,35 @@ export default function ConditioningRecommendations() {
     setError(null);
 
     try {
+      // Calculate timeToEvent directly here to avoid circular dependency
+      let calculatedTimeToEvent = filters.timeToEvent || 14;
+
+      if (filters.targetType === "specific_event" && filters.eventId) {
+        // Fetch the specific event when needed instead of relying on events state
+        try {
+          const eventResponse = await fetch(`/api/events/${filters.eventId}`);
+          if (eventResponse.ok) {
+            const selectedEvent = await eventResponse.json();
+            const eventDate = new Date(selectedEvent.eventDate);
+            const today = new Date();
+            const diffTime = eventDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            calculatedTimeToEvent = Math.max(1, diffDays);
+          }
+        } catch (err) {
+          console.error("Error fetching event for time calculation:", err);
+        }
+      }
+
       const response = await fetch("/api/recommendations/conditioning", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(filters),
+        body: JSON.stringify({
+          ...filters,
+          timeToEvent: calculatedTimeToEvent,
+        }),
       });
 
       if (!response.ok) {
@@ -72,26 +112,83 @@ export default function ConditioningRecommendations() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters]); // Remove events dependency
+
+  const handleApplyProgram = async (
+    recommendation: ConditioningRecommendation
+  ) => {
+    setApplyingProgram(recommendation.gamefowlId);
+
+    try {
+      // Get handler options
+      const optionsResponse = await fetch("/api/conditioning/options");
+      if (!optionsResponse.ok) throw new Error("Failed to fetch options");
+      const options = await optionsResponse.json();
+
+      if (!options.handlers || options.handlers.length === 0) {
+        throw new Error("No handlers available");
+      }
+
+      // Use the first available handler (you might want to add a handler selection UI)
+      const handlerId = options.handlers[0].id;
+
+      // Calculate dates based on recommendation
+      const startDate = new Date();
+      const endDate = new Date();
+      const durationDays =
+        recommendation.durationDays || recommendation.customizations.duration;
+      endDate.setDate(startDate.getDate() + durationDays);
+
+      // Create conditioning record
+      const response = await fetch("/api/conditioning", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          gamefowlIds: [recommendation.gamefowlId],
+          eventId:
+            filters.targetType === "specific_event" ? filters.eventId : null,
+          conProgId: recommendation.recommendedProgramId,
+          handlerId: handlerId,
+          startDate: startDate.toISOString().split("T")[0],
+          endDate: endDate.toISOString().split("T")[0],
+          status: "ASSIGNED",
+          activitySchedules: [], // Empty for now, can be populated later
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to apply conditioning program");
+      }
+
+      // Show success message
+      alert(
+        `Successfully applied ${recommendation.programName} to ${recommendation.gamefowlName}`
+      );
+
+      // Refresh recommendations
+      fetchRecommendations();
+    } catch (err) {
+      console.error("Error applying program:", err);
+      alert(
+        `Failed to apply program: ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`
+      );
+    } finally {
+      setApplyingProgram(null);
+    }
+  };
 
   useEffect(() => {
     fetchEvents();
     fetchBloodlines();
-    fetchRecommendations();
-  }, [fetchRecommendations]);
+  }, []); // Only run once on mount
 
-  const getIntensityColor = (intensity: string) => {
-    switch (intensity) {
-      case "light":
-        return "bg-green-100 text-green-800";
-      case "moderate":
-        return "bg-yellow-100 text-yellow-800";
-      case "intensive":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
+  useEffect(() => {
+    fetchRecommendations();
+  }, [fetchRecommendations]); // This will now have stable dependencies
 
   return (
     <div className="bg-white p-6 rounded-lg shadow">
@@ -100,28 +197,71 @@ export default function ConditioningRecommendations() {
       </h2>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+      <div
+        className={`grid gap-4 mb-6 p-4 bg-gray-50 rounded-lg ${
+          filters.targetType === "specific_event"
+            ? "grid-cols-1 md:grid-cols-4"
+            : "grid-cols-1 md:grid-cols-3"
+        }`}
+      >
         <div>
-          <label className="block text-sm font-medium mb-2">Target Event</label>
+          <label className="block text-sm font-medium mb-2">Target</label>
           <select
-            value={filters.eventId || ""}
-            onChange={(e) =>
+            value={filters.targetType || "general"}
+            onChange={(e) => {
+              const targetType = e.target
+                .value as ConditioningFilters["targetType"];
               setFilters({
                 ...filters,
-                eventId: e.target.value ? parseInt(e.target.value) : undefined,
-              })
-            }
+                targetType,
+                eventId:
+                  targetType === "specific_event" ? filters.eventId : undefined,
+              });
+            }}
             className="w-full p-2 border rounded-md"
           >
-            <option value="">General Conditioning</option>
-            {events.map((event) => (
-              <option key={event.id} value={event.id}>
-                {event.eventName} -{" "}
-                {new Date(event.eventDate).toLocaleDateString()}
-              </option>
-            ))}
+            <option value="general">General Conditioning</option>
+            <option value="brooding">Brooding & Vaccination</option>
+            <option value="breeding">Breeding</option>
+            <option value="derby">Derby</option>
+            <option value="specific_event">Specific Event</option>
           </select>
         </div>
+
+        {/* Show event selection only when specific_event is selected */}
+        {filters.targetType === "specific_event" && (
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Select Event
+            </label>
+            <select
+              value={filters.eventId || ""}
+              onChange={(e) =>
+                setFilters({
+                  ...filters,
+                  eventId: e.target.value
+                    ? parseInt(e.target.value)
+                    : undefined,
+                })
+              }
+              className="w-full p-2 border rounded-md"
+            >
+              <option value="">Select an event</option>
+              {events.map((event) => (
+                <option key={event.id} value={event.id}>
+                  {event.eventName} -{" "}
+                  {new Date(event.eventDate).toLocaleDateString()}
+                </option>
+              ))}
+            </select>
+            {filters.eventId && (
+              <p className="text-xs text-blue-600 mt-1">
+                Showing recommendations only for gamefowls registered to this
+                event
+              </p>
+            )}
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium mb-2">Bloodline</label>
@@ -147,31 +287,26 @@ export default function ConditioningRecommendations() {
           </label>
           <input
             type="number"
-            value={filters.timeToEvent || 14}
+            value={calculateDaysToEvent()}
             onChange={(e) =>
               setFilters({ ...filters, timeToEvent: parseInt(e.target.value) })
             }
-            className="w-full p-2 border rounded-md"
-            min="7"
+            className={`w-full p-2 border rounded-md ${
+              filters.targetType === "specific_event" && filters.eventId
+                ? "bg-gray-100 cursor-not-allowed"
+                : ""
+            }`}
+            disabled={
+              filters.targetType === "specific_event" && !!filters.eventId
+            }
+            min="1"
             max="90"
           />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Intensity Level
-          </label>
-          <select
-            value={filters.intensity || "moderate"}
-            onChange={(e) =>
-              setFilters({ ...filters, intensity: e.target.value as any })
-            }
-            className="w-full p-2 border rounded-md"
-          >
-            <option value="light">Light</option>
-            <option value="moderate">Moderate</option>
-            <option value="intensive">Intensive</option>
-          </select>
+          {filters.targetType === "specific_event" && filters.eventId && (
+            <p className="text-xs text-gray-500 mt-1">
+              Automatically calculated from event date
+            </p>
+          )}
         </div>
       </div>
 
@@ -202,25 +337,10 @@ export default function ConditioningRecommendations() {
                   {rec.gamefowlName} - {rec.programName}
                 </h3>
                 <div className="flex items-center gap-2 mt-1">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs ${getIntensityColor(
-                      rec.customizations.intensity
-                    )}`}
-                  >
-                    {rec.customizations.intensity.charAt(0).toUpperCase() +
-                      rec.customizations.intensity.slice(1)}{" "}
-                    Intensity
-                  </span>
                   <span className="text-sm text-gray-600">
                     {rec.customizations.duration} days program
                   </span>
                 </div>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-gray-600">Expected Improvement</p>
-                <p className="text-2xl font-bold text-green-600">
-                  +{Math.round(rec.expectedImprovement * 100)}%
-                </p>
               </div>
             </div>
 
@@ -232,34 +352,16 @@ export default function ConditioningRecommendations() {
               <div>
                 <p className="text-sm text-gray-600">Duration</p>
                 <p className="font-semibold">
-                  {rec.customizations.duration} days
+                  {rec.durationDays || rec.customizations.duration} days
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Focus Areas</p>
+                <p className="text-sm text-gray-600">Conditioning Type</p>
                 <p className="font-semibold">
-                  {rec.customizations.focusAreas.length} areas
+                  {rec.conditioningType || "Standard"}
                 </p>
               </div>
             </div>
-
-            {rec.customizations.focusAreas.length > 0 && (
-              <div className="mb-3 p-3 bg-blue-50 rounded">
-                <p className="text-sm font-semibold text-blue-800 mb-1">
-                  Focus Areas:
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {rec.customizations.focusAreas.map((area, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm"
-                    >
-                      {area}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {rec.reasons.length > 0 && (
               <div className="mt-3 p-3 bg-green-50 rounded">
@@ -275,8 +377,14 @@ export default function ConditioningRecommendations() {
             )}
 
             <div className="mt-4 flex gap-2">
-              <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
-                Apply Program
+              <button
+                onClick={() => handleApplyProgram(rec)}
+                disabled={applyingProgram === rec.gamefowlId}
+                className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {applyingProgram === rec.gamefowlId
+                  ? "Applying..."
+                  : "Apply Program"}
               </button>
               <button className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">
                 View Details
@@ -288,7 +396,19 @@ export default function ConditioningRecommendations() {
 
       {recommendations.length === 0 && !loading && (
         <div className="text-center py-8 text-gray-500">
-          No conditioning recommendations available. Try adjusting your filters.
+          {filters.targetType === "specific_event" && filters.eventId ? (
+            <div>
+              <p>
+                No conditioning recommendations available for the selected
+                event.
+              </p>
+              <p className="text-sm mt-2">
+                Make sure gamefowls are registered for this event first.
+              </p>
+            </div>
+          ) : (
+            "No conditioning recommendations available. Try adjusting your filters."
+          )}
         </div>
       )}
     </div>

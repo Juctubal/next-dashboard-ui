@@ -6,17 +6,36 @@ import { ConditioningRecommendation } from "@/lib/recommendation/types";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { eventId, bloodline, timeToEvent, intensity } = body;
+    const { eventId, bloodline, timeToEvent, targetType } = body;
+
+    // Build where clause for gamefowls
+    let gamefowlWhere: any = {
+      isArchived: false,
+      sex: "MALE",
+      status: {
+        in: ["IDLE", "CONDITIONING", "COMPETING"],
+      },
+      ...(bloodline && { bloodline }),
+    };
+
+    // If specific event is selected, only show gamefowls registered for that event
+    if (targetType === "specific_event" && eventId) {
+      const eventIdInt = parseInt(eventId);
+
+      gamefowlWhere.eventGamefowls = {
+        some: {
+          eventId: eventIdInt,
+        },
+      };
+    }
 
     // Get gamefowls based on filters
     const gamefowls = await prisma.gamefowl.findMany({
-      where: {
-        isArchived: false,
-        sex: "MALE",
-        status: {
-          in: ["IDLE", "CONDITIONING"],
+      where: gamefowlWhere,
+      include: {
+        eventGamefowls: {
+          where: eventId ? { eventId: parseInt(eventId) } : undefined,
         },
-        ...(bloodline && { bloodline }),
       },
       take: 10, // Limit to 10 gamefowls
     });
@@ -27,20 +46,14 @@ export async function POST(request: NextRequest) {
     // Get recommendations for each gamefowl
     for (const gamefowl of gamefowls) {
       const recommendations = await engine.recommendConditioningPrograms(
-        gamefowl.id
+        gamefowl.id,
+        timeToEvent,
+        targetType
       );
 
-      // Apply intensity filter if provided
-      let filteredRecs = recommendations;
-      if (intensity) {
-        filteredRecs = recommendations.filter(
-          (rec) => rec.customizations.intensity === intensity
-        );
-      }
-
       // Add the best recommendation for this gamefowl
-      if (filteredRecs.length > 0) {
-        allRecommendations.push(filteredRecs[0]);
+      if (recommendations.length > 0) {
+        allRecommendations.push(recommendations[0]);
       }
     }
 
@@ -65,6 +78,8 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const gamefowlId = searchParams.get("gamefowlId");
+    const timeToEvent = searchParams.get("timeToEvent");
+    const targetType = searchParams.get("targetType");
 
     if (!gamefowlId) {
       return NextResponse.json(
@@ -78,7 +93,15 @@ export async function GET(request: NextRequest) {
 
     const engine = new RecommendationEngine(prisma);
     const recommendations = await engine.recommendConditioningPrograms(
-      parseInt(gamefowlId)
+      parseInt(gamefowlId),
+      timeToEvent ? parseInt(timeToEvent) : undefined,
+      targetType as
+        | "general"
+        | "brooding"
+        | "breeding"
+        | "derby"
+        | "specific_event"
+        | undefined
     );
 
     return NextResponse.json({

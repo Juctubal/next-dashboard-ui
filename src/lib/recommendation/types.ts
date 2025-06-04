@@ -32,6 +32,8 @@ export interface BreedingPairRecommendation {
     conditioning: boolean;
     activity: boolean;
     temperament: boolean;
+    damSharesSuccessfulBloodline?: boolean;
+    sireEventWins?: boolean;
   };
   reasons: string[];
 }
@@ -76,11 +78,10 @@ export interface ConditioningRecommendation {
   gamefowlName: string;
   recommendedProgramId: number;
   programName: string;
-  expectedImprovement: number;
+  conditioningType?: string;
+  durationDays?: number;
   customizations: {
     duration: number;
-    intensity: "light" | "moderate" | "intensive";
-    focusAreas: string[];
   };
   reasons: string[];
 }

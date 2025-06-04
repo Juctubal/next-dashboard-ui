@@ -4,13 +4,21 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { programName, description, activities } = body;
+    const {
+      programName,
+      description,
+      conditioningType,
+      durationDays,
+      activities,
+    } = body;
 
     // Create the conditioning program with its activities
     const conditioningProgram = await prisma.conditioningProgram.create({
       data: {
         programName,
         description,
+        conditioningType,
+        durationDays,
         activities: {
           create: activities.map(
             (activity: { name: string; description: string }) => ({
@@ -38,7 +46,14 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, programName, description, activities } = body;
+    const {
+      id,
+      programName,
+      description,
+      conditioningType,
+      durationDays,
+      activities,
+    } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -46,7 +61,7 @@ export async function PUT(request: Request) {
         { status: 400 }
       );
     }
-    
+
     // Convert id to number for Prisma
     const programId = parseInt(id, 10);
 
@@ -65,6 +80,8 @@ export async function PUT(request: Request) {
       data: {
         programName,
         description,
+        conditioningType,
+        durationDays,
         activities: {
           create: activities.map(
             (activity: { name: string; description: string }) => ({

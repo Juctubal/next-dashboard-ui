@@ -145,45 +145,6 @@ export default function BreedingRecommendations() {
               <h3 className="text-lg font-semibold">
                 Pair #{index + 1}: {rec.sireName} × {rec.damName}
               </h3>
-              <div className="text-right">
-                <p className="text-sm text-gray-600">Compatibility Score</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {Math.round(rec.compatibilityScore * 100)}%
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-3">
-              <div>
-                <p className="text-sm text-gray-600">Bloodline Success Rate</p>
-                <p className="font-semibold">
-                  {Math.round(rec.bloodlineCombinationSuccess * 100)}%
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Genetic Diversity</p>
-                <p className="font-semibold">
-                  {Math.round(rec.geneticDiversityScore * 100)}%
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Overall Rating</p>
-                <div className="flex items-center">
-                  {[...Array(5)].map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-5 h-5 ${
-                        i < Math.round(rec.compatibilityScore * 5)
-                          ? "text-yellow-400 fill-current"
-                          : "text-gray-300"
-                      }`}
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {rec.reasons.length > 0 && (
@@ -192,21 +153,6 @@ export default function BreedingRecommendations() {
                   Strengths:
                 </p>
                 <ul className="list-disc list-inside text-sm text-green-700 space-y-1">
-                  {rec.strengthIndicators?.sparringRecord && (
-                    <li>Good sparring track record</li>
-                  )}
-                  {rec.strengthIndicators?.healthStatus && (
-                    <li>Excellent health status</li>
-                  )}
-                  {rec.strengthIndicators?.conditioning && (
-                    <li>Proper conditioning</li>
-                  )}
-                  {rec.strengthIndicators?.activity && (
-                    <li>High activity/alertness level</li>
-                  )}
-                  {rec.strengthIndicators?.temperament && (
-                    <li>Balanced temperament</li>
-                  )}
                   {rec.reasons.map((reason, idx) => (
                     <li key={idx}>{reason}</li>
                   ))}

@@ -18,8 +18,8 @@ export async function POST(request: NextRequest) {
       ...(bloodline && { bloodline }),
     };
 
-    // If specific event is selected, only show gamefowls registered for that event
-    if (targetType === "specific_event" && eventId) {
+    // If derby is selected with an event, only show gamefowls registered for that event
+    if (targetType === "derby" && eventId) {
       const eventIdInt = parseInt(eventId);
 
       gamefowlWhere.eventGamefowls = {
@@ -95,13 +95,7 @@ export async function GET(request: NextRequest) {
     const recommendations = await engine.recommendConditioningPrograms(
       parseInt(gamefowlId),
       timeToEvent ? parseInt(timeToEvent) : undefined,
-      targetType as
-        | "general"
-        | "brooding"
-        | "breeding"
-        | "derby"
-        | "specific_event"
-        | undefined
+      targetType as "general" | "brooding" | "breeding" | "derby" | undefined
     );
 
     return NextResponse.json({

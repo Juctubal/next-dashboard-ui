@@ -120,6 +120,10 @@ export class RecommendationEngine {
       ageCategory: gamefowl.age || "UNKNOWN",
       recentFormScore,
       bloodlineStrength,
+      gamefowlData: gamefowl, // Include full gamefowl data
+      eventWins: gamefowl.EventResult.filter((r: any) => r.result === "WIN")
+        .length,
+      eventParticipations: gamefowl.EventResult.length,
     };
   }
 
@@ -158,6 +162,38 @@ export class RecommendationEngine {
 
     const gamefowls = await this.prisma.gamefowl.findMany({
       where: whereClause,
+      include: {
+        EventResult: {
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    });
+
+    // Get bloodline event win statistics
+    const bloodlineEventWins: Record<string, number> = {};
+    const allGamefowlsWithEventWins = await this.prisma.gamefowl.findMany({
+      where: {
+        EventResult: {
+          some: {
+            result: "WIN",
+          },
+        },
+      },
+      include: {
+        EventResult: {
+          where: {
+            result: "WIN",
+          },
+        },
+      },
+    });
+
+    // Count gamefowls per bloodline that have won events
+    allGamefowlsWithEventWins.forEach((g) => {
+      if (!bloodlineEventWins[g.bloodline]) {
+        bloodlineEventWins[g.bloodline] = 0;
+      }
+      bloodlineEventWins[g.bloodline]++;
     });
 
     const recommendations: DerbyRecommendation[] = [];
@@ -172,7 +208,25 @@ export class RecommendationEngine {
       const overallScore = this.calculateDerbyScore(performanceData, context);
 
       // Generate reasons without win probability
-      const reasons = this.generateDerbyReasons(performanceData);
+      let reasons = this.generateDerbyReasons(performanceData);
+
+      // Filter bloodline success reason based on actual event wins
+      const bloodlineWinners = bloodlineEventWins[gamefowl.bloodline] || 0;
+      if (bloodlineWinners < 2) {
+        // Remove the bloodline success reason if less than 2 gamefowls have won
+        reasons = reasons.filter(
+          (r) => !r.includes("bloodline shows proven success rate")
+        );
+      } else {
+        // Update the reason to be more specific
+        reasons = reasons.map((r) => {
+          if (r.includes("bloodline shows proven success rate")) {
+            return `${gamefowl.bloodline} bloodline shows proven success rate (${bloodlineWinners} gamefowls have won events)`;
+          }
+          return r;
+        });
+      }
+
       const riskFactors = this.identifyRiskFactors(performanceData, context);
 
       recommendations.push({
@@ -692,12 +746,7 @@ export class RecommendationEngine {
   async recommendConditioningPrograms(
     gamefowlId: number,
     timeToEvent?: number,
-    targetType?:
-      | "general"
-      | "brooding"
-      | "breeding"
-      | "derby"
-      | "specific_event"
+    targetType?: "general" | "brooding" | "breeding" | "derby"
   ): Promise<ConditioningRecommendation[]> {
     const gamefowl = await this.getGamefowlPerformanceData(gamefowlId);
     if (!gamefowl) return [];
@@ -708,8 +757,11 @@ export class RecommendationEngine {
     if (targetType === "brooding") {
       conditioningTypeFilter = [ConditioningType.BROODING];
     } else if (targetType === "breeding") {
-      conditioningTypeFilter = [ConditioningType.BREEDING];
-    } else if (targetType === "derby" || targetType === "specific_event") {
+      conditioningTypeFilter = [
+        ConditioningType.BREEDING,
+        "PRIMING" as ConditioningType,
+      ];
+    } else if (targetType === "derby") {
       conditioningTypeFilter = [
         ConditioningType.PRE_CONDITIONING,
         ConditioningType.CONDITIONING,
@@ -730,8 +782,64 @@ export class RecommendationEngine {
       },
     });
 
+    // Ensure recommendations is defined and in scope
     const recommendations: ConditioningRecommendation[] = [];
 
+    if (targetType === "breeding") {
+      // Check if gamefowl has had any 'Breeding' conditioning in the past month
+      const now = Date.now();
+      const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000;
+      const conditioningRecords = gamefowl.gamefowlData?.conditioning || [];
+      const hadRecentBreedingConditioning = conditioningRecords.some(
+        (c: any) => {
+          const startDate = new Date(c.conditioning.startDate).getTime();
+          return (
+            startDate > oneMonthAgo &&
+            c.conditioning.conditioningType === "BREEDING" &&
+            c.conditioning.status === "ASSIGNED"
+          );
+        }
+      );
+
+      let filteredPrograms;
+      let reasons;
+      if (!hadRecentBreedingConditioning) {
+        // Needs Breeder's Priming: conditioning type "PRIMING"
+        filteredPrograms = programs.filter(
+          (p: any) => p.conditioningType === "PRIMING"
+        );
+        reasons = ["Gamefowl requires Breeder's Priming"];
+      } else {
+        // Weekly maintenance: durationDays < 20
+        filteredPrograms = programs.filter(
+          (p: any) =>
+            p.conditioningType === "BREEDING" && (p.durationDays || 0) < 20
+        );
+        reasons = [
+          "Recommended weekly breeding program for ongoing reproductive health",
+        ];
+      }
+
+      for (const program of filteredPrograms) {
+        const customizations = this.determineConditioningCustomizations(
+          gamefowl,
+          program
+        );
+        recommendations.push({
+          gamefowlId: gamefowl.id,
+          gamefowlName: gamefowl.name,
+          recommendedProgramId: program.id,
+          programName: program.programName,
+          conditioningType: program.conditioningType || undefined,
+          durationDays: program.durationDays || undefined,
+          customizations,
+          reasons,
+        });
+      }
+      return recommendations.slice(0, 5);
+    }
+
+    // For other target types, loop over all programs
     for (const program of programs) {
       // Skip programs that exceed available time to event
       if (
@@ -756,7 +864,8 @@ export class RecommendationEngine {
       const reasons = this.generateConditioningReasons(
         gamefowl,
         program,
-        timeToEvent
+        timeToEvent,
+        targetType
       );
 
       recommendations.push({
@@ -942,13 +1051,21 @@ export class RecommendationEngine {
   private calculateConditioningScore(gamefowl: any): number {
     if (gamefowl.conditioning.length === 0) return 0;
 
-    const activeConditioning = gamefowl.conditioning.filter(
-      (c: any) => c.conditioning.status === "ASSIGNED"
-    );
+    const now = Date.now();
+    const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000; // 30 days
 
-    if (activeConditioning.length === 0) return 0.5;
+    // Check for conditioning within the last month
+    const recentConditioning = gamefowl.conditioning.filter((c: any) => {
+      const startDate = new Date(c.conditioning.startDate).getTime();
+      return startDate > oneMonthAgo && c.conditioning.status === "ASSIGNED";
+    });
 
-    // Simple score based on having active conditioning
+    if (recentConditioning.length === 0) {
+      // No conditioning within the last month
+      return 0.2;
+    }
+
+    // Has active conditioning within the last month
     return 0.8;
   }
 
@@ -1040,7 +1157,20 @@ export class RecommendationEngine {
       );
     }
 
+    // Add event wins/participations information
+    if (performance.eventWins && performance.eventParticipations) {
+      if (performance.eventWins > 0) {
+        reasons.push(
+          `Has won ${performance.eventWins} out of ${
+            performance.eventParticipations
+          } event${performance.eventParticipations > 1 ? "s" : ""}`
+        );
+      }
+    }
+
+    // Check for bloodline success - this will be checked in recommendForDerby
     if (performance.bloodlineStrength > 0.6) {
+      // This will be updated in recommendForDerby based on actual event wins
       reasons.push(
         `${performance.bloodline} bloodline shows proven success rate`
       );
@@ -1063,20 +1193,45 @@ export class RecommendationEngine {
   ): string[] {
     const risks: string[] = [];
 
-    if (performance.healthScore < 0.6) {
-      if (performance.healthScore < 0.3) {
-        risks.push(
-          "Critical health concerns - requires immediate medical attention"
-        );
-      } else {
-        risks.push(
-          "Below optimal health - check vaccination and deworming schedule"
-        );
+    // Check for vaccine/deworming records in the past 2 months
+    const now = Date.now();
+    const twoMonthsAgo = now - 60 * 24 * 60 * 60 * 1000; // 60 days
+
+    // Get the gamefowl data with vaccine and deworming records
+    const gamefowlData = (performance as any).gamefowlData;
+
+    if (gamefowlData) {
+      const hasRecentVaccine = gamefowlData.vaccine?.some(
+        (v: any) => new Date(v.vaccinationDate).getTime() > twoMonthsAgo
+      );
+      const hasRecentDeworming = gamefowlData.deworming?.some(
+        (d: any) => new Date(d.dewormDate).getTime() > twoMonthsAgo
+      );
+
+      if (!hasRecentVaccine || !hasRecentDeworming) {
+        risks.push("No recent vaccine/deworming records (past 2 months)");
       }
     }
 
-    if (performance.conditioningScore < 0.5) {
-      risks.push("Insufficient conditioning preparation");
+    if (performance.healthScore < 0.6) {
+      risks.push(
+        "Below optimal health - check vaccination and deworming schedule"
+      );
+    }
+
+    // Check for conditioning within the last month
+    if (gamefowlData && gamefowlData.conditioning) {
+      const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000; // 30 days
+      const hasRecentConditioning = gamefowlData.conditioning.some((c: any) => {
+        const startDate = new Date(c.conditioning.startDate).getTime();
+        return startDate > oneMonthAgo && c.conditioning.status === "ASSIGNED";
+      });
+
+      if (!hasRecentConditioning) {
+        risks.push("Insufficient conditioning preparation for derby event");
+      }
+    } else if (performance.conditioningScore < 0.5) {
+      risks.push("Insufficient conditioning preparation for derby event");
     }
 
     if (performance.recentFormScore < 0.3) {
@@ -1155,10 +1310,14 @@ export class RecommendationEngine {
   private generateConditioningReasons(
     gamefowl: GamefowlPerformanceData,
     program: any,
-    timeToEvent?: number
+    timeToEvent?: number,
+    targetType?: string
   ): string[] {
     const reasons = [];
 
+    // Breeding-specific logic (handled in recommendConditioningPrograms, not here)
+
+    // Default logic for other types
     if (gamefowl.conditioningScore < 0.5) {
       reasons.push("Gamefowl urgently needs structured conditioning");
     }
@@ -1180,9 +1339,7 @@ export class RecommendationEngine {
       }
     }
 
-    if (program.durationDays && program.durationDays <= 14) {
-      reasons.push("Short duration program ideal for quick preparation");
-    } else if (program.durationDays && program.durationDays > 21) {
+    if (program.durationDays && program.durationDays > 21) {
       reasons.push("Extended program for thorough conditioning");
     }
 

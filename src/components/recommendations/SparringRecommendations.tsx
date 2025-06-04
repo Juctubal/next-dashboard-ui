@@ -448,16 +448,10 @@ export default function SparringRecommendations() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 mb-3 text-center">
+            <div className="grid grid-cols-2 gap-4 mb-3 text-center">
               <div>
                 <p className="text-sm text-gray-600">Elo Gap</p>
                 <p className="font-semibold">{rec.eloGap} points</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Learning Value</p>
-                <p className="font-semibold">
-                  {Math.round(rec.expectedLearningValue * 100)}%
-                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Win Probability</p>

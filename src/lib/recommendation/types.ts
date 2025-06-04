@@ -16,6 +16,9 @@ export interface GamefowlPerformanceData {
   ageCategory: string;
   recentFormScore: number; // Based on last 5 fights
   bloodlineStrength: number; // Bayesian derived
+  gamefowlData?: any; // Full gamefowl data including vaccine, deworming, conditioning
+  eventWins?: number; // Number of event wins
+  eventParticipations?: number; // Total event participations
 }
 
 export interface BreedingPairRecommendation {

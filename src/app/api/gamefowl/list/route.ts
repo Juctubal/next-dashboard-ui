@@ -11,7 +11,7 @@ export async function GET() {
           not: "CHICK",
         },
         status: {
-          in: ["IDLE", "CONDITIONING"],
+          notIn: ["DECEASED", "SOLD"],
         },
       },
       select: {

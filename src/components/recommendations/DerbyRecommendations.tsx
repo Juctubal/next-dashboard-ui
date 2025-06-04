@@ -26,6 +26,8 @@ export default function DerbyRecommendations() {
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [selectedGamefowls, setSelectedGamefowls] = useState<number[]>([]);
   const [assigningGamefowls, setAssigningGamefowls] = useState(false);
+  const [assignedGamefowls, setAssignedGamefowls] = useState<any[]>([]);
+  const [loadingAssigned, setLoadingAssigned] = useState(false);
 
   // Get the required number of gamefowls based on event type
   const getRequiredGamefowlCount = (eventType: EventType): number => {
@@ -63,6 +65,24 @@ export default function DerbyRecommendations() {
       setError("Failed to load events");
     } finally {
       setLoadingEvents(false);
+    }
+  };
+
+  // Fetch assigned gamefowls for the selected event
+  const fetchAssignedGamefowls = async (eventId: number) => {
+    setLoadingAssigned(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/gamefowls`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch assigned gamefowls");
+      }
+      const data = await response.json();
+      setAssignedGamefowls(data.gamefowls || []);
+    } catch (err) {
+      console.error("Error fetching assigned gamefowls:", err);
+      setAssignedGamefowls([]);
+    } finally {
+      setLoadingAssigned(false);
     }
   };
 
@@ -122,6 +142,7 @@ export default function DerbyRecommendations() {
   useEffect(() => {
     if (selectedEvent) {
       fetchRecommendations();
+      fetchAssignedGamefowls(selectedEvent.id);
       // Reset selections when event changes
       setSelectedGamefowls([]);
     }
@@ -131,6 +152,16 @@ export default function DerbyRecommendations() {
     if (!selectedEvent) return;
 
     const maxSelections = getRequiredGamefowlCount(selectedEvent.eventType);
+    const currentlyAssigned = assignedGamefowls.length;
+    const remainingSlots = maxSelections - currentlyAssigned;
+
+    // Check if this gamefowl is already assigned to the event
+    const isAlreadyAssigned = assignedGamefowls.some(
+      (g) => g.id === gamefowlId
+    );
+    if (isAlreadyAssigned) {
+      return; // Can't select already assigned gamefowls
+    }
 
     setSelectedGamefowls((prev) => {
       if (prev.includes(gamefowlId)) {
@@ -138,7 +169,7 @@ export default function DerbyRecommendations() {
         return prev.filter((id) => id !== gamefowlId);
       } else {
         // Add to selection if under limit
-        if (prev.length < maxSelections) {
+        if (prev.length < remainingSlots) {
           return [...prev, gamefowlId];
         }
         return prev;
@@ -179,6 +210,9 @@ export default function DerbyRecommendations() {
       setSelectedGamefowls([]);
       await fetchEvents();
       await fetchRecommendations();
+      if (selectedEvent) {
+        await fetchAssignedGamefowls(selectedEvent.id);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to assign gamefowls"
@@ -191,7 +225,11 @@ export default function DerbyRecommendations() {
   const requiredCount = selectedEvent
     ? getRequiredGamefowlCount(selectedEvent.eventType)
     : 0;
-  const canAssign = selectedGamefowls.length === requiredCount;
+  const currentlyAssigned = assignedGamefowls.length;
+  const totalSelected = selectedGamefowls.length + currentlyAssigned;
+  const canAssign =
+    selectedGamefowls.length > 0 && totalSelected <= requiredCount;
+  const needsMore = requiredCount - totalSelected;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -267,8 +305,17 @@ export default function DerbyRecommendations() {
                   Required Gamefowls: {requiredCount}
                 </strong>
                 <span className="text-yellow-700 ml-2">
-                  (Selected: {selectedGamefowls.length}/{requiredCount})
+                  ({currentlyAssigned} assigned + {selectedGamefowls.length}{" "}
+                  selected = {totalSelected}/{requiredCount})
                 </span>
+                {needsMore > 0 && (
+                  <span className="text-orange-600 ml-2">
+                    • Need {needsMore} more
+                  </span>
+                )}
+                {totalSelected === requiredCount && (
+                  <span className="text-green-600 ml-2">• Complete!</span>
+                )}
               </div>
             </div>
           )}
@@ -296,12 +343,12 @@ export default function DerbyRecommendations() {
               {assigningGamefowls
                 ? "Assigning..."
                 : canAssign
-                ? `Assign ${selectedGamefowls.length} Gamefowls to Event`
-                : `Select ${
-                    requiredCount - selectedGamefowls.length
-                  } more gamefowl${
-                    requiredCount - selectedGamefowls.length > 1 ? "s" : ""
-                  }`}
+                ? `Add ${selectedGamefowls.length} More Gamefowl${
+                    selectedGamefowls.length > 1 ? "s" : ""
+                  } to Event`
+                : totalSelected > requiredCount
+                ? `Too many selected (${totalSelected}/${requiredCount})`
+                : `Select gamefowls to add`}
             </button>
           )}
         </div>
@@ -317,14 +364,21 @@ export default function DerbyRecommendations() {
       <div className="space-y-4">
         {recommendations.map((rec, index) => {
           const isSelected = selectedGamefowls.includes(rec.gamefowlId);
+          const isAlreadyAssigned = assignedGamefowls.some(
+            (g) => g.id === rec.gamefowlId
+          );
           const canSelect =
-            selectedGamefowls.length < requiredCount || isSelected;
+            !isAlreadyAssigned &&
+            (selectedGamefowls.length < requiredCount - currentlyAssigned ||
+              isSelected);
 
           return (
             <div
               key={rec.gamefowlId}
               className={`bg-white p-6 rounded-lg shadow-md border transition-all ${
-                isSelected
+                isAlreadyAssigned
+                  ? "ring-2 ring-green-500 bg-green-50"
+                  : isSelected
                   ? "ring-2 ring-blue-500 bg-blue-50"
                   : canSelect
                   ? "hover:shadow-lg cursor-pointer"
@@ -340,9 +394,12 @@ export default function DerbyRecommendations() {
                   <div className="mt-1">
                     <input
                       type="checkbox"
-                      checked={isSelected}
-                      onChange={() => handleGamefowlSelection(rec.gamefowlId)}
-                      disabled={!canSelect}
+                      checked={isSelected || isAlreadyAssigned}
+                      onChange={() =>
+                        !isAlreadyAssigned &&
+                        handleGamefowlSelection(rec.gamefowlId)
+                      }
+                      disabled={!canSelect || isAlreadyAssigned}
                       className="h-5 w-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                       onClick={(e) => e.stopPropagation()}
                     />
@@ -357,6 +414,11 @@ export default function DerbyRecommendations() {
                       <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
                         {rec.bloodline}
                       </span>
+                      {isAlreadyAssigned && (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                          Already Assigned
+                        </span>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">

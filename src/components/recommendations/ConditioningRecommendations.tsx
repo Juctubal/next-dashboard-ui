@@ -5,7 +5,7 @@ import { ConditioningRecommendation } from "@/lib/recommendation/types";
 
 interface ConditioningFilters {
   eventId?: number;
-  targetType?: "general" | "brooding" | "breeding" | "derby" | "specific_event";
+  targetType?: "brooding" | "breeding" | "derby";
   bloodline?: string;
   timeToEvent?: number;
 }
@@ -20,13 +20,13 @@ export default function ConditioningRecommendations() {
   const [bloodlines, setBloodlines] = useState<string[]>([]);
   const [filters, setFilters] = useState<ConditioningFilters>({
     timeToEvent: 14,
-    targetType: "general",
+    targetType: "derby",
   });
   const [applyingProgram, setApplyingProgram] = useState<number | null>(null);
 
   // Helper function to calculate days to event
   const calculateDaysToEvent = useCallback(() => {
-    if (filters.targetType === "specific_event" && filters.eventId) {
+    if (filters.targetType === "derby" && filters.eventId) {
       const selectedEvent = events.find(
         (event) => event.id === filters.eventId
       );
@@ -73,7 +73,7 @@ export default function ConditioningRecommendations() {
       // Calculate timeToEvent directly here to avoid circular dependency
       let calculatedTimeToEvent = filters.timeToEvent || 14;
 
-      if (filters.targetType === "specific_event" && filters.eventId) {
+      if (filters.targetType === "derby" && filters.eventId) {
         // Fetch the specific event when needed instead of relying on events state
         try {
           const eventResponse = await fetch(`/api/events/${filters.eventId}`);
@@ -147,8 +147,7 @@ export default function ConditioningRecommendations() {
         },
         body: JSON.stringify({
           gamefowlIds: [recommendation.gamefowlId],
-          eventId:
-            filters.targetType === "specific_event" ? filters.eventId : null,
+          eventId: filters.targetType === "derby" ? filters.eventId : null,
           conProgId: recommendation.recommendedProgramId,
           handlerId: handlerId,
           startDate: startDate.toISOString().split("T")[0],
@@ -199,7 +198,7 @@ export default function ConditioningRecommendations() {
       {/* Filters */}
       <div
         className={`grid gap-4 mb-6 p-4 bg-gray-50 rounded-lg ${
-          filters.targetType === "specific_event"
+          filters.targetType === "derby"
             ? "grid-cols-1 md:grid-cols-4"
             : "grid-cols-1 md:grid-cols-3"
         }`}
@@ -207,29 +206,26 @@ export default function ConditioningRecommendations() {
         <div>
           <label className="block text-sm font-medium mb-2">Target</label>
           <select
-            value={filters.targetType || "general"}
+            value={filters.targetType || "derby"}
             onChange={(e) => {
               const targetType = e.target
                 .value as ConditioningFilters["targetType"];
               setFilters({
                 ...filters,
                 targetType,
-                eventId:
-                  targetType === "specific_event" ? filters.eventId : undefined,
+                eventId: targetType === "derby" ? filters.eventId : undefined,
               });
             }}
             className="w-full p-2 border rounded-md"
           >
-            <option value="general">General Conditioning</option>
             <option value="brooding">Brooding & Vaccination</option>
             <option value="breeding">Breeding</option>
             <option value="derby">Derby</option>
-            <option value="specific_event">Specific Event</option>
           </select>
         </div>
 
-        {/* Show event selection only when specific_event is selected */}
-        {filters.targetType === "specific_event" && (
+        {/* Show event selection only when derby is selected */}
+        {filters.targetType === "derby" && (
           <div>
             <label className="block text-sm font-medium mb-2">
               Select Event
@@ -281,33 +277,37 @@ export default function ConditioningRecommendations() {
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Days to Event
-          </label>
-          <input
-            type="number"
-            value={calculateDaysToEvent()}
-            onChange={(e) =>
-              setFilters({ ...filters, timeToEvent: parseInt(e.target.value) })
-            }
-            className={`w-full p-2 border rounded-md ${
-              filters.targetType === "specific_event" && filters.eventId
-                ? "bg-gray-100 cursor-not-allowed"
-                : ""
-            }`}
-            disabled={
-              filters.targetType === "specific_event" && !!filters.eventId
-            }
-            min="1"
-            max="90"
-          />
-          {filters.targetType === "specific_event" && filters.eventId && (
-            <p className="text-xs text-gray-500 mt-1">
-              Automatically calculated from event date
-            </p>
-          )}
-        </div>
+        {/* Show Days to Event only for derby (and optionally brooding) */}
+        {filters.targetType === "derby" && (
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Days to Event
+            </label>
+            <input
+              type="number"
+              value={calculateDaysToEvent()}
+              onChange={(e) =>
+                setFilters({
+                  ...filters,
+                  timeToEvent: parseInt(e.target.value),
+                })
+              }
+              className={`w-full p-2 border rounded-md ${
+                filters.targetType === "derby" && filters.eventId
+                  ? "bg-gray-100 cursor-not-allowed"
+                  : ""
+              }`}
+              disabled={filters.targetType === "derby" && !!filters.eventId}
+              min="1"
+              max="90"
+            />
+            {filters.targetType === "derby" && filters.eventId && (
+              <p className="text-xs text-gray-500 mt-1">
+                Automatically calculated from event date
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <button
@@ -396,7 +396,7 @@ export default function ConditioningRecommendations() {
 
       {recommendations.length === 0 && !loading && (
         <div className="text-center py-8 text-gray-500">
-          {filters.targetType === "specific_event" && filters.eventId ? (
+          {filters.targetType === "derby" && filters.eventId ? (
             <div>
               <p>
                 No conditioning recommendations available for the selected

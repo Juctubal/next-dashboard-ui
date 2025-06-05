@@ -3,6 +3,7 @@
 import { PrismaClient, ConditioningType } from "@prisma/client";
 import { EloCalculator } from "./elo-calculator";
 import { BayesianAnalyzer } from "./bayesian-analyzer";
+import { EloToleranceCalculator } from "./elo-tolerance-calculator";
 import {
   GamefowlPerformanceData,
   DerbyRecommendation,
@@ -18,6 +19,7 @@ export class RecommendationEngine {
   private prisma: PrismaClient;
   private bayesian: BayesianAnalyzer;
   private weights: RecommendationWeights;
+  private eloToleranceCalculator: EloToleranceCalculator;
 
   constructor(
     prisma: PrismaClient,
@@ -27,6 +29,7 @@ export class RecommendationEngine {
     this.prisma = prisma;
     this.bayesian = bayesianAnalyzer || new BayesianAnalyzer();
     this.weights = weights || DEFAULT_WEIGHTS;
+    this.eloToleranceCalculator = new EloToleranceCalculator(prisma);
   }
 
   /**
@@ -450,8 +453,24 @@ export class RecommendationEngine {
    */
   async recommendSparringMatches(
     limit: number = 10,
-    eloTolerance: number = 30
+    manualEloTolerance?: number
   ): Promise<SparringMatchRecommendation[]> {
+    // Calculate optimal ELO tolerance if not manually provided
+    let eloTolerance: number;
+    let toleranceReasoning: string[] = [];
+
+    if (manualEloTolerance !== undefined) {
+      eloTolerance = manualEloTolerance;
+      toleranceReasoning.push(`Using manual ELO tolerance: ±${eloTolerance}`);
+    } else {
+      const toleranceRecommendation =
+        await this.eloToleranceCalculator.getToleranceRecommendation();
+      eloTolerance = toleranceRecommendation.tolerance;
+      toleranceReasoning = toleranceRecommendation.reasoning;
+    }
+
+    console.log("ELO tolerance:", eloTolerance); // Debug log
+
     // Get gamefowls available for sparring with their full data
     const gamefowls = await this.prisma.gamefowl.findMany({
       where: {
@@ -474,20 +493,25 @@ export class RecommendationEngine {
       },
     });
 
+    console.log("Available gamefowls:", gamefowls.length); // Debug log
+
     const recommendations: SparringMatchRecommendation[] = [];
-    const paired = new Set<number>();
 
     for (let i = 0; i < gamefowls.length - 1; i++) {
-      if (paired.has(gamefowls[i].id)) continue;
-
       for (let j = i + 1; j < gamefowls.length; j++) {
-        if (paired.has(gamefowls[j].id)) continue;
-
         const gamefowl1 = gamefowls[i];
         const gamefowl2 = gamefowls[j];
 
         // Calculate Elo gap
         const eloGap = Math.abs(gamefowl1.eloRating - gamefowl2.eloRating);
+
+        // Skip if ELO gap is too large
+        if (eloGap > eloTolerance) {
+          console.log(
+            `Skipping pair ${gamefowl1.name} vs ${gamefowl2.name} - ELO gap ${eloGap} > tolerance ${eloTolerance}`
+          ); // Debug log
+          continue;
+        }
 
         // Calculate match balance (closer to 1 is better)
         const matchBalance = 1 - eloGap / 400; // 400 point gap = 0 balance
@@ -517,7 +541,12 @@ export class RecommendationEngine {
           },
         });
 
-        if (recentMatch) continue;
+        if (recentMatch) {
+          console.log(
+            `Skipping pair ${gamefowl1.name} vs ${gamefowl2.name} - recent match found`
+          ); // Debug log
+          continue;
+        }
 
         // Calculate track records
         const gamefowl1Wins = gamefowl1.sparring_winner?.length || 0;
@@ -553,6 +582,13 @@ export class RecommendationEngine {
           gamefowl2TrackRecord
         );
 
+        // Add tolerance reasoning to the first recommendation
+        if (recommendations.length === 0 && !manualEloTolerance) {
+          reasons.push(
+            ...toleranceReasoning.map((r) => `[Auto-tolerance] ${r}`)
+          );
+        }
+
         // Calculate win probabilities
         const gamefowl1WinProbability = EloCalculator.getWinProbability(
           gamefowl1.eloRating,
@@ -578,11 +614,16 @@ export class RecommendationEngine {
           reasons,
         });
 
-        paired.add(gamefowl1.id);
-        paired.add(gamefowl2.id);
-        break;
+        console.log(
+          `Added recommendation: ${gamefowl1.name} vs ${gamefowl2.name}`
+        ); // Debug log
       }
     }
+
+    console.log(
+      "Total recommendations before sorting:",
+      recommendations.length
+    ); // Debug log
 
     return recommendations
       .sort((a, b) => b.matchBalance - a.matchBalance)
@@ -595,7 +636,7 @@ export class RecommendationEngine {
   async recommendSparringPartnersForGamefowl(
     gamefowlId: number,
     limit: number = 5,
-    eloTolerance: number = 30
+    manualEloTolerance?: number
   ): Promise<SparringMatchRecommendation[]> {
     // Get the target gamefowl
     const targetGamefowl = await this.prisma.gamefowl.findUnique({
@@ -612,6 +653,27 @@ export class RecommendationEngine {
 
     if (!targetGamefowl || targetGamefowl.isArchived) {
       return [];
+    }
+
+    // Calculate optimal ELO tolerance if not manually provided
+    let eloTolerance: number;
+    let toleranceReasoning: string[] = [];
+
+    if (manualEloTolerance !== undefined) {
+      eloTolerance = manualEloTolerance;
+      toleranceReasoning.push(`Using manual ELO tolerance: ±${eloTolerance}`);
+    } else {
+      // Use dynamic tolerance based on the specific gamefowl's ELO
+      eloTolerance =
+        await this.eloToleranceCalculator.calculateDynamicTolerance(
+          targetGamefowl.eloRating
+        );
+      const toleranceRecommendation =
+        await this.eloToleranceCalculator.getToleranceRecommendation();
+      toleranceReasoning = [
+        `Dynamic tolerance for ELO ${targetGamefowl.eloRating}: ±${eloTolerance}`,
+        ...toleranceRecommendation.reasoning,
+      ];
     }
 
     // Get potential sparring partners
@@ -709,6 +771,11 @@ export class RecommendationEngine {
         partnerTrackRecord
       );
 
+      // Add tolerance reasoning to the first recommendation
+      if (recommendations.length === 0 && !manualEloTolerance) {
+        reasons.push(...toleranceReasoning.map((r) => `[Auto-tolerance] ${r}`));
+      }
+
       // Calculate win probabilities
       const targetWinProbability = EloCalculator.getWinProbability(
         targetGamefowl.eloRating,
@@ -785,38 +852,162 @@ export class RecommendationEngine {
     // Ensure recommendations is defined and in scope
     const recommendations: ConditioningRecommendation[] = [];
 
+    if (targetType === "brooding") {
+      // Special logic for brooding - target young gamefowls (chicks)
+      const gamefowlData = gamefowl.gamefowlData;
+      if (!gamefowlData) return [];
+
+      // Calculate age in days
+      const now = Date.now();
+      const ageInDays = gamefowlData.date_hatched
+        ? Math.floor(
+            (now - new Date(gamefowlData.date_hatched).getTime()) /
+              (24 * 60 * 60 * 1000)
+          )
+        : 365; // Default to 1 year if no hatch date
+
+      // Brooding is typically for chicks under 8 weeks (56 days)
+      if (ageInDays > 56) {
+        // Return empty if the gamefowl is too old for brooding
+        return [];
+      }
+
+      // Check vaccination status for young chicks
+      const hasEarlyVaccines = gamefowlData.vaccine?.some((v: any) => {
+        const vaccineName = v.name.toLowerCase();
+        return (
+          vaccineName.includes("newcastle") && vaccineName.includes("b1b1")
+        );
+      });
+
+      // Check if deworming has been done (usually starts around 3-4 weeks)
+      const hasDeworming = gamefowlData.deworming?.length > 0;
+
+      for (const program of programs) {
+        const customizations = this.determineConditioningCustomizations(
+          gamefowl,
+          program
+        );
+
+        // Generate brooding-specific reasons
+        const reasons = this.generateBroodingReasons(
+          gamefowl,
+          program,
+          ageInDays,
+          hasEarlyVaccines,
+          hasDeworming
+        );
+
+        recommendations.push({
+          gamefowlId: gamefowl.id,
+          gamefowlName: gamefowl.name,
+          recommendedProgramId: program.id,
+          programName: program.programName,
+          conditioningType: program.conditioningType || undefined,
+          durationDays: program.durationDays || undefined,
+          customizations,
+          reasons,
+        });
+      }
+
+      return recommendations.slice(0, 5);
+    }
+
     if (targetType === "breeding") {
-      // Check if gamefowl has had any 'Breeding' conditioning in the past month
+      // Check if gamefowl has had any 'Priming' conditioning in the past month
       const now = Date.now();
       const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000;
       const conditioningRecords = gamefowl.gamefowlData?.conditioning || [];
-      const hadRecentBreedingConditioning = conditioningRecords.some(
+
+      // Debug: Log conditioning records to understand the data structure
+      console.log(
+        `Debug - Gamefowl ${gamefowl.id} conditioning records:`,
+        conditioningRecords.map((c: any) => ({
+          conditioningType: c.conditioning?.conditioningType,
+          status: c.conditioning?.status,
+          startDate: c.conditioning?.startDate,
+          programName: c.conditioning?.conProg?.programName,
+        }))
+      );
+
+      // Check if gamefowl has ever had priming conditioning (more flexible check)
+      const hasEverHadPriming = conditioningRecords.some((c: any) => {
+        const conditioningType = c.conditioning?.conditioningType;
+        // Check for various possible values
+        return (
+          conditioningType === "PRIMING" ||
+          conditioningType === "Priming" ||
+          conditioningType === "priming" ||
+          (c.conditioning?.conProg?.programName &&
+            c.conditioning.conProg.programName
+              .toLowerCase()
+              .includes("priming"))
+        );
+      });
+
+      // Check if gamefowl has had priming conditioning within the last month
+      const hadRecentPrimingConditioning = conditioningRecords.some(
         (c: any) => {
-          const startDate = new Date(c.conditioning.startDate).getTime();
-          return (
-            startDate > oneMonthAgo &&
-            c.conditioning.conditioningType === "BREEDING" &&
-            c.conditioning.status === "ASSIGNED"
-          );
+          const startDate = new Date(c.conditioning?.startDate).getTime();
+          const conditioningType = c.conditioning?.conditioningType;
+          const status = c.conditioning?.status;
+
+          // More flexible status check - include COMPLETED, ACTIVE, etc.
+          const validStatuses = [
+            "ASSIGNED",
+            "COMPLETED",
+            "ACTIVE",
+            "IN_PROGRESS",
+          ];
+          const hasValidStatus = validStatuses.includes(status);
+
+          // More flexible conditioning type check
+          const isPrimingType =
+            conditioningType === "PRIMING" ||
+            conditioningType === "Priming" ||
+            conditioningType === "priming" ||
+            (c.conditioning?.conProg?.programName &&
+              c.conditioning.conProg.programName
+                .toLowerCase()
+                .includes("priming"));
+
+          return startDate > oneMonthAgo && isPrimingType && hasValidStatus;
         }
       );
 
+      // Debug: Log the results
+      console.log(`Debug - Gamefowl ${gamefowl.id}:`, {
+        hasEverHadPriming,
+        hadRecentPrimingConditioning,
+        conditioningRecordsCount: conditioningRecords.length,
+      });
+
       let filteredPrograms;
       let reasons;
-      if (!hadRecentBreedingConditioning) {
-        // Needs Breeder's Priming: conditioning type "PRIMING"
+
+      if (!hasEverHadPriming) {
+        // Has never had priming: recommend conditioning type "PRIMING"
         filteredPrograms = programs.filter(
           (p: any) => p.conditioningType === "PRIMING"
         );
-        reasons = ["Gamefowl requires Breeder's Priming"];
-      } else {
-        // Weekly maintenance: durationDays < 20
+        reasons = [
+          "Gamefowl has not yet undergone Priming conditioning - this is required before breeding programs",
+        ];
+      } else if (hadRecentPrimingConditioning) {
+        // Had priming within the last month: recommend conditioning type "BREEDING"
         filteredPrograms = programs.filter(
-          (p: any) =>
-            p.conditioningType === "BREEDING" && (p.durationDays || 0) < 20
+          (p: any) => p.conditioningType === "BREEDING"
         );
         reasons = [
-          "Recommended weekly breeding program for ongoing reproductive health",
+          "Gamefowl has completed Priming within the last month - ready for Breeding conditioning programs",
+        ];
+      } else {
+        // Had priming before but not recently: recommend priming again
+        filteredPrograms = programs.filter(
+          (p: any) => p.conditioningType === "PRIMING"
+        );
+        reasons = [
+          "Gamefowl needs fresh Priming conditioning before proceeding with breeding programs",
         ];
       }
 
@@ -1121,7 +1312,9 @@ export class RecommendationEngine {
     gamefowl: GamefowlPerformanceData,
     program: any
   ): any {
-    const duration = gamefowl.conditioningScore < 0.5 ? 21 : 14;
+    // Use the actual program duration if available, otherwise fall back to calculated duration
+    const calculatedDuration = gamefowl.conditioningScore < 0.5 ? 21 : 14;
+    const duration = program.durationDays || calculatedDuration;
 
     return { duration };
   }
@@ -1511,15 +1704,12 @@ export class RecommendationEngine {
       reasons.push("Optimal skill gap for maximum learning potential");
     }
 
-    if (eloGap < 100) {
-      reasons.push("Close ratings ensure unpredictable and exciting match");
-    }
-
     if (matchingCriteria.trackRecordSimilarity) {
       reasons.push("Track records are similar");
     }
 
     if (matchingCriteria.eloWithinTolerance) {
+      reasons.push("Close ratings ensure unpredictable and exciting match");
       reasons.push(`Elo gap within tolerance (${eloGap} points)`);
     }
 
@@ -1529,6 +1719,110 @@ export class RecommendationEngine {
 
     if (matchingCriteria.previousOutcomes) {
       reasons.push("No recent outcomes between the gamefowls");
+    }
+
+    return reasons;
+  }
+
+  private generateBroodingReasons(
+    gamefowl: GamefowlPerformanceData,
+    program: any,
+    ageInDays: number,
+    hasEarlyVaccines: boolean,
+    hasDeworming: boolean
+  ): string[] {
+    const reasons = [];
+
+    // Age-specific reasons
+    if (ageInDays <= 21) {
+      reasons.push(
+        "Chick is in early development stage - needs structured brooding program"
+      );
+    } else if (ageInDays <= 42) {
+      reasons.push(
+        "Chick is transitioning to juvenile stage - final brooding period"
+      );
+    } else if (ageInDays <= 56) {
+      reasons.push(
+        "Chick is ready for transition from brooding to basic conditioning"
+      );
+    }
+
+    // Vaccination status reasons
+    if (!hasEarlyVaccines) {
+      if (ageInDays >= 7) {
+        reasons.push(
+          "Newcastle Disease (B1B1) vaccination is due - critical for chick health"
+        );
+      }
+      if (ageInDays >= 21) {
+        reasons.push("Second Newcastle Disease (B1B1) dose is required");
+      }
+    } else {
+      reasons.push("Vaccination schedule is on track for healthy development");
+    }
+
+    // Deworming reasons
+    if (ageInDays >= 21 && !hasDeworming) {
+      reasons.push(
+        "Deworming treatment should be started around 3-4 weeks of age"
+      );
+    } else if (hasDeworming && ageInDays >= 21) {
+      reasons.push("Deworming protocol has been properly initiated");
+    }
+
+    // Program-specific reasons
+    if (program.conditioningType === "BROODING") {
+      reasons.push(
+        "Specialized brooding program designed for chick development"
+      );
+    }
+
+    if (program.activities && program.activities.length > 0) {
+      const hasNutritionActivity = program.activities.some(
+        (activity: any) =>
+          activity.activityName?.toLowerCase().includes("nutrition") ||
+          activity.activityName?.toLowerCase().includes("feeding")
+      );
+
+      if (hasNutritionActivity) {
+        reasons.push(
+          "Program includes proper nutrition management for growing chicks"
+        );
+      }
+
+      const hasEnvironmentActivity = program.activities.some(
+        (activity: any) =>
+          activity.activityName?.toLowerCase().includes("environment") ||
+          activity.activityName?.toLowerCase().includes("housing") ||
+          activity.activityName?.toLowerCase().includes("temperature")
+      );
+
+      if (hasEnvironmentActivity) {
+        reasons.push(
+          "Program covers essential environmental controls for chick welfare"
+        );
+      }
+    }
+
+    // Health and development reasons
+    if (gamefowl.healthScore > 0.8) {
+      reasons.push(
+        "Excellent health status supports optimal brooding outcomes"
+      );
+    } else if (gamefowl.healthScore > 0.6) {
+      reasons.push("Good health condition suitable for brooding program");
+    } else {
+      reasons.push(
+        "Health improvements needed - brooding program will help establish proper care"
+      );
+    }
+
+    // Bloodline-specific reasoning
+    if (gamefowl.bloodlineStrength > 0.7) {
+      reasons.push(
+        `${gamefowl.bloodline} bloodline has strong genetic potential - proper brooding is crucial`
+      );
     }
 
     return reasons;

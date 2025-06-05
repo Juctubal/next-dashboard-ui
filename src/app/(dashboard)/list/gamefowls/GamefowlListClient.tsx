@@ -142,6 +142,7 @@ const GamefowlRow = ({
     "BREEDING",
     "CONDITIONING",
     "INJURED",
+    "SICK",
     "DECEASED",
   ];
 
@@ -196,6 +197,8 @@ const GamefowlRow = ({
                   ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
                   : item.status === "INJURED"
                   ? "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
+                  : item.status === "SICK"
+                  ? "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300"
                   : item.status === "DECEASED"
                   ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
                   : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
@@ -378,8 +381,12 @@ const GamefowlListClient = ({
 }: GamefowlListClientProps) => {
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const [isSortDropdownOpen, setSortDropdownOpen] = useState(false);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(() => (searchParams.sortDirection === 'desc' ? 'desc' : 'asc'));
-const [sortBy, setSortBy] = useState<'name' | 'id'>(() => (searchParams.sortBy === 'id' ? 'id' : 'name'));
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">(() =>
+    searchParams.sortDirection === "desc" ? "desc" : "asc"
+  );
+  const [sortBy, setSortBy] = useState<"name" | "id">(() =>
+    searchParams.sortBy === "id" ? "id" : "name"
+  );
   const [selectedAges, setSelectedAges] = useState<string[]>([]);
   const [selectedSexes, setSelectedSexes] = useState<string[]>([]);
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -485,12 +492,12 @@ const [sortBy, setSortBy] = useState<'name' | 'id'>(() => (searchParams.sortBy =
     updateFilters(selectedAges, newSelectedSexes);
   };
 
-  const updateSort = (sortBy: 'name' | 'id', sortDirection: 'asc' | 'desc') => {
+  const updateSort = (sortBy: "name" | "id", sortDirection: "asc" | "desc") => {
     // Update URL with sort params
     const params = new URLSearchParams(window.location.search);
-    params.set('sortBy', sortBy);
-    params.set('sortDirection', sortDirection);
-    params.set('page', '1'); // reset to page 1 on sort change
+    params.set("sortBy", sortBy);
+    params.set("sortDirection", sortDirection);
+    params.set("page", "1"); // reset to page 1 on sort change
     router.push(`/list/gamefowls?${params.toString()}`);
   };
 
@@ -586,18 +593,18 @@ const [sortBy, setSortBy] = useState<'name' | 'id'>(() => (searchParams.sortBy =
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end relative">
-              <Link
-                href={`/list/gamefowls?showArchived=${!isArchived}${
-                  search ? `&search=${search}` : ""
-                }${age ? `&age=${age}` : ""}${sex ? `&sex=${sex}` : ""}`}
-                className={`px-3 py-1 text-sm rounded-md text-center ${
-                  isArchived
-                    ? "bg-ggPurple text-white"
-                    : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600"
-                }`}
-              >
-                {isArchived ? "Showing Archived" : "Archive"}
-              </Link>
+            <Link
+              href={`/list/gamefowls?showArchived=${!isArchived}${
+                search ? `&search=${search}` : ""
+              }${age ? `&age=${age}` : ""}${sex ? `&sex=${sex}` : ""}`}
+              className={`px-3 py-1 text-sm rounded-md text-center ${
+                isArchived
+                  ? "bg-ggPurple text-white"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600"
+              }`}
+            >
+              {isArchived ? "Showing Archived" : "Archive"}
+            </Link>
             <button
               onClick={() => setShowQRScanner(true)}
               className="w-8 h-8 flex items-center justify-center rounded-full bg-ggYellow"
@@ -784,43 +791,55 @@ const [sortBy, setSortBy] = useState<'name' | 'id'>(() => (searchParams.sortBy =
               {isSortDropdownOpen && (
                 <div className="absolute right-0 top-full mt-2 bg-white shadow-md rounded-md z-10 min-w-[180px]">
                   <div className="border-b border-gray-200">
-                    <div className="px-4 py-2 text-xs font-semibold text-gray-500">Sort By</div>
+                    <div className="px-4 py-2 text-xs font-semibold text-gray-500">
+                      Sort By
+                    </div>
                     <button
-                      className={`block w-full px-4 py-2 text-left ${sortBy === 'name' ? 'bg-gray-100' : ''}`}
+                      className={`block w-full px-4 py-2 text-left ${
+                        sortBy === "name" ? "bg-gray-100" : ""
+                      }`}
                       onClick={() => {
-                        setSortBy('name');
-                        updateSort('name', sortDirection);
+                        setSortBy("name");
+                        updateSort("name", sortDirection);
                       }}
                     >
                       Name
                     </button>
                     <button
-                      className={`block w-full px-4 py-2 text-left ${sortBy === 'id' ? 'bg-gray-100' : ''}`}
+                      className={`block w-full px-4 py-2 text-left ${
+                        sortBy === "id" ? "bg-gray-100" : ""
+                      }`}
                       onClick={() => {
-                        setSortBy('id');
-                        updateSort('id', sortDirection);
+                        setSortBy("id");
+                        updateSort("id", sortDirection);
                       }}
                     >
                       ID Number
                     </button>
                   </div>
                   <div>
-                    <div className="px-4 py-2 text-xs font-semibold text-gray-500">Order</div>
+                    <div className="px-4 py-2 text-xs font-semibold text-gray-500">
+                      Order
+                    </div>
                     <button
-                      className={`block w-full px-4 py-2 text-left ${sortDirection === 'asc' ? 'bg-gray-100' : ''}`}
+                      className={`block w-full px-4 py-2 text-left ${
+                        sortDirection === "asc" ? "bg-gray-100" : ""
+                      }`}
                       onClick={() => {
-                        setSortDirection('asc');
-                        updateSort(sortBy, 'asc');
+                        setSortDirection("asc");
+                        updateSort(sortBy, "asc");
                         setSortDropdownOpen(false);
                       }}
                     >
                       Ascending
                     </button>
                     <button
-                      className={`block w-full px-4 py-2 text-left ${sortDirection === 'desc' ? 'bg-gray-100' : ''}`}
+                      className={`block w-full px-4 py-2 text-left ${
+                        sortDirection === "desc" ? "bg-gray-100" : ""
+                      }`}
                       onClick={() => {
-                        setSortDirection('desc');
-                        updateSort(sortBy, 'desc');
+                        setSortDirection("desc");
+                        updateSort(sortBy, "desc");
                         setSortDropdownOpen(false);
                       }}
                     >

@@ -1,5 +1,47 @@
 // Recommendation System Types
 
+export type MatchQuality = "all" | "competitive" | "balanced" | "excellent";
+
+export interface MatchQualityConfig {
+  value: number;
+  description: string;
+  eloGapRange: string;
+}
+
+export const MATCH_QUALITY_CONFIG: Record<MatchQuality, MatchQualityConfig> = {
+  excellent: {
+    value: 0.9,
+    description: "Very close ELO ratings",
+    eloGapRange: "≤40 point gap",
+  },
+  balanced: {
+    value: 0.7,
+    description: "Balanced matches",
+    eloGapRange: "≤120 point gap",
+  },
+  competitive: {
+    value: 0.5,
+    description: "Competitive matches",
+    eloGapRange: "≤200 point gap",
+  },
+  all: {
+    value: 0.0,
+    description: "All possible matches",
+    eloGapRange: "Any gap",
+  },
+};
+
+export const getMatchBalanceFromQuality = (quality: MatchQuality): number => {
+  return (
+    MATCH_QUALITY_CONFIG[quality]?.value ?? MATCH_QUALITY_CONFIG.balanced.value
+  );
+};
+
+export const getMatchQualityDescription = (quality: MatchQuality): string => {
+  const config = MATCH_QUALITY_CONFIG[quality];
+  return config ? `${config.description} (${config.eloGapRange})` : "";
+};
+
 export interface GamefowlPerformanceData {
   id: number;
   name: string;

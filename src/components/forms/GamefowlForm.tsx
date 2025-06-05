@@ -13,6 +13,8 @@ const GamefowlForm = ({
   const router = useRouter();
   const [name, setName] = useState(data?.name || "");
   const [bloodline, setBloodline] = useState(data?.bloodline || "");
+  const [availableBloodlines, setAvailableBloodlines] = useState<string[]>([]);
+  const [showBloodlineDropdown, setShowBloodlineDropdown] = useState(false);
   const [dateHatched, setDateHatched] = useState(
     data?.date_hatched
       ? new Date(data.date_hatched).toISOString().split("T")[0]
@@ -30,6 +32,23 @@ const GamefowlForm = ({
     type: "success" | "error";
   } | null>(null);
 
+  // Fetch available bloodlines on component mount
+  useEffect(() => {
+    const fetchBloodlines = async () => {
+      try {
+        const response = await fetch("/api/gamefowls/bloodlines");
+        if (response.ok) {
+          const bloodlines = await response.json();
+          setAvailableBloodlines(bloodlines);
+        }
+      } catch (error) {
+        console.error("Error fetching bloodlines:", error);
+      }
+    };
+
+    fetchBloodlines();
+  }, []);
+
   // Calculate age whenever date_hatched changes
   useEffect(() => {
     if (dateHatched) {
@@ -42,6 +61,21 @@ const GamefowlForm = ({
 
   const handleNotificationClose = () => {
     setNotification(null);
+  };
+
+  // Filter bloodlines based on current input
+  const filteredBloodlines = availableBloodlines.filter((bl) =>
+    bl.toLowerCase().includes(bloodline.toLowerCase())
+  );
+
+  const handleBloodlineChange = (value: string) => {
+    setBloodline(value);
+    setShowBloodlineDropdown(true);
+  };
+
+  const selectBloodline = (selectedBloodline: string) => {
+    setBloodline(selectedBloodline);
+    setShowBloodlineDropdown(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -134,14 +168,35 @@ const GamefowlForm = ({
         >
           Bloodline
         </label>
-        <input
-          type="text"
-          id="bloodline"
-          value={bloodline}
-          onChange={(e) => setBloodline(e.target.value)}
-          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
-          required
-        />
+        <div className="relative">
+          <input
+            type="text"
+            id="bloodline"
+            value={bloodline}
+            onChange={(e) => handleBloodlineChange(e.target.value)}
+            onFocus={() => setShowBloodlineDropdown(true)}
+            onBlur={() => {
+              // Delay hiding dropdown to allow selection
+              setTimeout(() => setShowBloodlineDropdown(false), 200);
+            }}
+            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+            placeholder="Type or select a bloodline"
+            required
+          />
+          {showBloodlineDropdown && filteredBloodlines.length > 0 && (
+            <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
+              {filteredBloodlines.map((bl, index) => (
+                <div
+                  key={index}
+                  onClick={() => selectBloodline(bl)}
+                  className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-200"
+                >
+                  {bl}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       <div className="space-y-2">
         <label

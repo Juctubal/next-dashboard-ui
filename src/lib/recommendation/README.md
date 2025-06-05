@@ -6,7 +6,7 @@ The Gamefowl Guardian recommendation system uses a hybrid approach combining **B
 
 1. **Derby Participation** - Select the best gamefowls for upcoming events
 2. **Breeding Pairs** - Optimize genetic combinations for superior offspring
-3. **Sparring Matches** - Create balanced training matchups
+3. **Sparring Matches** - Create balanced training matchups with automatic ELO tolerance
 4. **Conditioning Programs** - Personalize training based on bloodline and performance
 
 ## Architecture
@@ -35,9 +35,16 @@ The Gamefowl Guardian recommendation system uses a hybrid approach combining **B
    - Risk factor identification
 
 4. **Bayesian Updater** (`bayesian-updater.ts`)
+
    - Batch updates from historical data
    - Real-time updates after events
    - Prior belief persistence
+
+5. **ELO Tolerance Calculator** (`elo-tolerance-calculator.ts`)
+   - Automatic tolerance calculation based on historical data
+   - Dynamic tolerance adjustment per gamefowl
+   - Quality match analysis
+   - ELO distribution tracking
 
 ## API Endpoints
 
@@ -63,7 +70,58 @@ GET /api/recommendations/breeding?limit=10
 ### Sparring Recommendations
 
 ```
-GET /api/recommendations/sparring?limit=10
+POST /api/recommendations/sparring
+Body: {
+  maxEloGap?: number
+  minMatchBalance?: number  // Deprecated: use matchQuality instead
+  matchQuality?: "excellent" | "balanced" | "competitive" | "all"  // User-friendly alternative
+  bloodline?: string
+  eloTolerance?: number (optional - auto-calculated if not provided)
+  targetGamefowlId?: number
+  useAutoTolerance?: boolean (default: true)
+}
+```
+
+**Match Quality Options:**
+
+- `excellent`: Very close ELO ratings (≤40 point gap, minMatchBalance: 0.9)
+- `balanced`: Balanced matches (≤120 point gap, minMatchBalance: 0.7) - **Default**
+- `competitive`: Competitive matches (≤200 point gap, minMatchBalance: 0.5)
+- `all`: All possible matches (any gap, minMatchBalance: 0.0)
+
+**Note:** The `matchQuality` parameter provides a user-friendly interface that automatically maps to appropriate `minMatchBalance` values. The raw `minMatchBalance` parameter is still supported for backward compatibility.
+
+### ELO Tolerance Analysis
+
+```
+GET /api/recommendations/sparring/tolerance
+Response: {
+  tolerance: number
+  confidence: number
+  reasoning: string[]
+  analysis: {
+    averageEloGap: number
+    medianEloGap: number
+    standardDeviation: number
+    optimalTolerance: number
+    confidenceLevel: number
+    dataPoints: number
+    qualityMatches: number
+    totalMatches: number
+  }
+  distribution: {
+    min: number
+    max: number
+    mean: number
+    median: number
+    quartiles: { q1: number, q2: number, q3: number }
+  }
+}
+
+POST /api/recommendations/sparring/tolerance
+Body: {
+  gamefowlElo?: number (for dynamic tolerance calculation)
+}
 ```
 
 ### Conditioning Recommendations
@@ -85,6 +143,51 @@ Body: {
 
 ```
 POST /api/recommendations/update-priors
+```
+
+## Automatic ELO Tolerance System
+
+### How It Works
+
+The system automatically determines optimal ELO tolerance based on:
+
+1. **Historical Match Analysis**
+
+   - Analyzes last 500 sparring matches
+   - Identifies "quality matches" (30-70% win probability)
+   - Uses 75th percentile of quality match gaps
+
+2. **Dynamic Adjustment**
+
+   - Adjusts tolerance based on gamefowl's position in ELO distribution
+   - Increases tolerance for gamefowls at extremes (top/bottom 25%)
+   - Further adjusts based on available opponents
+
+3. **Quality Metrics**
+   - Tracks proportion of competitive matches
+   - Provides confidence level (0-1) based on data quality
+   - Minimum 20 data points for reliable analysis
+
+### Tolerance Calculation Algorithm
+
+```typescript
+// Base tolerance from historical data
+optimalTolerance = 75th percentile of quality match ELO gaps
+
+// Dynamic adjustment for specific gamefowl
+if (gamefowl in top/bottom 25% of ELO distribution) {
+  tolerance *= 1.5
+}
+
+// Availability adjustment
+if (available opponents < 3) {
+  tolerance *= 1.5
+} else if (available opponents < 5) {
+  tolerance *= 1.25
+}
+
+// Cap at 150 ELO points
+tolerance = min(150, tolerance)
 ```
 
 ## Scoring System
@@ -154,17 +257,20 @@ Rating Change = K * (Actual - Expected)
 
    - Run `/api/recommendations/update-priors` to initialize from historical data
    - Ensure at least 5 sparring matches per gamefowl for reliable ratings
+   - Allow system to accumulate 20+ sparring records for optimal ELO tolerance
 
 2. **Continuous Improvement**
 
    - Update Elo ratings immediately after sparring matches
    - Periodically refresh Bayesian priors (weekly/monthly)
    - Monitor prediction accuracy through actual vs. predicted outcomes
+   - Review automatic ELO tolerance effectiveness quarterly
 
 3. **Context Considerations**
    - Adjust weights based on event importance
    - Consider time-to-event for conditioning readiness
    - Factor in opponent strength for derby selections
+   - Trust automatic ELO tolerance unless specific requirements exist
 
 ## Future Enhancements
 

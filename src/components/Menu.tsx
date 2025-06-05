@@ -69,7 +69,7 @@ const Menu = async () => {
         },
         {
           icon: "/assignment.png",
-          label: "Recommendation Module",
+          label: "Reports",
           href: "/recommendations",
           visible: ["admin", "handler", "breeder"],
         },

@@ -18,6 +18,19 @@ export async function POST(request: NextRequest) {
       ...(bloodline && { bloodline }),
     };
 
+    // Special filtering for brooding - only show chicks (under 8 weeks old)
+    if (targetType === "brooding") {
+      const eightWeeksAgo = new Date();
+      eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56); // 8 weeks = 56 days
+
+      gamefowlWhere.date_hatched = {
+        gte: eightWeeksAgo, // Only chicks hatched within the last 8 weeks
+      };
+
+      // For brooding, we don't need sex restriction - both male and female chicks need brooding
+      delete gamefowlWhere.sex;
+    }
+
     // If derby is selected with an event, only show gamefowls registered for that event
     if (targetType === "derby" && eventId) {
       const eventIdInt = parseInt(eventId);

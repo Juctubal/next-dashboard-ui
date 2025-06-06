@@ -18,13 +18,19 @@ import EventResultForm from "@/components/EventResultForm";
 import { format } from "date-fns";
 import { EventWithRelations } from "@/types/event";
 
-
-interface EventWithRelationsFixed extends Omit<EventWithRelations, 'eventDate'> {
+interface EventWithRelationsFixed
+  extends Omit<EventWithRelations, "eventDate"> {
   isArchived: boolean;
-  eventDate: string | Date; 
+  eventDate: string | Date;
 }
 
-const EventTableRow = ({ item, role }: { item: EventWithRelationsFixed; role: string }) => {
+const EventTableRow = ({
+  item,
+  role,
+}: {
+  item: EventWithRelationsFixed;
+  role: string;
+}) => {
   const router = useRouter();
   const [currentStatus, setCurrentStatus] = useState<EventStatus>(item.status);
   const [isEditingStatus, setIsEditingStatus] = useState(false);
@@ -91,94 +97,106 @@ const EventTableRow = ({ item, role }: { item: EventWithRelationsFixed; role: st
 
   const handleArchiveToggle = async (archive: boolean) => {
     if (archive) {
-      const confirmed = window.confirm("Are you sure you want to archive this event?");
+      const confirmed = window.confirm(
+        "Are you sure you want to archive this event?"
+      );
       if (!confirmed) return;
     }
     setIsArchiving(true);
     try {
       // Log the request for debugging
-      console.log(`[CLIENT] Archiving event ${item.id}:`, { 
+      console.log(`[CLIENT] Archiving event ${item.id}:`, {
         id: item.id,
-        archive, 
-        currentStatus: item.isArchived 
+        archive,
+        currentStatus: item.isArchived,
       });
-      
+
       // Use the working archive-test API endpoint instead of the direct event archive endpoint
-      const requestBody = { 
-        type: "event", 
-        id: item.id, 
-        isArchived: archive === true 
+      const requestBody = {
+        type: "event",
+        id: item.id,
+        isArchived: archive === true,
       };
-      console.log('[CLIENT] Request payload:', requestBody);
-      
+      console.log("[CLIENT] Request payload:", requestBody);
+
       const response = await fetch(`/api/archive-test`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
-        cache: 'no-store' // Prevent caching
+        cache: "no-store", // Prevent caching
       });
-      
-      console.log('[CLIENT] Response status:', response.status);
-      
+
+      console.log("[CLIENT] Response status:", response.status);
+
       // Parse the response body
       let responseData;
       try {
         responseData = await response.json();
-        console.log('[CLIENT] API response data:', responseData);
+        console.log("[CLIENT] API response data:", responseData);
       } catch (parseError) {
-        console.error('[CLIENT] Failed to parse response:', parseError);
+        console.error("[CLIENT] Failed to parse response:", parseError);
       }
-      
+
       if (!response.ok) {
-        throw new Error(responseData?.error || "Failed to update archive status");
+        throw new Error(
+          responseData?.error || "Failed to update archive status"
+        );
       }
-      
+
       // Update succeeded in the database
       if (archive) {
         toast.success("Event successfully archived");
-        
+
         // If we're currently viewing the non-archived list, hide the row
-        const showArchived = new URLSearchParams(window.location.search).get("showArchived") === "true";
-        console.log('[CLIENT] Current view mode:', { showArchived });
-        
+        const showArchived =
+          new URLSearchParams(window.location.search).get("showArchived") ===
+          "true";
+        console.log("[CLIENT] Current view mode:", { showArchived });
+
         if (!showArchived) {
-          console.log('[CLIENT] Hiding row and preparing for page refresh');
+          console.log("[CLIENT] Hiding row and preparing for page refresh");
           // Get the parent row and hide it
           const row = document.getElementById(`event-row-${item.id}`);
           if (row) {
             row.style.display = "none";
           }
         }
-        
+
         // CRITICAL FIX: Force a complete page reload, not just a client-side refresh
         // This ensures we get fresh data from the server
-        console.log('[CLIENT] Forcing complete page reload in 1 second');
+        console.log("[CLIENT] Forcing complete page reload in 1 second");
         setTimeout(() => {
-          console.log('[CLIENT] Performing hard reload after event archive action');
+          console.log(
+            "[CLIENT] Performing hard reload after event archive action"
+          );
           const currentUrl = new URL(window.location.href);
-          currentUrl.searchParams.set('_cb', Date.now().toString());
+          currentUrl.searchParams.set("_cb", Date.now().toString());
           window.location.href = currentUrl.toString();
         }, 1000);
       } else {
         toast.success("Event unarchived");
         // For unarchiving, also force a full page reload with cache busting to ensure fresh data
-        console.log('[CLIENT] Preparing for page refresh after unarchive');
+        console.log("[CLIENT] Preparing for page refresh after unarchive");
         setTimeout(() => {
-          console.log('[CLIENT] Performing hard reload after event unarchive action');
+          console.log(
+            "[CLIENT] Performing hard reload after event unarchive action"
+          );
           const currentUrl = new URL(window.location.href);
-          currentUrl.searchParams.set('_cb', Date.now().toString());
+          currentUrl.searchParams.set("_cb", Date.now().toString());
           window.location.href = currentUrl.toString();
         }, 1000);
       }
     } catch (error) {
       console.error("[CLIENT] Archive toggle error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to update archive status");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update archive status"
+      );
     } finally {
       setIsArchiving(false);
     }
   };
-
-
 
   useEffect(() => {
     setCurrentStatus(item.status);
@@ -197,8 +215,6 @@ const EventTableRow = ({ item, role }: { item: EventWithRelationsFixed; role: st
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-
 
   const toggleStatusEdit = () => {
     setIsEditingStatus(!isEditingStatus);
@@ -262,6 +278,9 @@ const EventTableRow = ({ item, role }: { item: EventWithRelationsFixed; role: st
           </div>
         </td>
         <td className="hidden md:table-cell dark:text-gray-200">
+          {item.description}
+        </td>
+        <td className="hidden md:table-cell dark:text-gray-200">
           {item.eventType}
         </td>
         <td className="hidden md:table-cell text-center align-middle dark:text-gray-200">
@@ -296,7 +315,9 @@ const EventTableRow = ({ item, role }: { item: EventWithRelationsFixed; role: st
                   : "bg-green-100 text-green-800 hover:bg-green-200"
               }`}
             >
-              {currentStatus ? currentStatus.charAt(0) + currentStatus.slice(1).toLowerCase() : 'Unknown'}
+              {currentStatus
+                ? currentStatus.charAt(0) + currentStatus.slice(1).toLowerCase()
+                : "Unknown"}
             </button>
             {currentStatus === "FINISHED" && (
               <button
@@ -377,10 +398,15 @@ const EventTableRow = ({ item, role }: { item: EventWithRelationsFixed; role: st
       </tr>
       {showResultForm && (
         <EventResultForm
-          event={{
-            ...item,
-            eventDate: item.eventDate instanceof Date ? item.eventDate : new Date(item.eventDate)
-          } as any}
+          event={
+            {
+              ...item,
+              eventDate:
+                item.eventDate instanceof Date
+                  ? item.eventDate
+                  : new Date(item.eventDate),
+            } as any
+          }
           onClose={() => setShowResultForm(false)}
           onSubmit={handleSubmitResults}
         />

@@ -49,6 +49,9 @@ const MedicalForm = ({
   } | null>(null);
   const [selectedGamefowls, setSelectedGamefowls] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [availableMedicines, setAvailableMedicines] = useState<string[]>([]);
+  const [showMedicineDropdown, setShowMedicineDropdown] = useState(false);
+  const [medicineName, setMedicineName] = useState(data?.name || "");
 
   // Filter gamefowls based on search query and exclude deceased/sold
   const filteredGamefowls = useMemo(() => {
@@ -91,8 +94,25 @@ const MedicalForm = ({
       }
     };
 
+    const fetchMedicines = async () => {
+      try {
+        const endpoint =
+          recordType === "vaccine"
+            ? "/api/vaccines/medicines"
+            : "/api/dewormings/medicines";
+        const response = await fetch(endpoint);
+        if (response.ok) {
+          const medicines = await response.json();
+          setAvailableMedicines(medicines);
+        }
+      } catch (error) {
+        console.error("Error fetching medicines:", error);
+      }
+    };
+
     fetchGamefowls();
-  }, []);
+    fetchMedicines();
+  }, [recordType]);
 
   const {
     register,
@@ -123,6 +143,14 @@ const MedicalForm = ({
     }
   }, [data?.gamefowlId, gamefowls, setValue]);
 
+  // Set the medicine name when data is loaded
+  useEffect(() => {
+    if (data?.name) {
+      setMedicineName(data.name);
+      setValue("name", data.name);
+    }
+  }, [data?.name, setValue]);
+
   const handleGamefowlSelection = (gamefowlId: string) => {
     const newSelection = selectedGamefowls.includes(gamefowlId)
       ? selectedGamefowls.filter((id) => id !== gamefowlId)
@@ -147,9 +175,37 @@ const MedicalForm = ({
     setNotification(null);
   };
 
+  // Filter medicines based on current input
+  const filteredMedicines = availableMedicines.filter((medicine) =>
+    medicine.toLowerCase().includes(medicineName.toLowerCase())
+  );
+
+  const handleMedicineChange = (value: string) => {
+    setMedicineName(value);
+    setValue("name", value);
+    setShowMedicineDropdown(true);
+  };
+
+  const selectMedicine = (selectedMedicine: string) => {
+    setMedicineName(selectedMedicine);
+    setValue("name", selectedMedicine);
+    setShowMedicineDropdown(false);
+  };
+
   const onSubmit = async (formData: MedicalFormData) => {
     try {
       setIsSubmitting(true);
+
+      // Validate medicine name
+      if (!medicineName.trim()) {
+        setNotification({
+          message: "Medicine name is required",
+          type: "error",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const endpoint = `/api/${recordType}s`;
 
       // Add a minimum loading time of 2 seconds for better UX
@@ -161,6 +217,7 @@ const MedicalForm = ({
           ...formData,
           gamefowlId: formData.gamefowlIds[0], // Use the first selected gamefowl for updates
           id: data?.id,
+          name: medicineName,
           date: formData.date,
         };
 
@@ -180,7 +237,7 @@ const MedicalForm = ({
         const promises = formData.gamefowlIds.map((gamefowlId) => {
           const requestData = {
             gamefowlId,
-            name: formData.name,
+            name: medicineName,
             notes: formData.notes,
             date: formData.date,
           };
@@ -432,13 +489,35 @@ const MedicalForm = ({
           >
             Medicine Name
           </label>
-          <input
-            type="text"
-            id="name"
-            {...register("name")}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
-            required
-          />
+          <div className="relative">
+            <input
+              type="text"
+              id="name"
+              value={medicineName}
+              onChange={(e) => handleMedicineChange(e.target.value)}
+              onFocus={() => setShowMedicineDropdown(true)}
+              onBlur={() => {
+                // Delay hiding dropdown to allow selection
+                setTimeout(() => setShowMedicineDropdown(false), 200);
+              }}
+              className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+              placeholder="Type or select a medicine"
+              required
+            />
+            {showMedicineDropdown && filteredMedicines.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                {filteredMedicines.map((medicine, index) => (
+                  <div
+                    key={index}
+                    onClick={() => selectMedicine(medicine)}
+                    className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-200"
+                  >
+                    {medicine}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           {errors.name && (
             <p className="text-red-500 text-sm">{errors.name.message}</p>
           )}

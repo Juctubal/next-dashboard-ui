@@ -1,7 +1,10 @@
 "use client";
 
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+
+const DEBOUNCE_MS = 300;
 
 const TableSearch = ({
   className = "",
@@ -11,23 +14,37 @@ const TableSearch = ({
   disabled?: boolean;
 }) => {
   const router = useRouter();
+  const [value, setValue] = useState("");
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Set initial value from URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setValue(params.get("search") || "");
+  }, []);
+
+  // Debounced search effect
+  useEffect(() => {
+    if (disabled) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      if (value) {
+        params.set("search", value);
+      } else {
+        params.delete("search");
+      }
+      params.set("page", "1");
+      router.push(`${window.location.pathname}?${params}`);
+    }, DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [value, disabled, router]);
+
+  // Optional: keep Enter for accessibility, but just prevent default
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    if (disabled) return;
-
-    const value = (e.currentTarget[0] as HTMLInputElement).value;
-
-    const params = new URLSearchParams(window.location.search);
-    if (value) {
-      params.set("search", value);
-    } else {
-      params.delete("search");
-    }
-    params.set("page", "1"); // Reset to page 1 on new search
-
-    router.push(`${window.location.pathname}?${params}`);
   };
 
   return (
@@ -43,6 +60,8 @@ const TableSearch = ({
         placeholder="Search..."
         className="w-[200px] p-2 bg-transparent outline-none dark:text-gray-200 dark:placeholder-gray-400"
         disabled={disabled}
+        value={value}
+        onChange={e => setValue(e.target.value)}
       />
     </form>
   );

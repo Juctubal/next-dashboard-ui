@@ -141,7 +141,7 @@ export class RecommendationEngine {
     const whereClause: any = {
       isArchived: false,
       status: {
-        notIn: ["BREEDING", "INJURED", "DECEASED", "SOLD"],
+        notIn: ["BREEDING", "INJURED", "DECEASED", "SOLD", "SICK"],
       },
       sex: "MALE",
     };
@@ -916,7 +916,7 @@ export class RecommendationEngine {
     if (targetType === "breeding") {
       // Check if gamefowl has had any 'Priming' conditioning in the past month
       const now = Date.now();
-      const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000;
+      const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000; // 30 days
       const conditioningRecords = gamefowl.gamefowlData?.conditioning || [];
 
       // Debug: Log conditioning records to understand the data structure
@@ -1245,18 +1245,34 @@ export class RecommendationEngine {
     const now = Date.now();
     const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000; // 30 days
 
-    // Check for conditioning within the last month
-    const recentConditioning = gamefowl.conditioning.filter((c: any) => {
-      const startDate = new Date(c.conditioning.startDate).getTime();
-      return startDate > oneMonthAgo && c.conditioning.status === "ASSIGNED";
+    // Check for PRE_CONDITIONING or CONDITIONING within the last month that are COMPLETED
+    const relevantConditioning = gamefowl.conditioning.filter((c: any) => {
+      const conditioningType = c.conditioning.conProg.conditioningType;
+      const endDate = c.conditioning.endDate
+        ? new Date(c.conditioning.endDate).getTime()
+        : null;
+      const status = c.conditioning.status;
+
+      // Must be PRE_CONDITIONING or CONDITIONING type
+      const isRelevantType =
+        conditioningType === "PRE_CONDITIONING" ||
+        conditioningType === "CONDITIONING";
+
+      // Must be COMPLETED
+      const isCompleted = status === "COMPLETED";
+
+      // Must have ended within the last month
+      const isRecentlyCompleted = endDate && endDate > oneMonthAgo;
+
+      return isRelevantType && isCompleted && isRecentlyCompleted;
     });
 
-    if (recentConditioning.length === 0) {
-      // No conditioning within the last month
+    if (relevantConditioning.length === 0) {
+      // No relevant conditioning completed within the last month
       return 0.2;
     }
 
-    // Has active conditioning within the last month
+    // Has completed relevant conditioning within the last month
     return 0.8;
   }
 
@@ -1415,12 +1431,30 @@ export class RecommendationEngine {
     // Check for conditioning within the last month
     if (gamefowlData && gamefowlData.conditioning) {
       const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000; // 30 days
-      const hasRecentConditioning = gamefowlData.conditioning.some((c: any) => {
-        const startDate = new Date(c.conditioning.startDate).getTime();
-        return startDate > oneMonthAgo && c.conditioning.status === "ASSIGNED";
-      });
+      const hasRelevantRecentConditioning = gamefowlData.conditioning.some(
+        (c: any) => {
+          const conditioningType = c.conditioning.conProg.conditioningType;
+          const endDate = c.conditioning.endDate
+            ? new Date(c.conditioning.endDate).getTime()
+            : null;
+          const status = c.conditioning.status;
 
-      if (!hasRecentConditioning) {
+          // Must be PRE_CONDITIONING or CONDITIONING type
+          const isRelevantType =
+            conditioningType === "PRE_CONDITIONING" ||
+            conditioningType === "CONDITIONING";
+
+          // Must be COMPLETED
+          const isCompleted = status === "COMPLETED";
+
+          // Must have ended within the last month
+          const isRecentlyCompleted = endDate && endDate > oneMonthAgo;
+
+          return isRelevantType && isCompleted && isRecentlyCompleted;
+        }
+      );
+
+      if (!hasRelevantRecentConditioning) {
         risks.push("Insufficient conditioning preparation for derby event");
       }
     } else if (performance.conditioningScore < 0.5) {

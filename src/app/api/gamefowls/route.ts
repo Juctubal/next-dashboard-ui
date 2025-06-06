@@ -27,14 +27,7 @@ export async function GET(request: NextRequest) {
           OR: [
             {
               status: {
-                notIn: [
-                  "BREEDING",
-                  "INJURED",
-                  "DECEASED",
-                  "SOLD",
-                  "COMPETING",
-                  "CONDITIONING",
-                ],
+                notIn: ["BREEDING", "INJURED", "DECEASED", "SOLD", "SICK"],
               },
             },
             // Include gamefowls that are already assigned to this event
@@ -74,14 +67,7 @@ export async function GET(request: NextRequest) {
         OR: [
           {
             status: {
-              notIn: [
-                "BREEDING",
-                "INJURED",
-                "DECEASED",
-                "SOLD",
-                "COMPETING",
-                "CONDITIONING",
-              ],
+              notIn: ["BREEDING", "INJURED", "DECEASED", "SOLD", "SICK"],
             },
           },
           // Include gamefowls that are already assigned to this event

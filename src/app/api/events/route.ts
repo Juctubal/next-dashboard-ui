@@ -3,14 +3,14 @@ import { ITEM_PER_PAGE } from "@/lib/settings";
 import { NextResponse } from "next/server";
 
 // Force dynamic rendering to prevent caching
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 // Add cache control headers to prevent caching
 function addNoCacheHeaders(response: NextResponse) {
-  response.headers.set('Cache-Control', 'no-store, max-age=0');
-  response.headers.set('Pragma', 'no-cache');
-  response.headers.set('Expires', '0');
+  response.headers.set("Cache-Control", "no-store, max-age=0");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Expires", "0");
   return response;
 }
 
@@ -28,41 +28,46 @@ export async function GET(request: Request) {
   // Parse the showArchived parameter - default to false if not explicitly set to "true"
   const showArchivedParam = searchParams.get("showArchived");
   const showArchived = showArchivedParam === "true";
-  console.log('showArchived parameter:', { showArchivedParam, parsed: showArchived });
+  console.log("showArchived parameter:", {
+    showArchivedParam,
+    parsed: showArchived,
+  });
 
   // URL PARAMS CONDITION
   const eventQuery: any = {};
   const conditioningProgramQuery: any = {};
   const conditioningQuery: any = {};
-  
+
   // Handle archived/non-archived filtering
   if (showArchived) {
     // When showing archived items, ONLY show archived items
-    console.log('SHOWING ARCHIVED mode active - showing only archived items');
-    
+    console.log("SHOWING ARCHIVED mode active - showing only archived items");
+
     // Use explicit boolean true condition
     eventQuery.isArchived = true;
     conditioningProgramQuery.isArchived = true;
     conditioningQuery.isArchived = true;
-    
-    console.log('Filtering to show only archived items:', { 
-      eventQuery, 
-      conditioningProgramQuery, 
-      conditioningQuery 
+
+    console.log("Filtering to show only archived items:", {
+      eventQuery,
+      conditioningProgramQuery,
+      conditioningQuery,
     });
   } else {
     // When NOT showing archived items, explicitly filter to only show non-archived items
-    console.log('HIDING ARCHIVED mode active - showing only non-archived items');
-    
+    console.log(
+      "HIDING ARCHIVED mode active - showing only non-archived items"
+    );
+
     // Using a direct equals:false condition
     eventQuery.isArchived = false;
     conditioningProgramQuery.isArchived = false;
     conditioningQuery.isArchived = false;
-    
-    console.log('Filtering with explicit equals condition:', { 
-      eventQuery, 
-      conditioningProgramQuery, 
-      conditioningQuery 
+
+    console.log("Filtering with explicit equals condition:", {
+      eventQuery,
+      conditioningProgramQuery,
+      conditioningQuery,
     });
   }
 
@@ -77,6 +82,48 @@ export async function GET(request: Request) {
 
   if (status && status !== "all") {
     eventQuery.status = status;
+  }
+
+  // --- SEARCH FILTERS ---
+  if (searchParams.get("search")) {
+    const searchValue = searchParams.get("search")!.trim();
+    if (searchValue.length > 0) {
+      if (tab === "events") {
+        eventQuery.OR = [
+          { eventName: { contains: searchValue, mode: "insensitive" } },
+          { description: { contains: searchValue, mode: "insensitive" } },
+        ];
+      } else if (tab === "conditioningPrograms") {
+        conditioningProgramQuery.OR = [
+          { programName: { contains: searchValue, mode: "insensitive" } },
+          { description: { contains: searchValue, mode: "insensitive" } },
+        ];
+      } else if (tab === "conditioning") {
+        conditioningQuery.OR = [
+          { status: { contains: searchValue, mode: "insensitive" } },
+          {
+            conProg: {
+              programName: { contains: searchValue, mode: "insensitive" },
+            },
+          },
+          {
+            event: {
+              eventName: { contains: searchValue, mode: "insensitive" },
+            },
+          },
+          {
+            handler: {
+              first_name: { contains: searchValue, mode: "insensitive" },
+            },
+          },
+          {
+            handler: {
+              last_name: { contains: searchValue, mode: "insensitive" },
+            },
+          },
+        ];
+      }
+    }
   }
 
   // Handle conditioning filters
@@ -138,6 +185,13 @@ export async function GET(request: Request) {
       [data, count] = await prisma.$transaction([
         prisma.conditioningProgram.findMany({
           where: conditioningProgramQuery,
+          orderBy: sortBy
+            ? {
+                [sortBy]: sortOrder,
+              }
+            : {
+                programName: "asc",
+              },
           take: ITEM_PER_PAGE,
           skip: ITEM_PER_PAGE * (page - 1),
         }),

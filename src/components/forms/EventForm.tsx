@@ -100,12 +100,23 @@ const EventForm = ({
     }
   }, [watchEventType, watchAgeCategory]);
 
-  // Fetch recommendations when eventType, ageCategory, or eventDate changes
+  // Fetch recommendations when eventType, ageCategory, eventDate changes, AND gamefowls have been loaded
   useEffect(() => {
-    if (watchEventType && watchAgeCategory && watchEventDate) {
+    if (
+      watchEventType &&
+      watchAgeCategory &&
+      watchEventDate &&
+      !loadingGamefowls
+    ) {
       fetchRecommendations();
     }
-  }, [watchEventType, watchAgeCategory, watchEventDate]);
+  }, [
+    watchEventType,
+    watchAgeCategory,
+    watchEventDate,
+    loadingGamefowls,
+    gamefowls,
+  ]);
 
   // Load existing participants when editing
   useEffect(() => {
@@ -153,11 +164,13 @@ const EventForm = ({
       if (type === "update" && data?.id) {
         url.searchParams.append("eventId", data.id.toString());
       }
+
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch gamefowls");
       }
       const gamefowlData = await response.json();
+
       setGamefowls(gamefowlData);
     } catch (error) {
       console.error("Error fetching gamefowls:", error);
@@ -290,7 +303,11 @@ const EventForm = ({
 
     // Validate gamefowl selection (if any gamefowls are selected)
     const requiredCount = getRequiredGamefowlCount();
-    if (formData.gamefowlIds && formData.gamefowlIds.length > 0 && formData.gamefowlIds.length !== requiredCount) {
+    if (
+      formData.gamefowlIds &&
+      formData.gamefowlIds.length > 0 &&
+      formData.gamefowlIds.length !== requiredCount
+    ) {
       handleError(
         `If selecting gamefowls, please select exactly ${requiredCount} gamefowl(s) for this event type`
       );

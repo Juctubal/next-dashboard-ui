@@ -114,6 +114,12 @@ export default function ConditioningRecommendations() {
     }
   }, [filters]); // Remove events dependency
 
+  /**
+   * Enhanced Apply Program function that:
+   * 1. For "CONDITIONING" type programs: sets end date to event date and calculates start date
+   * 2. Auto-generates activity schedules based on ageDay field in activities
+   * 3. Supports single days ("1") and ranges ("1-10") in ageDay
+   */
   const handleApplyProgram = async (
     recommendation: ConditioningRecommendation
   ) => {
@@ -132,12 +138,65 @@ export default function ConditioningRecommendations() {
       // Use the first available handler (you might want to add a handler selection UI)
       const handlerId = options.handlers[0].id;
 
-      // Calculate dates based on recommendation
-      const startDate = new Date();
-      const endDate = new Date();
+      // Get the conditioning program details to check type and get activities
+      const programResponse = await fetch(
+        `/api/conditioning-program/${recommendation.recommendedProgramId}`
+      );
+      if (!programResponse.ok)
+        throw new Error("Failed to fetch program details");
+      const program = await programResponse.json();
+
+      // Calculate dates based on program type and recommendation
+      let startDate = new Date();
+      let endDate = new Date();
       const durationDays =
-        recommendation.durationDays || recommendation.customizations.duration;
-      endDate.setDate(startDate.getDate() + durationDays);
+        recommendation.durationDays ||
+        recommendation.customizations.duration ||
+        program.durationDays;
+
+      // If program type is "CONDITIONING" and we have an event selected
+      if (
+        program.conditioningType === "CONDITIONING" &&
+        filters.targetType === "derby" &&
+        filters.eventId
+      ) {
+        // Get the event date
+        const eventResponse = await fetch(`/api/events/${filters.eventId}`);
+        if (eventResponse.ok) {
+          const selectedEvent = await eventResponse.json();
+          const eventDate = new Date(selectedEvent.eventDate);
+
+          // Set end date to event date
+          endDate = new Date(eventDate);
+
+          // Calculate start date by subtracting (duration - 1) days
+          // If event is June 11 and duration is 4 days: June 8, 9, 10, 11
+          startDate = new Date(eventDate);
+          startDate.setDate(startDate.getDate() - (durationDays - 1));
+        } else {
+          // Fallback to current calculation if event fetch fails
+          endDate.setDate(startDate.getDate() + durationDays);
+        }
+      } else {
+        // Default calculation for other program types
+        endDate.setDate(startDate.getDate() + durationDays);
+      }
+
+      // Generate activity schedules based on program activities
+      const activitySchedules = [];
+      if (program.activities && program.activities.length > 0) {
+        for (const activity of program.activities) {
+          if (activity.ageDay) {
+            const dates = parseAgeDayToDates(activity.ageDay, startDate);
+            if (dates.length > 0) {
+              activitySchedules.push({
+                activityId: activity.id,
+                dates: dates.map((date) => date.toISOString().split("T")[0]),
+              });
+            }
+          }
+        }
+      }
 
       // Create conditioning record
       const response = await fetch("/api/conditioning", {
@@ -153,7 +212,7 @@ export default function ConditioningRecommendations() {
           startDate: startDate.toISOString().split("T")[0],
           endDate: endDate.toISOString().split("T")[0],
           status: "ASSIGNED",
-          activitySchedules: [], // Empty for now, can be populated later
+          activitySchedules: activitySchedules,
         }),
       });
 
@@ -163,7 +222,11 @@ export default function ConditioningRecommendations() {
 
       // Show success message
       alert(
-        `Successfully applied ${recommendation.programName} to ${recommendation.gamefowlName}`
+        `Successfully applied ${recommendation.programName} to ${
+          recommendation.gamefowlName
+        }. Program runs from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()} with ${
+          activitySchedules.length
+        } activity schedules generated.`
       );
 
       // Refresh recommendations
@@ -178,6 +241,40 @@ export default function ConditioningRecommendations() {
     } finally {
       setApplyingProgram(null);
     }
+  };
+
+  /**
+   * Helper function to parse ageDay and generate actual calendar dates
+   * @param ageDay - Can be a single day ("1") or range ("1-10")
+   * @param startDate - The program start date (Day 1)
+   * @returns Array of actual calendar dates
+   */
+  const parseAgeDayToDates = (ageDay: string, startDate: Date): Date[] => {
+    const dates: Date[] = [];
+
+    try {
+      if (ageDay.includes("-")) {
+        // Range of days (e.g., "1-10")
+        const [start, end] = ageDay
+          .split("-")
+          .map((num) => parseInt(num.trim()));
+        for (let day = start; day <= end; day++) {
+          const date = new Date(startDate);
+          date.setDate(startDate.getDate() + (day - 1)); // day 1 = startDate
+          dates.push(date);
+        }
+      } else {
+        // Single day (e.g., "1")
+        const day = parseInt(ageDay.trim());
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + (day - 1)); // day 1 = startDate
+        dates.push(date);
+      }
+    } catch (error) {
+      console.error(`Error parsing ageDay "${ageDay}":`, error);
+    }
+
+    return dates;
   };
 
   useEffect(() => {

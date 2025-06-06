@@ -1030,6 +1030,182 @@ export class RecommendationEngine {
       return recommendations.slice(0, 5);
     }
 
+    if (targetType === "derby") {
+      // Special logic for derby conditioning
+      const now = Date.now();
+      const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000; // 30 days
+      const conditioningRecords = gamefowl.gamefowlData?.conditioning || [];
+
+      // Check if gamefowl has had any pre-conditioning in the past month
+      const hadRecentPreConditioning = conditioningRecords.some((c: any) => {
+        const startDate = new Date(c.conditioning?.startDate).getTime();
+        const conditioningType = c.conditioning?.conditioningType;
+        const status = c.conditioning?.status;
+
+        const validStatuses = [
+          "ASSIGNED",
+          "COMPLETED",
+          "ACTIVE",
+          "IN_PROGRESS",
+        ];
+        const hasValidStatus = validStatuses.includes(status);
+
+        const isPreConditioningType = conditioningType === "PRE_CONDITIONING";
+
+        return (
+          startDate > oneMonthAgo && isPreConditioningType && hasValidStatus
+        );
+      });
+
+      // Separate programs by type
+      const preConditioningPrograms = programs.filter(
+        (p: any) => p.conditioningType === "PRE_CONDITIONING"
+      );
+      const conditioningPrograms = programs.filter(
+        (p: any) => p.conditioningType === "CONDITIONING"
+      );
+
+      let selectedPrograms: any[] = [];
+      let programReasons: string[] = [];
+
+      if (!hadRecentPreConditioning && timeToEvent) {
+        // Find the best fitting pre-conditioning program
+        const availablePreConditioning = preConditioningPrograms.filter(
+          (p: any) => p.durationDays && p.durationDays <= timeToEvent
+        );
+
+        if (availablePreConditioning.length > 0) {
+          // Select the longest pre-conditioning program that fits
+          const selectedPreConditioning = availablePreConditioning.reduce(
+            (prev, current) =>
+              (current.durationDays || 0) > (prev.durationDays || 0)
+                ? current
+                : prev
+          );
+
+          const remainingDays =
+            timeToEvent - (selectedPreConditioning.durationDays || 0);
+
+          // Try to fit a conditioning program in the remaining time
+          const availableConditioning = conditioningPrograms.filter(
+            (p: any) => p.durationDays && p.durationDays <= remainingDays
+          );
+
+          if (availableConditioning.length > 0) {
+            // Select the longest conditioning program that fits in remaining time
+            const selectedConditioning = availableConditioning.reduce(
+              (prev, current) =>
+                (current.durationDays || 0) > (prev.durationDays || 0)
+                  ? current
+                  : prev
+            );
+
+            selectedPrograms = [selectedPreConditioning, selectedConditioning];
+            programReasons = [
+              `Pre-conditioning program (${selectedPreConditioning.durationDays} days) followed by conditioning program (${selectedConditioning.durationDays} days) fits within ${timeToEvent} days to event`,
+              "Gamefowl has not undergone pre-conditioning in the past month - recommended sequence for optimal derby preparation",
+            ];
+          } else {
+            // Only pre-conditioning fits
+            selectedPrograms = [selectedPreConditioning];
+            programReasons = [
+              `Pre-conditioning program (${selectedPreConditioning.durationDays} days) fits within ${timeToEvent} days to event`,
+              "Only pre-conditioning fits in available time - conditioning program would need to be scheduled later or shortened",
+            ];
+          }
+        } else {
+          // No pre-conditioning fits, fallback to conditioning only
+          const availableConditioning = conditioningPrograms.filter(
+            (p: any) => p.durationDays && p.durationDays <= timeToEvent
+          );
+
+          if (availableConditioning.length > 0) {
+            const selectedConditioning = availableConditioning.reduce(
+              (prev, current) =>
+                (current.durationDays || 0) > (prev.durationDays || 0)
+                  ? current
+                  : prev
+            );
+
+            selectedPrograms = [selectedConditioning];
+            programReasons = [
+              `Pre-conditioning programs don't fit in ${timeToEvent} days - recommending longest conditioning program (${selectedConditioning.durationDays} days) that fits`,
+              "Skipping pre-conditioning due to time constraints",
+            ];
+          }
+        }
+      } else if (hadRecentPreConditioning && timeToEvent) {
+        // Already had pre-conditioning, recommend conditioning only
+        const availableConditioning = conditioningPrograms.filter(
+          (p: any) => p.durationDays && p.durationDays <= timeToEvent
+        );
+
+        if (availableConditioning.length > 0) {
+          const selectedConditioning = availableConditioning.reduce(
+            (prev, current) =>
+              (current.durationDays || 0) > (prev.durationDays || 0)
+                ? current
+                : prev
+          );
+
+          selectedPrograms = [selectedConditioning];
+          programReasons = [
+            `Gamefowl completed pre-conditioning within the past month - ready for conditioning program (${selectedConditioning.durationDays} days)`,
+            "Optimal conditioning sequence for derby preparation",
+          ];
+        }
+      } else {
+        // No timeToEvent specified, recommend both types without time constraints
+        if (!hadRecentPreConditioning) {
+          selectedPrograms = [
+            ...preConditioningPrograms.slice(0, 2),
+            ...conditioningPrograms.slice(0, 2),
+          ];
+          programReasons = [
+            "Gamefowl needs pre-conditioning before derby conditioning",
+            "Multiple program options available without time constraints",
+          ];
+        } else {
+          selectedPrograms = conditioningPrograms.slice(0, 3);
+          programReasons = [
+            "Gamefowl ready for conditioning programs",
+            "Pre-conditioning completed recently",
+          ];
+        }
+      }
+
+      // Create recommendations for selected programs
+      for (const program of selectedPrograms) {
+        const customizations = this.determineConditioningCustomizations(
+          gamefowl,
+          program
+        );
+
+        const reasons = this.generateConditioningReasons(
+          gamefowl,
+          program,
+          timeToEvent,
+          targetType
+        );
+
+        // Add program-specific reasons
+        const combinedReasons = [...reasons, ...programReasons];
+
+        recommendations.push({
+          gamefowlId: gamefowl.id,
+          gamefowlName: gamefowl.name,
+          recommendedProgramId: program.id,
+          programName: program.programName,
+          conditioningType: program.conditioningType || undefined,
+          durationDays: program.durationDays || undefined,
+          customizations,
+          reasons: combinedReasons,
+        });
+      }
+
+      return recommendations.slice(0, 5);
+    }
+
     // For other target types, loop over all programs
     for (const program of programs) {
       // Skip programs that exceed available time to event

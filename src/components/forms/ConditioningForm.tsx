@@ -342,7 +342,8 @@ const ConditioningForm = ({
 
       // Wait a moment before refreshing and closing
       setTimeout(() => {
-        router.refresh();
+        // Dispatch refresh event to update data
+        window.dispatchEvent(new CustomEvent("refreshData"));
         onClose(); // Close the form modal
       }, 1500);
     } catch (error) {
@@ -689,11 +690,77 @@ const ConditioningForm = ({
                     <div className="flex items-start gap-4">
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-gray-700 dark:text-gray-300 truncate">
-                          {activity.name}
+                          Day/Age: {activity.ageDay}
                         </h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {activity.description}
-                        </p>
+                        <div className="mt-2">
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                            Supplements:
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {(() => {
+                              let supplements: Array<{
+                                name: string;
+                                dosage: string;
+                                type?: string;
+                              }> = [];
+
+                              if (activity.supplements) {
+                                try {
+                                  // Try to parse as JSON first (new format)
+                                  supplements = JSON.parse(
+                                    activity.supplements
+                                  );
+                                } catch {
+                                  // If JSON parsing fails, treat as old comma-separated format
+                                  const supplementNames =
+                                    activity.supplements.split(", ");
+                                  const dosages = (activity.dosage || "").split(
+                                    ", "
+                                  );
+
+                                  supplements = supplementNames.map(
+                                    (name: string, index: number) => ({
+                                      name: name.trim(),
+                                      dosage: (dosages[index] || "").trim(),
+                                      type: activity.supplementType || "",
+                                    })
+                                  );
+                                }
+                              }
+
+                              return supplements.map((supplement, index) => (
+                                <div
+                                  key={index}
+                                  className="bg-ggPurple/10 dark:bg-ggPurple/20 border border-ggPurple/30 rounded-lg px-3 py-2"
+                                >
+                                  {supplement.type && (
+                                    <div className="text-xs font-semibold text-ggPurple dark:text-ggPurple/80 uppercase tracking-wide">
+                                      {supplement.type}
+                                    </div>
+                                  )}
+                                  <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                    {supplement.name}
+                                  </div>
+                                  {supplement.dosage && (
+                                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                                      {supplement.dosage}
+                                    </div>
+                                  )}
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                        </div>
+                        {activity.indication && (
+                          <div className="mt-2">
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                              Indication:
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {activity.indication}
+                            </p>
+                          </div>
+                        )}
                       </div>
                       <div className="flex flex-col gap-2 w-40 flex-shrink-0">
                         <input

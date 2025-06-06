@@ -82,7 +82,8 @@ const EventTableRow = ({
       }
       setCurrentStatus(pendingStatus);
       toast.success("Event status updated successfully");
-      router.refresh();
+      // Dispatch refresh event to update data
+      window.dispatchEvent(new CustomEvent("refreshData"));
     } catch (error) {
       console.error("Error updating status:", error);
       toast.error(
@@ -238,7 +239,8 @@ const EventTableRow = ({
 
       setShowResultForm(false);
       toast.success("Event results submitted successfully");
-      router.refresh();
+      // Dispatch refresh event to update data
+      window.dispatchEvent(new CustomEvent("refreshData"));
     } catch (error) {
       console.error("Error submitting results:", error);
       toast.error("Failed to submit event results");

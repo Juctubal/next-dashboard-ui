@@ -218,6 +218,19 @@ const EventListPage = () => {
     setRefreshKey((prev) => prev + 1);
   }, []);
 
+  // Listen for data refresh events from forms
+  useEffect(() => {
+    const handleDataRefresh = () => {
+      forceRefresh();
+    };
+
+    window.addEventListener("refreshData", handleDataRefresh);
+
+    return () => {
+      window.removeEventListener("refreshData", handleDataRefresh);
+    };
+  }, [forceRefresh]);
+
   // Get parameters from URL, ensuring events is the default tab when no tab parameter is present
   const params = Object.fromEntries(searchParams.entries());
   const {
@@ -358,6 +371,7 @@ const EventListPage = () => {
     endDate,
     showArchived,
     search,
+    refreshKey,
   ]);
 
   return (

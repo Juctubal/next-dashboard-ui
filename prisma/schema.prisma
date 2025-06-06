@@ -145,16 +145,17 @@ model ConditioningProgram {
 }
 
 model ConditioningActivity {
-  id          Int                            @id @default(autoincrement())
-  indication  String?
-  ageDay      String
-  supplements String
-  dosage      String?
-  programId   Int
-  createdAt   DateTime                       @default(now())
-  updatedAt   DateTime                       @updatedAt
-  program     ConditioningProgram            @relation(fields: [programId], references: [id])
-  schedules   ConditioningActivitySchedule[]
+  id             Int                            @id @default(autoincrement())
+  indication     String?
+  ageDay         String
+  supplements    String
+  dosage         String?
+  supplementType SupplementType?
+  programId      Int
+  createdAt      DateTime                       @default(now())
+  updatedAt      DateTime                       @updatedAt
+  program        ConditioningProgram            @relation(fields: [programId], references: [id])
+  schedules      ConditioningActivitySchedule[]
 }
 
 model ConditioningActivitySchedule {
@@ -460,4 +461,11 @@ enum ConditioningType {
   PRE_CONDITIONING
   CONDITIONING
   PRIMING
+}
+
+enum SupplementType {
+  VACCINE
+  VITAMIN
+  DEWORMING
+  MEDICINE
 }

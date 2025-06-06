@@ -17,20 +17,25 @@ interface ConditioningProgramTableRowProps {
   role: string;
 }
 
-const ConditioningProgramTableRow = ({ item, role }: ConditioningProgramTableRowProps) => {
+const ConditioningProgramTableRow = ({
+  item,
+  role,
+}: ConditioningProgramTableRowProps) => {
   const router = useRouter();
   const [isArchiving, setIsArchiving] = useState(false);
 
   const handleArchiveToggle = async (archive: boolean) => {
     if (archive) {
-      const confirmed = window.confirm("Are you sure you want to archive this conditioning program?");
+      const confirmed = window.confirm(
+        "Are you sure you want to archive this conditioning program?"
+      );
       if (!confirmed) return;
     }
     setIsArchiving(true);
     try {
       // Log the request for debugging
       console.log(`Archiving conditioning program ${item.id}:`, { archive });
-      
+
       // Use the working archive-test API endpoint instead of the direct conditioning-program archive endpoint
       const response = await fetch(`/api/archive-test`, {
         method: "POST",
@@ -38,61 +43,69 @@ const ConditioningProgramTableRow = ({ item, role }: ConditioningProgramTableRow
         body: JSON.stringify({
           type: "program",
           id: parseInt(item.id),
-          isArchived: archive
+          isArchived: archive,
         }),
-        cache: 'no-store'
+        cache: "no-store",
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Archive API error:', errorData);
+        console.error("Archive API error:", errorData);
         throw new Error(errorData.error || "Failed to update archive status");
       }
-      
+
       // Log successful response status
-      console.log('Archive API success:', response.status);
-      
+      console.log("Archive API success:", response.status);
+
       // Update succeeded in the database
       if (archive) {
         toast.success("Conditioning program successfully archived");
-        
+
         // If we've archived an item and aren't showing archived items,
         // hide this row immediately by adding a CSS class
-        const showArchived = new URLSearchParams(window.location.search).get("showArchived") === "true";
+        const showArchived =
+          new URLSearchParams(window.location.search).get("showArchived") ===
+          "true";
         if (!showArchived) {
           // Get the parent row and add a class to hide it
-          const row = document.getElementById(`conditioning-program-row-${item.id}`);
+          const row = document.getElementById(
+            `conditioning-program-row-${item.id}`
+          );
           if (row) {
             row.style.display = "none";
           }
-          
+
           // Hard navigate to refresh the page completely after a short delay with cache busting
-          console.log('[CLIENT] Preparing for page refresh after archive');
+          console.log("[CLIENT] Preparing for page refresh after archive");
           setTimeout(() => {
-            console.log('[CLIENT] Performing hard reload with cache busting');
+            console.log("[CLIENT] Performing hard reload with cache busting");
             const currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set('_cb', Date.now().toString());
+            currentUrl.searchParams.set("_cb", Date.now().toString());
             window.location.href = currentUrl.toString();
           }, 1000);
         } else {
-          // For archive page, refresh to show updated UI
-          router.refresh();
+          // For archive page, dispatch refresh event to update data
+          window.dispatchEvent(new CustomEvent("refreshData"));
         }
       } else {
         toast.success("Conditioning program unarchived");
-        
+
         // For unarchiving, always do a full page refresh with cache busting
-        console.log('[CLIENT] Preparing for page refresh after unarchive');
+        console.log("[CLIENT] Preparing for page refresh after unarchive");
         setTimeout(() => {
-          console.log('[CLIENT] Performing hard reload with cache busting');
+          console.log("[CLIENT] Performing hard reload with cache busting");
           const currentUrl = new URL(window.location.href);
-          currentUrl.searchParams.set('_cb', Date.now().toString());
+          currentUrl.searchParams.set("_cb", Date.now().toString());
           window.location.href = currentUrl.toString();
         }, 1000);
       }
     } catch (error) {
       console.error("Archive toggle error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to update archive status");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update archive status"
+      );
     } finally {
       setIsArchiving(false);
     }
@@ -119,8 +132,16 @@ const ConditioningProgramTableRow = ({ item, role }: ConditioningProgramTableRow
         <div className="flex items-center gap-2">
           {role === "admin" && (
             <>
-              <FormModal table="conditioningProgram" type="update" data={item} />
-              <FormModal table="conditioningProgram" type="delete" id={item.id} />
+              <FormModal
+                table="conditioningProgram"
+                type="update"
+                data={item}
+              />
+              <FormModal
+                table="conditioningProgram"
+                type="delete"
+                id={item.id}
+              />
             </>
           )}
           <button

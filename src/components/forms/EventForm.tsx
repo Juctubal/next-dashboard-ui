@@ -379,10 +379,8 @@ const EventForm = ({
         setTimeout(() => {
           // Close the modal
           window.dispatchEvent(new CustomEvent("closeModal"));
-          // Refresh the page to show the new data
-          router.refresh();
-          // Force a hard refresh to ensure all components are updated
-          window.location.reload();
+          // Dispatch refresh event to update data
+          window.dispatchEvent(new CustomEvent("refreshData"));
         }, 1500);
       } else {
         setNotification({

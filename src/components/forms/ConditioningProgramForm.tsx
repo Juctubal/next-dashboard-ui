@@ -6,11 +6,16 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Notification from "../ui/Notification";
 
+interface SupplementData {
+  name: string;
+  dosage: string;
+  type?: string;
+}
+
 interface ActivityFormData {
   indication: string;
   ageDay: string;
-  supplements: string;
-  dosage: string;
+  supplements: SupplementData[];
 }
 
 const ConditioningProgramForm = ({
@@ -51,12 +56,42 @@ const ConditioningProgramForm = ({
           }
           const activitiesData = await response.json();
           setActivities(
-            activitiesData.map((activity: any) => ({
-              indication: activity.indication || "",
-              ageDay: activity.ageDay || "",
-              supplements: activity.supplements || "",
-              dosage: activity.dosage || "",
-            }))
+            activitiesData.map((activity: any) => {
+              let supplements: SupplementData[] = [
+                { name: "", dosage: "", type: "" },
+              ];
+
+              if (activity.supplements) {
+                try {
+                  // Try to parse as JSON first (new format)
+                  supplements = JSON.parse(activity.supplements);
+                  // Ensure backward compatibility by adding type field if missing
+                  supplements = supplements.map((sup) => ({
+                    name: sup.name || "",
+                    dosage: sup.dosage || "",
+                    type: sup.type || activity.supplementType || "",
+                  }));
+                } catch {
+                  // If JSON parsing fails, treat as old comma-separated format
+                  const supplementNames = activity.supplements.split(", ");
+                  const dosages = (activity.dosage || "").split(", ");
+
+                  supplements = supplementNames.map(
+                    (name: string, index: number) => ({
+                      name: name.trim(),
+                      dosage: (dosages[index] || "").trim(),
+                      type: activity.supplementType || "",
+                    })
+                  );
+                }
+              }
+
+              return {
+                indication: activity.indication || "",
+                ageDay: activity.ageDay || "",
+                supplements: supplements,
+              };
+            })
           );
         } catch (error) {
           console.error("Error fetching activities:", error);
@@ -88,7 +123,11 @@ const ConditioningProgramForm = ({
   const handleAddActivity = () => {
     setActivities([
       ...activities,
-      { indication: "", ageDay: "", supplements: "", dosage: "" },
+      {
+        indication: "",
+        ageDay: "",
+        supplements: [{ name: "", dosage: "", type: "" }],
+      },
     ]);
   };
 
@@ -103,6 +142,51 @@ const ConditioningProgramForm = ({
   ) => {
     const newActivities = [...activities];
     newActivities[index] = { ...newActivities[index], [field]: value };
+    setActivities(newActivities);
+  };
+
+  const handleSupplementChange = (
+    activityIndex: number,
+    supplementIndex: number,
+    field: keyof SupplementData,
+    value: string
+  ) => {
+    const newActivities = [...activities];
+    const newSupplements = [...newActivities[activityIndex].supplements];
+    newSupplements[supplementIndex] = {
+      ...newSupplements[supplementIndex],
+      [field]: value,
+    };
+    newActivities[activityIndex] = {
+      ...newActivities[activityIndex],
+      supplements: newSupplements,
+    };
+    setActivities(newActivities);
+  };
+
+  const handleAddSupplement = (activityIndex: number) => {
+    const newActivities = [...activities];
+    newActivities[activityIndex] = {
+      ...newActivities[activityIndex],
+      supplements: [
+        ...newActivities[activityIndex].supplements,
+        { name: "", dosage: "", type: "" },
+      ],
+    };
+    setActivities(newActivities);
+  };
+
+  const handleRemoveSupplement = (
+    activityIndex: number,
+    supplementIndex: number
+  ) => {
+    const newActivities = [...activities];
+    newActivities[activityIndex] = {
+      ...newActivities[activityIndex],
+      supplements: newActivities[activityIndex].supplements.filter(
+        (_, i) => i !== supplementIndex
+      ),
+    };
     setActivities(newActivities);
   };
 
@@ -130,8 +214,14 @@ const ConditioningProgramForm = ({
           activities: activities.map((activity) => ({
             indication: activity.indication,
             ageDay: activity.ageDay,
-            supplements: activity.supplements,
-            dosage: activity.dosage,
+            supplements: JSON.stringify(activity.supplements),
+            dosage: "", // Keep empty for backward compatibility
+            supplementType:
+              activity.supplements.length > 0 &&
+              activity.supplements[0].type &&
+              activity.supplements[0].type.trim() !== ""
+                ? activity.supplements[0].type
+                : undefined,
           })),
         }),
       });
@@ -153,8 +243,8 @@ const ConditioningProgramForm = ({
         // Close the form
         handleClose();
 
-        // Refresh the page
-        router.refresh();
+        // Dispatch refresh event to update data
+        window.dispatchEvent(new CustomEvent("refreshData"));
       }, 1500);
     } catch (error) {
       console.error(`Error ${type}ing conditioning program:`, error);
@@ -323,35 +413,88 @@ const ConditioningProgramForm = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Supplements*
-                    </label>
-                    <input
-                      type="text"
-                      value={activity.supplements}
-                      onChange={(e) =>
-                        handleActivityChange(
-                          index,
-                          "supplements",
-                          e.target.value
-                        )
-                      }
-                      className="mt-1 w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Dosage
-                    </label>
-                    <input
-                      type="text"
-                      value={activity.dosage}
-                      onChange={(e) =>
-                        handleActivityChange(index, "dosage", e.target.value)
-                      }
-                      className="mt-1 w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
-                    />
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Supplements*
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleAddSupplement(index)}
+                        className="bg-ggPurple hover:bg-ggPurple/90 text-white px-2 py-1 rounded text-xs"
+                        title="Add Supplement"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                    {activity.supplements.map((supplement, supplementIndex) => (
+                      <div key={supplementIndex} className="flex gap-2 mb-2">
+                        <div className="flex-1">
+                          <select
+                            value={supplement.type}
+                            onChange={(e) =>
+                              handleSupplementChange(
+                                index,
+                                supplementIndex,
+                                "type",
+                                e.target.value
+                              )
+                            }
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
+                          >
+                            <option value="">Select type</option>
+                            <option value="VACCINE">Vaccine</option>
+                            <option value="VITAMIN">Vitamin</option>
+                            <option value="DEWORMING">Deworming</option>
+                            <option value="MEDICINE">Medicine</option>
+                          </select>
+                        </div>
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            placeholder="Supplement name"
+                            value={supplement.name}
+                            onChange={(e) =>
+                              handleSupplementChange(
+                                index,
+                                supplementIndex,
+                                "name",
+                                e.target.value
+                              )
+                            }
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
+                            required
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            placeholder="Dosage"
+                            value={supplement.dosage}
+                            onChange={(e) =>
+                              handleSupplementChange(
+                                index,
+                                supplementIndex,
+                                "dosage",
+                                e.target.value
+                              )
+                            }
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
+                          />
+                        </div>
+                        {activity.supplements.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleRemoveSupplement(index, supplementIndex)
+                            }
+                            className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs"
+                            title="Remove Supplement"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">

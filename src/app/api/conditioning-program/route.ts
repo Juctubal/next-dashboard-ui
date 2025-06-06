@@ -21,9 +21,21 @@ export async function POST(request: Request) {
         durationDays,
         activities: {
           create: activities.map(
-            (activity: { name: string; description: string }) => ({
-              name: activity.name,
-              description: activity.description,
+            (activity: {
+              indication: string;
+              ageDay: string;
+              supplements: string;
+              dosage: string;
+              supplementType?: string;
+            }) => ({
+              indication: activity.indication,
+              ageDay: activity.ageDay,
+              supplements: activity.supplements,
+              dosage: activity.dosage,
+              supplementType:
+                activity.supplementType && activity.supplementType.trim() !== ""
+                  ? activity.supplementType
+                  : undefined,
             })
           ),
         },
@@ -84,9 +96,21 @@ export async function PUT(request: Request) {
         durationDays,
         activities: {
           create: activities.map(
-            (activity: { name: string; description: string }) => ({
-              name: activity.name,
-              description: activity.description,
+            (activity: {
+              indication: string;
+              ageDay: string;
+              supplements: string;
+              dosage: string;
+              supplementType?: string;
+            }) => ({
+              indication: activity.indication,
+              ageDay: activity.ageDay,
+              supplements: activity.supplements,
+              dosage: activity.dosage,
+              supplementType:
+                activity.supplementType && activity.supplementType.trim() !== ""
+                  ? activity.supplementType
+                  : undefined,
             })
           ),
         },

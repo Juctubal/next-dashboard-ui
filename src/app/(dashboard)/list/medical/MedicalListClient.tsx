@@ -9,7 +9,7 @@ import TableSearch from "@/components/TableSearch";
 import FormModal from "@/components/FormModal";
 import Pagination from "@/components/Pagination";
 import { role } from "@/lib/data";
-import { Vaccine, Deworming } from "@prisma/client";
+import { Vaccine, Deworming, Vitamin, Medicine } from "@prisma/client";
 
 // Extend the types to include isArchived
 type VaccineWithGamefowl = Vaccine & {
@@ -22,11 +22,26 @@ type DewormingWithGamefowl = Deworming & {
   isArchived: boolean;
 };
 
+type VitaminWithGamefowl = Vitamin & {
+  gamefowl: any;
+  isArchived: boolean;
+};
+
+type MedicineWithGamefowl = Medicine & {
+  gamefowl: any;
+  isArchived: boolean;
+};
+
 type MedicalListClientProps = {
-  data: (VaccineWithGamefowl | DewormingWithGamefowl)[];
+  data: (
+    | VaccineWithGamefowl
+    | DewormingWithGamefowl
+    | VitaminWithGamefowl
+    | MedicineWithGamefowl
+  )[];
   searchParams: { [key: string]: string | undefined };
   count: number;
-  type: "vaccine" | "deworming" | "all";
+  type: "vaccine" | "deworming" | "vitamin" | "medicine" | "all";
 };
 
 // Common columns for both vaccine and deworming records
@@ -72,7 +87,9 @@ const MedicalListClient = ({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc" | null>(
     null
   );
-  const [sortBy, setSortBy] = useState<"name" | "date" | "gamefowlId" | null>(null);
+  const [sortBy, setSortBy] = useState<"name" | "date" | "gamefowlId" | null>(
+    null
+  );
 
   const toggleDropdown = () => {
     setDropdownOpen(!isDropdownOpen);
@@ -103,17 +120,25 @@ const MedicalListClient = ({
         ? nameA.localeCompare(nameB)
         : nameB.localeCompare(nameA);
     } else if (sortBy === "date") {
-      const dateA = "vaccinationDate" in a ? a.vaccinationDate : a.dewormDate;
-      const dateB = "vaccinationDate" in b ? b.vaccinationDate : b.dewormDate;
+      const dateA =
+        "vaccinationDate" in a
+          ? a.vaccinationDate
+          : "dewormDate" in a
+          ? a.dewormDate
+          : a.administeredDate;
+      const dateB =
+        "vaccinationDate" in b
+          ? b.vaccinationDate
+          : "dewormDate" in b
+          ? b.dewormDate
+          : b.administeredDate;
       return sortDirection === "asc"
         ? dateA.getTime() - dateB.getTime()
         : dateB.getTime() - dateA.getTime();
     } else if (sortBy === "gamefowlId") {
       const idA = a.gamefowlId;
       const idB = b.gamefowlId;
-      return sortDirection === "asc"
-        ? idA - idB
-        : idB - idA;
+      return sortDirection === "asc" ? idA - idB : idB - idA;
     }
 
     return 0;
@@ -167,7 +192,9 @@ const MedicalListClient = ({
       <td className="p-4 dark:text-gray-200">{item.id}</td>
       <td className="p-4 dark:text-gray-200">
         <div className="flex flex-col">
-          <h3 className="font-semibold dark:text-gray-200">{item.gamefowl.name}</h3>
+          <h3 className="font-semibold dark:text-gray-200">
+            {item.gamefowl.name}
+          </h3>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             ID: {item.gamefowlId}
           </p>
@@ -212,8 +239,15 @@ const MedicalListClient = ({
       className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
     >
       <td className="p-4 dark:text-gray-200">{item.id}</td>
-      <td className="hidden md:table-cell p-4 dark:text-gray-200">
-        {item.gamefowlId}
+      <td className="p-4 dark:text-gray-200">
+        <div className="flex flex-col">
+          <h3 className="font-semibold dark:text-gray-200">
+            {item.gamefowl.name}
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            ID: {item.gamefowlId}
+          </p>
+        </div>
       </td>
       <td className="hidden md:table-cell p-4 dark:text-gray-200">
         {item.name}
@@ -247,6 +281,104 @@ const MedicalListClient = ({
     </tr>
   );
 
+  // Render row for vitamin records
+  const renderVitaminRow = (item: VitaminWithGamefowl) => (
+    <tr
+      key={`vitamin-${item.id}`}
+      className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
+    >
+      <td className="p-4 dark:text-gray-200">{item.id}</td>
+      <td className="p-4 dark:text-gray-200">
+        <div className="flex flex-col">
+          <h3 className="font-semibold dark:text-gray-200">
+            {item.gamefowl.name}
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            ID: {item.gamefowlId}
+          </p>
+        </div>
+      </td>
+      <td className="hidden md:table-cell p-4 dark:text-gray-200">
+        {item.name}
+      </td>
+      <td className="hidden md:table-cell p-4 dark:text-gray-200">
+        {item.notes}
+      </td>
+      <td className="hidden md:table-cell p-4 dark:text-gray-200">
+        {new Intl.DateTimeFormat("en-US").format(item.administeredDate)}
+      </td>
+      <td className="p-4">
+        <div className="flex items-center gap-2">
+          {role === "admin" && (
+            <>
+              <button
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-ggYellow"
+                onClick={() => handleArchiveToggle(item.id, !item.isArchived)}
+              >
+                <Image
+                  src={item.isArchived ? "/unarchive.svg" : "/archive.svg"}
+                  alt={item.isArchived ? "Unarchive" : "Archive"}
+                  width={16}
+                  height={16}
+                />
+              </button>
+              <FormModal table="vitamin" type="update" data={item} />
+            </>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+
+  // Render row for medicine records
+  const renderMedicineRow = (item: MedicineWithGamefowl) => (
+    <tr
+      key={`medicine-${item.id}`}
+      className="border-b border-gray-200 dark:border-gray-700 even:bg-slate-50 dark:even:bg-gray-700/50 text-sm hover:bg-ggPurpleLight dark:hover:bg-gray-700"
+    >
+      <td className="p-4 dark:text-gray-200">{item.id}</td>
+      <td className="p-4 dark:text-gray-200">
+        <div className="flex flex-col">
+          <h3 className="font-semibold dark:text-gray-200">
+            {item.gamefowl.name}
+          </h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            ID: {item.gamefowlId}
+          </p>
+        </div>
+      </td>
+      <td className="hidden md:table-cell p-4 dark:text-gray-200">
+        {item.name}
+      </td>
+      <td className="hidden md:table-cell p-4 dark:text-gray-200">
+        {item.notes}
+      </td>
+      <td className="hidden md:table-cell p-4 dark:text-gray-200">
+        {new Intl.DateTimeFormat("en-US").format(item.administeredDate)}
+      </td>
+      <td className="p-4">
+        <div className="flex items-center gap-2">
+          {role === "admin" && (
+            <>
+              <button
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-ggYellow"
+                onClick={() => handleArchiveToggle(item.id, !item.isArchived)}
+              >
+                <Image
+                  src={item.isArchived ? "/unarchive.svg" : "/archive.svg"}
+                  alt={item.isArchived ? "Unarchive" : "Archive"}
+                  width={16}
+                  height={16}
+                />
+              </button>
+              <FormModal table="medicine" type="update" data={item} />
+            </>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded-md flex-1 m-4 mt-0">
       {/* TOP */}
@@ -258,31 +390,39 @@ const MedicalListClient = ({
                   ? "Medical Records"
                   : type === "vaccine"
                   ? "Vaccines"
-                  : "Deworming"
+                  : type === "deworming"
+                  ? "Deworming"
+                  : type === "vitamin"
+                  ? "Vitamins"
+                  : "Medicines"
               }`
             : `${
                 type === "all"
                   ? "Medical Records"
                   : type === "vaccine"
                   ? "Vaccines"
-                  : "Deworming"
+                  : type === "deworming"
+                  ? "Deworming"
+                  : type === "vitamin"
+                  ? "Vitamins"
+                  : "Medicines"
               }`}
         </h1>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch />
           <div className="flex items-center gap-4 self-end relative">
-              <Link
-                href={`/list/medical?type=${type}&showArchived=${!isArchived}${
-                  search ? `&search=${search}` : ""
-                }`}
-                className={`px-3 py-1 text-sm rounded-md text-center ${
-                  isArchived
-                    ? "bg-ggPurple text-white"
-                    : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600"
-                }`}
-              >
-                {isArchived ? "Show Archived" : "Archive"}
-              </Link>
+            <Link
+              href={`/list/medical?type=${type}&showArchived=${!isArchived}${
+                search ? `&search=${search}` : ""
+              }`}
+              className={`px-3 py-1 text-sm rounded-md text-center ${
+                isArchived
+                  ? "bg-ggPurple text-white"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600"
+              }`}
+            >
+              {isArchived ? "Show Archived" : "Archive"}
+            </Link>
             <div className="relative">
               <button
                 onClick={toggleDropdown}
@@ -318,6 +458,24 @@ const MedicalListClient = ({
                     onClick={() => setDropdownOpen(false)}
                   >
                     Deworming
+                  </Link>
+                  <Link
+                    href={`/list/medical?type=vitamin${
+                      search ? `&search=${search}` : ""
+                    }${showArchived ? `&showArchived=${showArchived}` : ""}`}
+                    className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    Vitamins
+                  </Link>
+                  <Link
+                    href={`/list/medical?type=medicine${
+                      search ? `&search=${search}` : ""
+                    }${showArchived ? `&showArchived=${showArchived}` : ""}`}
+                    className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    Medicines
                   </Link>
                 </div>
               )}
@@ -411,7 +569,7 @@ const MedicalListClient = ({
             </div>
             {role === "admin" && (
               <FormModal
-                table={type === "vaccine" ? "vaccine" : "deworming"}
+                table={type === "all" ? "vaccine" : type}
                 type="create"
               />
             )}
@@ -445,6 +603,30 @@ const MedicalListClient = ({
         >
           Deworming
         </Link>
+        <Link
+          href={`/list/medical?type=vitamin&showArchived=${isArchived}${
+            search ? `&search=${search}` : ""
+          }`}
+          className={`py-2 px-4 ${
+            type === "vitamin"
+              ? "border-b-2 border-ggPurple text-ggPurple dark:text-ggPurple font-medium"
+              : "text-gray-500 dark:text-gray-400"
+          }`}
+        >
+          Vitamins
+        </Link>
+        <Link
+          href={`/list/medical?type=medicine&showArchived=${isArchived}${
+            search ? `&search=${search}` : ""
+          }`}
+          className={`py-2 px-4 ${
+            type === "medicine"
+              ? "border-b-2 border-ggPurple text-ggPurple dark:text-ggPurple font-medium"
+              : "text-gray-500 dark:text-gray-400"
+          }`}
+        >
+          Medicines
+        </Link>
       </div>
 
       {/* LIST */}
@@ -453,9 +635,17 @@ const MedicalListClient = ({
         renderRow={(item) => {
           if ("vaccinationDate" in item) {
             return renderVaccineRow(item as VaccineWithGamefowl);
-          } else {
+          } else if ("dewormDate" in item) {
             return renderDewormingRow(item as DewormingWithGamefowl);
+          } else if ("administeredDate" in item) {
+            // Check if it's a vitamin or medicine by checking the URL type
+            if (type === "vitamin") {
+              return renderVitaminRow(item as VitaminWithGamefowl);
+            } else {
+              return renderMedicineRow(item as MedicineWithGamefowl);
+            }
           }
+          return null;
         }}
         data={sortedData}
       />

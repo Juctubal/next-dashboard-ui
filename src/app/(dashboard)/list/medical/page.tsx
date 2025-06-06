@@ -22,13 +22,20 @@ export default async function MedicalListPage({
   const skip = (p - 1) * pageSize;
 
   // Build the where clause based on search and archive status
-  const whereClause: Prisma.VaccineWhereInput & Prisma.DewormingWhereInput = {
+  const whereClause: Prisma.VaccineWhereInput &
+    Prisma.DewormingWhereInput &
+    Prisma.VitaminWhereInput &
+    Prisma.MedicineWhereInput = {
     AND: [
       {
         OR: [
           { name: { contains: search, mode: Prisma.QueryMode.insensitive } },
           { notes: { contains: search, mode: Prisma.QueryMode.insensitive } },
-          { gamefowl: { name: { contains: search, mode: Prisma.QueryMode.insensitive } } },
+          {
+            gamefowl: {
+              name: { contains: search, mode: Prisma.QueryMode.insensitive },
+            },
+          },
         ],
       },
       { isArchived },
@@ -61,6 +68,32 @@ export default async function MedicalListPage({
     take: pageSize,
   });
 
+  // Get vitamin records
+  const vitamins = await prisma.vitamin.findMany({
+    where: type === "all" || type === "vitamin" ? whereClause : undefined,
+    include: {
+      gamefowl: true,
+    },
+    orderBy: {
+      administeredDate: "desc",
+    },
+    skip,
+    take: pageSize,
+  });
+
+  // Get medicine records
+  const medicines = await prisma.medicine.findMany({
+    where: type === "all" || type === "medicine" ? whereClause : undefined,
+    include: {
+      gamefowl: true,
+    },
+    orderBy: {
+      administeredDate: "desc",
+    },
+    skip,
+    take: pageSize,
+  });
+
   // Get total count for pagination
   const vaccineCount = await prisma.vaccine.count({
     where: type === "all" || type === "vaccine" ? whereClause : undefined,
@@ -70,12 +103,24 @@ export default async function MedicalListPage({
     where: type === "all" || type === "deworming" ? whereClause : undefined,
   });
 
+  const vitaminCount = await prisma.vitamin.count({
+    where: type === "all" || type === "vitamin" ? whereClause : undefined,
+  });
+
+  const medicineCount = await prisma.medicine.count({
+    where: type === "all" || type === "medicine" ? whereClause : undefined,
+  });
+
   const totalCount =
     type === "all"
-      ? vaccineCount + dewormingCount
+      ? vaccineCount + dewormingCount + vitaminCount + medicineCount
       : type === "vaccine"
       ? vaccineCount
-      : dewormingCount;
+      : type === "deworming"
+      ? dewormingCount
+      : type === "vitamin"
+      ? vitaminCount
+      : medicineCount;
 
   // Filter records based on type
   let records = [];
@@ -83,13 +128,29 @@ export default async function MedicalListPage({
     records = vaccines;
   } else if (type === "deworming") {
     records = dewormings;
+  } else if (type === "vitamin") {
+    records = vitamins;
+  } else if (type === "medicine") {
+    records = medicines;
   } else {
     // For "all" type, combine and sort records
-    records = [...vaccines, ...dewormings].sort((a, b) => {
-      const dateA = "vaccinationDate" in a ? a.vaccinationDate : a.dewormDate;
-      const dateB = "vaccinationDate" in b ? b.vaccinationDate : b.dewormDate;
-      return dateB.getTime() - dateA.getTime();
-    });
+    records = [...vaccines, ...dewormings, ...vitamins, ...medicines].sort(
+      (a, b) => {
+        const dateA =
+          "vaccinationDate" in a
+            ? a.vaccinationDate
+            : "dewormDate" in a
+            ? a.dewormDate
+            : a.administeredDate;
+        const dateB =
+          "vaccinationDate" in b
+            ? b.vaccinationDate
+            : "dewormDate" in b
+            ? b.dewormDate
+            : b.administeredDate;
+        return dateB.getTime() - dateA.getTime();
+      }
+    );
   }
 
   return (
@@ -97,7 +158,7 @@ export default async function MedicalListPage({
       data={records}
       searchParams={searchParams}
       count={totalCount}
-      type={type as "vaccine" | "deworming"}
+      type={type as "vaccine" | "deworming" | "vitamin" | "medicine" | "all"}
     />
   );
 }

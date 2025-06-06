@@ -7,8 +7,10 @@ import { useRouter } from "next/navigation";
 import Notification from "../ui/Notification";
 
 interface ActivityFormData {
-  name: string;
-  description: string;
+  indication: string;
+  ageDay: string;
+  supplements: string;
+  dosage: string;
 }
 
 const ConditioningProgramForm = ({
@@ -49,9 +51,11 @@ const ConditioningProgramForm = ({
           }
           const activitiesData = await response.json();
           setActivities(
-            activitiesData.map((activity: ConditioningActivity) => ({
-              name: activity.name,
-              description: activity.description,
+            activitiesData.map((activity: any) => ({
+              indication: activity.indication || "",
+              ageDay: activity.ageDay || "",
+              supplements: activity.supplements || "",
+              dosage: activity.dosage || "",
             }))
           );
         } catch (error) {
@@ -82,7 +86,10 @@ const ConditioningProgramForm = ({
   };
 
   const handleAddActivity = () => {
-    setActivities([...activities, { name: "", description: "" }]);
+    setActivities([
+      ...activities,
+      { indication: "", ageDay: "", supplements: "", dosage: "" },
+    ]);
   };
 
   const handleRemoveActivity = (index: number) => {
@@ -121,8 +128,10 @@ const ConditioningProgramForm = ({
             ? Number(formData.durationDays)
             : undefined,
           activities: activities.map((activity) => ({
-            name: activity.name,
-            description: activity.description,
+            indication: activity.indication,
+            ageDay: activity.ageDay,
+            supplements: activity.supplements,
+            dosage: activity.dosage,
           })),
         }),
       });
@@ -301,13 +310,13 @@ const ConditioningProgramForm = ({
                 <div className="flex flex-col gap-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Activity Name
+                      Age/Day*
                     </label>
                     <input
                       type="text"
-                      value={activity.name}
+                      value={activity.ageDay}
                       onChange={(e) =>
-                        handleActivityChange(index, "name", e.target.value)
+                        handleActivityChange(index, "ageDay", e.target.value)
                       }
                       className="mt-1 w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
                       required
@@ -315,20 +324,50 @@ const ConditioningProgramForm = ({
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Activity Description
+                      Supplements*
                     </label>
-                    <textarea
-                      value={activity.description}
+                    <input
+                      type="text"
+                      value={activity.supplements}
                       onChange={(e) =>
                         handleActivityChange(
                           index,
-                          "description",
+                          "supplements",
                           e.target.value
                         )
                       }
                       className="mt-1 w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
-                      rows={10}
                       required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Dosage
+                    </label>
+                    <input
+                      type="text"
+                      value={activity.dosage}
+                      onChange={(e) =>
+                        handleActivityChange(index, "dosage", e.target.value)
+                      }
+                      className="mt-1 w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Indication
+                    </label>
+                    <textarea
+                      value={activity.indication}
+                      onChange={(e) =>
+                        handleActivityChange(
+                          index,
+                          "indication",
+                          e.target.value
+                        )
+                      }
+                      className="mt-1 w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-ggPurple dark:focus:ring-ggPurple/70 focus:border-transparent transition-colors"
+                      rows={4}
                     />
                   </div>
                 </div>

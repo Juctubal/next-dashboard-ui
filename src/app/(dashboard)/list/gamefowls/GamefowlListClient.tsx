@@ -77,7 +77,7 @@ const GamefowlRow = ({
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState<
-    "deworming" | "vaccine" | "conditioning" | null
+    "deworming" | "vaccine" | "vitamin" | "medicine" | "conditioning" | null
   >(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const statusMenuRef = useRef<HTMLDivElement>(null);
@@ -129,7 +129,7 @@ const GamefowlRow = ({
   };
 
   const handleMenuAction = (
-    action: "deworming" | "vaccine" | "conditioning"
+    action: "deworming" | "vaccine" | "vitamin" | "medicine" | "conditioning"
   ) => {
     setIsMenuOpen(false);
     setModalType(action);
@@ -288,6 +288,18 @@ const GamefowlRow = ({
                       </button>
                       <button
                         className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={() => handleMenuAction("vitamin")}
+                      >
+                        Vitamin
+                      </button>
+                      <button
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={() => handleMenuAction("medicine")}
+                      >
+                        Medicine
+                      </button>
+                      <button
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                         onClick={() => handleMenuAction("conditioning")}
                       >
                         Conditioning
@@ -336,6 +348,22 @@ const GamefowlRow = ({
                         type="create"
                         data={{ gamefowlId: item.id }}
                         recordType="vaccine"
+                        onClose={() => setShowModal(false)}
+                      />
+                    )}
+                    {modalType === "vitamin" && (
+                      <MedicalForm
+                        type="create"
+                        data={{ gamefowlId: item.id }}
+                        recordType="vitamin"
+                        onClose={() => setShowModal(false)}
+                      />
+                    )}
+                    {modalType === "medicine" && (
+                      <MedicalForm
+                        type="create"
+                        data={{ gamefowlId: item.id }}
+                        recordType="medicine"
                         onClose={() => setShowModal(false)}
                       />
                     )}

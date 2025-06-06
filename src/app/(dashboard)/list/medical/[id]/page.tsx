@@ -24,6 +24,8 @@ const MedicalPage = async ({ params, searchParams }: MedicalPageProps) => {
     include: {
       vaccine: true,
       deworming: true,
+      vitamin: true,
+      medicine: true,
     },
   });
 
@@ -42,6 +44,16 @@ const MedicalPage = async ({ params, searchParams }: MedicalPageProps) => {
       ...record,
       type: "deworming" as const,
       date: record.dewormDate,
+    })),
+    ...gamefowl.vitamin.map((record) => ({
+      ...record,
+      type: "vitamin" as const,
+      date: record.administeredDate,
+    })),
+    ...gamefowl.medicine.map((record) => ({
+      ...record,
+      type: "medicine" as const,
+      date: record.administeredDate,
     })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -114,12 +126,20 @@ const MedicalPage = async ({ params, searchParams }: MedicalPageProps) => {
                         ${
                           record.type === "vaccination"
                             ? "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
-                            : "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200"
+                            : record.type === "deworming"
+                            ? "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200"
+                            : record.type === "vitamin"
+                            ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
+                            : "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200"
                         }`}
                       >
                         {record.type === "vaccination"
                           ? "Vaccination"
-                          : "Deworming"}
+                          : record.type === "deworming"
+                          ? "Deworming"
+                          : record.type === "vitamin"
+                          ? "Vitamin"
+                          : "Medicine"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200">

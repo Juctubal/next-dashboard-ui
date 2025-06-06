@@ -35,7 +35,7 @@ const MedicalForm = ({
 }: {
   type: "create" | "update";
   data?: any;
-  recordType: "vaccine" | "deworming";
+  recordType: "vaccine" | "deworming" | "vitamin" | "medicine";
   onClose?: () => void;
 }) => {
   const router = useRouter();
@@ -99,7 +99,11 @@ const MedicalForm = ({
         const endpoint =
           recordType === "vaccine"
             ? "/api/vaccines/medicines"
-            : "/api/dewormings/medicines";
+            : recordType === "deworming"
+            ? "/api/dewormings/medicines"
+            : recordType === "vitamin"
+            ? "/api/vitamins/medicines"
+            : "/api/medicines/medicines";
         const response = await fetch(endpoint);
         if (response.ok) {
           const medicines = await response.json();
@@ -130,6 +134,8 @@ const MedicalForm = ({
         ? new Date(data.vaccinationDate).toISOString().split("T")[0]
         : data?.dewormDate
         ? new Date(data.dewormDate).toISOString().split("T")[0]
+        : data?.administeredDate
+        ? new Date(data.administeredDate).toISOString().split("T")[0]
         : "",
     },
   });
@@ -206,7 +212,8 @@ const MedicalForm = ({
         return;
       }
 
-      const endpoint = `/api/${recordType}s`;
+      const endpoint =
+        recordType === "medicine" ? `/api/medicines` : `/api/${recordType}s`;
 
       // Add a minimum loading time of 2 seconds for better UX
       const startTime = Date.now();
@@ -279,7 +286,13 @@ const MedicalForm = ({
 
       setNotification({
         message: `${
-          recordType === "vaccine" ? "Vaccine" : "Deworming"
+          recordType === "vaccine"
+            ? "Vaccine"
+            : recordType === "deworming"
+            ? "Deworming"
+            : recordType === "vitamin"
+            ? "Vitamin"
+            : "Medicine"
         } ${recordText} ${
           type === "create" ? "added" : "updated"
         } successfully${
@@ -330,8 +343,14 @@ const MedicalForm = ({
           </svg>
         </div>
         <h3 className="text-xl font-semibold mb-2 dark:text-gray-200">
-          {recordType === "vaccine" ? "Vaccine" : "Deworming"} Record{" "}
-          {type === "create" ? "Added" : "Updated"} Successfully!
+          {recordType === "vaccine"
+            ? "Vaccine"
+            : recordType === "deworming"
+            ? "Deworming"
+            : recordType === "vitamin"
+            ? "Vitamin"
+            : "Medicine"}{" "}
+          Record {type === "create" ? "Added" : "Updated"} Successfully!
         </h3>
         <p className="text-gray-600 dark:text-gray-300">
           The {recordType} record has been{" "}
@@ -606,11 +625,23 @@ const MedicalForm = ({
               </>
             ) : type === "create" ? (
               `Add ${
-                recordType === "vaccine" ? "Vaccine" : "Deworming"
+                recordType === "vaccine"
+                  ? "Vaccine"
+                  : recordType === "deworming"
+                  ? "Deworming"
+                  : recordType === "vitamin"
+                  ? "Vitamin"
+                  : "Medicine"
               } Record${selectedGamefowls.length > 1 ? "s" : ""}`
             ) : (
               `Update ${
-                recordType === "vaccine" ? "Vaccine" : "Deworming"
+                recordType === "vaccine"
+                  ? "Vaccine"
+                  : recordType === "deworming"
+                  ? "Deworming"
+                  : recordType === "vitamin"
+                  ? "Vitamin"
+                  : "Medicine"
               } Record`
             )}
           </button>

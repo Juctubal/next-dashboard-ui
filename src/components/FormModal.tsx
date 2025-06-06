@@ -65,6 +65,8 @@ const FormModal = ({
     | "announcement"
     | "vaccine"
     | "deworming"
+    | "vitamin"
+    | "medicine"
     | "staff"
     | "gamefowl"
     | "conditioningProgram"
@@ -248,6 +250,24 @@ const FormModal = ({
             type={type}
             data={staffData}
             recordType="deworming"
+            onClose={handleClose}
+          />
+        );
+      case "vitamin":
+        return (
+          <MedicalForm
+            type={type}
+            data={staffData}
+            recordType="vitamin"
+            onClose={handleClose}
+          />
+        );
+      case "medicine":
+        return (
+          <MedicalForm
+            type={type}
+            data={staffData}
+            recordType="medicine"
             onClose={handleClose}
           />
         );

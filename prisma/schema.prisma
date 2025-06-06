@@ -47,6 +47,26 @@ model Deworming {
   gamefowl   Gamefowl @relation(fields: [gamefowlId], references: [id])
 }
 
+model Vitamin {
+  id               Int      @id @default(autoincrement())
+  gamefowlId       Int
+  administeredDate DateTime
+  notes            String
+  name             String?
+  isArchived       Boolean  @default(false)
+  gamefowl         Gamefowl @relation(fields: [gamefowlId], references: [id])
+}
+
+model Medicine {
+  id               Int      @id @default(autoincrement())
+  gamefowlId       Int
+  administeredDate DateTime
+  notes            String
+  name             String?
+  isArchived       Boolean  @default(false)
+  gamefowl         Gamefowl @relation(fields: [gamefowlId], references: [id])
+}
+
 model Sparring {
   id                Int      @id @default(autoincrement())
   gamefowl_1_Id     Int
@@ -98,6 +118,8 @@ model Gamefowl {
   sparring_loser  Sparring[]             @relation("SparLose")
   sparring_winner Sparring[]             @relation("SparWin")
   vaccine         Vaccine[]
+  vitamin         Vitamin[]
+  medicine        Medicine[]
 }
 
 model OneTimeSched {
@@ -124,8 +146,10 @@ model ConditioningProgram {
 
 model ConditioningActivity {
   id          Int                            @id @default(autoincrement())
-  name        String
-  description String
+  indication  String?
+  ageDay      String
+  supplements String
+  dosage      String?
   programId   Int
   createdAt   DateTime                       @default(now())
   updatedAt   DateTime                       @updatedAt

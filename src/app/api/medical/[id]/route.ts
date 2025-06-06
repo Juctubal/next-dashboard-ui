@@ -54,7 +54,45 @@ export async function GET(
       return NextResponse.json(response);
     }
 
-    // If neither vaccine nor deworming record is found
+    // Check if it's a vitamin record
+    const vitamin = await prisma.vitamin.findUnique({
+      where: { id },
+    });
+
+    if (vitamin) {
+      // Format the vitamin response
+      const response = {
+        id: vitamin.id,
+        title: `Vitamin: ${vitamin.name || "Unnamed"}`,
+        medicalType: "Vitamin",
+        name: vitamin.name,
+        administeredDate: vitamin.administeredDate,
+        notes: vitamin.notes,
+      };
+
+      return NextResponse.json(response);
+    }
+
+    // Check if it's a medicine record
+    const medicine = await prisma.medicine.findUnique({
+      where: { id },
+    });
+
+    if (medicine) {
+      // Format the medicine response
+      const response = {
+        id: medicine.id,
+        title: `Medicine: ${medicine.name || "Unnamed"}`,
+        medicalType: "Medicine",
+        name: medicine.name,
+        administeredDate: medicine.administeredDate,
+        notes: medicine.notes,
+      };
+
+      return NextResponse.json(response);
+    }
+
+    // If no medical record is found
     return NextResponse.json(
       { error: "Medical record not found" },
       { status: 404 }
